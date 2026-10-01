@@ -10,33 +10,179 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as CadastroRouteImport } from './routes/cadastro'
+import { Route as EsqueciSenhaRouteImport } from './routes/esqueci-senha'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as RedefinirSenhaRouteImport } from './routes/redefinir-senha'
+import { Route as AuthenticatedAppRouteRouteImport } from './routes/_authenticated/_app/route'
+import { Route as AuthenticatedOnboardingRouteImport } from './routes/_authenticated/onboarding'
+import { Route as AuthenticatedAppAssinaturaRouteImport } from './routes/_authenticated/_app/assinatura'
+import { Route as AuthenticatedAppCaixaRouteImport } from './routes/_authenticated/_app/caixa'
+import { Route as AuthenticatedAppConfiguracoesRouteImport } from './routes/_authenticated/_app/configuracoes'
+import { Route as AuthenticatedAppContasRouteImport } from './routes/_authenticated/_app/contas'
+import { Route as AuthenticatedAppLembretesRouteImport } from './routes/_authenticated/_app/lembretes'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CadastroRoute = CadastroRouteImport.update({
+  id: '/cadastro',
+  path: '/cadastro',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EsqueciSenhaRoute = EsqueciSenhaRouteImport.update({
+  id: '/esqueci-senha',
+  path: '/esqueci-senha',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RedefinirSenhaRoute = RedefinirSenhaRouteImport.update({
+  id: '/redefinir-senha',
+  path: '/redefinir-senha',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedAppRouteRoute = AuthenticatedAppRouteRouteImport.update({
+  id: '/_app',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedOnboardingRoute = AuthenticatedOnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedAppAssinaturaRoute =
+  AuthenticatedAppAssinaturaRouteImport.update({
+    id: '/assinatura',
+    path: '/assinatura',
+    getParentRoute: () => AuthenticatedAppRouteRoute,
+  } as any)
+const AuthenticatedAppCaixaRoute = AuthenticatedAppCaixaRouteImport.update({
+  id: '/caixa',
+  path: '/caixa',
+  getParentRoute: () => AuthenticatedAppRouteRoute,
+} as any)
+const AuthenticatedAppConfiguracoesRoute =
+  AuthenticatedAppConfiguracoesRouteImport.update({
+    id: '/configuracoes',
+    path: '/configuracoes',
+    getParentRoute: () => AuthenticatedAppRouteRoute,
+  } as any)
+const AuthenticatedAppContasRoute = AuthenticatedAppContasRouteImport.update({
+  id: '/contas',
+  path: '/contas',
+  getParentRoute: () => AuthenticatedAppRouteRoute,
+} as any)
+const AuthenticatedAppLembretesRoute =
+  AuthenticatedAppLembretesRouteImport.update({
+    id: '/lembretes',
+    path: '/lembretes',
+    getParentRoute: () => AuthenticatedAppRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/cadastro': typeof CadastroRoute
+  '/esqueci-senha': typeof EsqueciSenhaRoute
+  '/login': typeof LoginRoute
+  '/redefinir-senha': typeof RedefinirSenhaRoute
+  '/onboarding': typeof AuthenticatedOnboardingRoute
+  '/assinatura': typeof AuthenticatedAppAssinaturaRoute
+  '/caixa': typeof AuthenticatedAppCaixaRoute
+  '/configuracoes': typeof AuthenticatedAppConfiguracoesRoute
+  '/contas': typeof AuthenticatedAppContasRoute
+  '/lembretes': typeof AuthenticatedAppLembretesRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/cadastro': typeof CadastroRoute
+  '/esqueci-senha': typeof EsqueciSenhaRoute
+  '/login': typeof LoginRoute
+  '/redefinir-senha': typeof RedefinirSenhaRoute
+  '/onboarding': typeof AuthenticatedOnboardingRoute
+  '/assinatura': typeof AuthenticatedAppAssinaturaRoute
+  '/caixa': typeof AuthenticatedAppCaixaRoute
+  '/configuracoes': typeof AuthenticatedAppConfiguracoesRoute
+  '/contas': typeof AuthenticatedAppContasRoute
+  '/lembretes': typeof AuthenticatedAppLembretesRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/cadastro': typeof CadastroRoute
+  '/esqueci-senha': typeof EsqueciSenhaRoute
+  '/login': typeof LoginRoute
+  '/redefinir-senha': typeof RedefinirSenhaRoute
+  '/_authenticated/_app': typeof AuthenticatedAppRouteRouteWithChildren
+  '/_authenticated/onboarding': typeof AuthenticatedOnboardingRoute
+  '/_authenticated/_app/assinatura': typeof AuthenticatedAppAssinaturaRoute
+  '/_authenticated/_app/caixa': typeof AuthenticatedAppCaixaRoute
+  '/_authenticated/_app/configuracoes': typeof AuthenticatedAppConfiguracoesRoute
+  '/_authenticated/_app/contas': typeof AuthenticatedAppContasRoute
+  '/_authenticated/_app/lembretes': typeof AuthenticatedAppLembretesRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/cadastro'
+    | '/esqueci-senha'
+    | '/login'
+    | '/redefinir-senha'
+    | '/onboarding'
+    | '/assinatura'
+    | '/caixa'
+    | '/configuracoes'
+    | '/contas'
+    | '/lembretes'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/cadastro'
+    | '/esqueci-senha'
+    | '/login'
+    | '/redefinir-senha'
+    | '/onboarding'
+    | '/assinatura'
+    | '/caixa'
+    | '/configuracoes'
+    | '/contas'
+    | '/lembretes'
+  id:
+    | '__root__'
+    | '/'
+    | '/_authenticated'
+    | '/cadastro'
+    | '/esqueci-senha'
+    | '/login'
+    | '/redefinir-senha'
+    | '/_authenticated/_app'
+    | '/_authenticated/onboarding'
+    | '/_authenticated/_app/assinatura'
+    | '/_authenticated/_app/caixa'
+    | '/_authenticated/_app/configuracoes'
+    | '/_authenticated/_app/contas'
+    | '/_authenticated/_app/lembretes'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  CadastroRoute: typeof CadastroRoute
+  EsqueciSenhaRoute: typeof EsqueciSenhaRoute
+  LoginRoute: typeof LoginRoute
+  RedefinirSenhaRoute: typeof RedefinirSenhaRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +194,134 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cadastro': {
+      id: '/cadastro'
+      path: '/cadastro'
+      fullPath: '/cadastro'
+      preLoaderRoute: typeof CadastroRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/esqueci-senha': {
+      id: '/esqueci-senha'
+      path: '/esqueci-senha'
+      fullPath: '/esqueci-senha'
+      preLoaderRoute: typeof EsqueciSenhaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/redefinir-senha': {
+      id: '/redefinir-senha'
+      path: '/redefinir-senha'
+      fullPath: '/redefinir-senha'
+      preLoaderRoute: typeof RedefinirSenhaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/_app': {
+      id: '/_authenticated/_app'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedAppRouteRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/onboarding': {
+      id: '/_authenticated/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof AuthenticatedOnboardingRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/_app/assinatura': {
+      id: '/_authenticated/_app/assinatura'
+      path: '/assinatura'
+      fullPath: '/assinatura'
+      preLoaderRoute: typeof AuthenticatedAppAssinaturaRouteImport
+      parentRoute: typeof AuthenticatedAppRouteRoute
+    }
+    '/_authenticated/_app/caixa': {
+      id: '/_authenticated/_app/caixa'
+      path: '/caixa'
+      fullPath: '/caixa'
+      preLoaderRoute: typeof AuthenticatedAppCaixaRouteImport
+      parentRoute: typeof AuthenticatedAppRouteRoute
+    }
+    '/_authenticated/_app/configuracoes': {
+      id: '/_authenticated/_app/configuracoes'
+      path: '/configuracoes'
+      fullPath: '/configuracoes'
+      preLoaderRoute: typeof AuthenticatedAppConfiguracoesRouteImport
+      parentRoute: typeof AuthenticatedAppRouteRoute
+    }
+    '/_authenticated/_app/contas': {
+      id: '/_authenticated/_app/contas'
+      path: '/contas'
+      fullPath: '/contas'
+      preLoaderRoute: typeof AuthenticatedAppContasRouteImport
+      parentRoute: typeof AuthenticatedAppRouteRoute
+    }
+    '/_authenticated/_app/lembretes': {
+      id: '/_authenticated/_app/lembretes'
+      path: '/lembretes'
+      fullPath: '/lembretes'
+      preLoaderRoute: typeof AuthenticatedAppLembretesRouteImport
+      parentRoute: typeof AuthenticatedAppRouteRoute
+    }
   }
 }
 
+interface AuthenticatedAppRouteRouteChildren {
+  AuthenticatedAppAssinaturaRoute: typeof AuthenticatedAppAssinaturaRoute
+  AuthenticatedAppCaixaRoute: typeof AuthenticatedAppCaixaRoute
+  AuthenticatedAppConfiguracoesRoute: typeof AuthenticatedAppConfiguracoesRoute
+  AuthenticatedAppContasRoute: typeof AuthenticatedAppContasRoute
+  AuthenticatedAppLembretesRoute: typeof AuthenticatedAppLembretesRoute
+}
+
+const AuthenticatedAppRouteRouteChildren: AuthenticatedAppRouteRouteChildren = {
+  AuthenticatedAppAssinaturaRoute: AuthenticatedAppAssinaturaRoute,
+  AuthenticatedAppCaixaRoute: AuthenticatedAppCaixaRoute,
+  AuthenticatedAppConfiguracoesRoute: AuthenticatedAppConfiguracoesRoute,
+  AuthenticatedAppContasRoute: AuthenticatedAppContasRoute,
+  AuthenticatedAppLembretesRoute: AuthenticatedAppLembretesRoute,
+}
+
+const AuthenticatedAppRouteRouteWithChildren =
+  AuthenticatedAppRouteRoute._addFileChildren(
+    AuthenticatedAppRouteRouteChildren,
+  )
+
+interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAppRouteRoute: typeof AuthenticatedAppRouteRouteWithChildren
+  AuthenticatedOnboardingRoute: typeof AuthenticatedOnboardingRoute
+}
+
+const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAppRouteRoute: AuthenticatedAppRouteRouteWithChildren,
+  AuthenticatedOnboardingRoute: AuthenticatedOnboardingRoute,
+}
+
+const AuthenticatedRouteRouteWithChildren =
+  AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  CadastroRoute: CadastroRoute,
+  EsqueciSenhaRoute: EsqueciSenhaRoute,
+  LoginRoute: LoginRoute,
+  RedefinirSenhaRoute: RedefinirSenhaRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
