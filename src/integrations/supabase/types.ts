@@ -14,16 +14,254 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      entries: {
+        Row: {
+          amount_cents: number
+          counterparty_email: string | null
+          counterparty_name: string | null
+          created_at: string
+          description: string
+          due_date: string
+          id: string
+          paid_at: string | null
+          reminders_muted: boolean
+          status: Database["public"]["Enums"]["entry_status"]
+          type: Database["public"]["Enums"]["entry_type"]
+          user_id: string
+        }
+        Insert: {
+          amount_cents: number
+          counterparty_email?: string | null
+          counterparty_name?: string | null
+          created_at?: string
+          description: string
+          due_date: string
+          id?: string
+          paid_at?: string | null
+          reminders_muted?: boolean
+          status?: Database["public"]["Enums"]["entry_status"]
+          type: Database["public"]["Enums"]["entry_type"]
+          user_id?: string
+        }
+        Update: {
+          amount_cents?: number
+          counterparty_email?: string | null
+          counterparty_name?: string | null
+          created_at?: string
+          description?: string
+          due_date?: string
+          id?: string
+          paid_at?: string | null
+          reminders_muted?: boolean
+          status?: Database["public"]["Enums"]["entry_status"]
+          type?: Database["public"]["Enums"]["entry_type"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          balance_date: string
+          business_name: string | null
+          created_at: string
+          cushion_cents: number
+          initial_balance_cents: number
+          onboarding_done: boolean
+          reminders_enabled: boolean
+          reply_to_email: string | null
+          trial_ends_at: string
+          user_id: string
+        }
+        Insert: {
+          balance_date?: string
+          business_name?: string | null
+          created_at?: string
+          cushion_cents?: number
+          initial_balance_cents?: number
+          onboarding_done?: boolean
+          reminders_enabled?: boolean
+          reply_to_email?: string | null
+          trial_ends_at?: string
+          user_id: string
+        }
+        Update: {
+          balance_date?: string
+          business_name?: string | null
+          created_at?: string
+          cushion_cents?: number
+          initial_balance_cents?: number
+          onboarding_done?: boolean
+          reminders_enabled?: boolean
+          reply_to_email?: string | null
+          trial_ends_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      reminder_logs: {
+        Row: {
+          entry_id: string
+          error: string | null
+          id: string
+          provider_id: string | null
+          rule_id: string
+          sent_at: string
+          sent_to: string
+          status: Database["public"]["Enums"]["reminder_status"]
+          user_id: string
+        }
+        Insert: {
+          entry_id: string
+          error?: string | null
+          id?: string
+          provider_id?: string | null
+          rule_id: string
+          sent_at?: string
+          sent_to: string
+          status: Database["public"]["Enums"]["reminder_status"]
+          user_id: string
+        }
+        Update: {
+          entry_id?: string
+          error?: string | null
+          id?: string
+          provider_id?: string | null
+          rule_id?: string
+          sent_at?: string
+          sent_to?: string
+          status?: Database["public"]["Enums"]["reminder_status"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reminder_logs_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reminder_logs_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "reminder_rules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reminder_rules: {
+        Row: {
+          active: boolean
+          body_tpl: string
+          created_at: string
+          id: string
+          label: string
+          offset_days: number
+          subject_tpl: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          body_tpl: string
+          created_at?: string
+          id?: string
+          label: string
+          offset_days: number
+          subject_tpl: string
+          user_id?: string
+        }
+        Update: {
+          active?: boolean
+          body_tpl?: string
+          created_at?: string
+          id?: string
+          label?: string
+          offset_days?: number
+          subject_tpl?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      subscriptions: {
+        Row: {
+          billing_interval:
+            | Database["public"]["Enums"]["billing_interval"]
+            | null
+          cancel_at_period_end: boolean
+          current_period_end: string | null
+          plan: Database["public"]["Enums"]["plan_tier"] | null
+          status: Database["public"]["Enums"]["sub_status"]
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          billing_interval?:
+            | Database["public"]["Enums"]["billing_interval"]
+            | null
+          cancel_at_period_end?: boolean
+          current_period_end?: string | null
+          plan?: Database["public"]["Enums"]["plan_tier"] | null
+          status?: Database["public"]["Enums"]["sub_status"]
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          billing_interval?:
+            | Database["public"]["Enums"]["billing_interval"]
+            | null
+          cancel_at_period_end?: boolean
+          current_period_end?: string | null
+          plan?: Database["public"]["Enums"]["plan_tier"] | null
+          status?: Database["public"]["Enums"]["sub_status"]
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      unsubscribed_emails: {
+        Row: {
+          created_at: string
+          email: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      ensure_user_setup: { Args: never; Returns: undefined }
+      get_access: { Args: { _user_id: string }; Returns: Json }
+      my_access: { Args: never; Returns: Json }
+      plan_limits: {
+        Args: { _plan: Database["public"]["Enums"]["plan_tier"] }
+        Returns: Json
+      }
     }
     Enums: {
-      [_ in never]: never
+      billing_interval: "month" | "year"
+      entry_status: "pending" | "paid"
+      entry_type: "income" | "expense"
+      plan_tier: "starter" | "pro" | "business"
+      reminder_status: "sent" | "failed" | "bounced"
+      sub_status: "trialing" | "active" | "past_due" | "canceled" | "expired"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +388,13 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      billing_interval: ["month", "year"],
+      entry_status: ["pending", "paid"],
+      entry_type: ["income", "expense"],
+      plan_tier: ["starter", "pro", "business"],
+      reminder_status: ["sent", "failed", "bounced"],
+      sub_status: ["trialing", "active", "past_due", "canceled", "expired"],
+    },
   },
 } as const
