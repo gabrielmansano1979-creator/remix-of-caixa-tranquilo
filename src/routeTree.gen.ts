@@ -20,6 +20,7 @@ import { Route as AuthenticatedOnboardingRouteImport } from './routes/_authentic
 import { Route as AuthenticatedAppAssinaturaRouteImport } from './routes/_authenticated/_app/assinatura'
 import { Route as AuthenticatedAppCaixaRouteImport } from './routes/_authenticated/_app/caixa'
 import { Route as AuthenticatedAppConfiguracoesRouteImport } from './routes/_authenticated/_app/configuracoes'
+import { Route as AuthenticatedAppContasRouteImport } from './routes/_authenticated/_app/contas'
 import { Route as AuthenticatedAppLembretesRouteImport } from './routes/_authenticated/_app/lembretes'
 
 const IndexRoute = IndexRouteImport.update({
@@ -77,6 +78,11 @@ const AuthenticatedAppConfiguracoesRoute =
     path: '/configuracoes',
     getParentRoute: () => AuthenticatedAppRouteRoute,
   } as any)
+const AuthenticatedAppContasRoute = AuthenticatedAppContasRouteImport.update({
+  id: '/contas',
+  path: '/contas',
+  getParentRoute: () => AuthenticatedAppRouteRoute,
+} as any)
 const AuthenticatedAppLembretesRoute =
   AuthenticatedAppLembretesRouteImport.update({
     id: '/lembretes',
@@ -94,6 +100,7 @@ export interface FileRoutesByFullPath {
   '/assinatura': typeof AuthenticatedAppAssinaturaRoute
   '/caixa': typeof AuthenticatedAppCaixaRoute
   '/configuracoes': typeof AuthenticatedAppConfiguracoesRoute
+  '/contas': typeof AuthenticatedAppContasRoute
   '/lembretes': typeof AuthenticatedAppLembretesRoute
 }
 export interface FileRoutesByTo {
@@ -106,6 +113,7 @@ export interface FileRoutesByTo {
   '/assinatura': typeof AuthenticatedAppAssinaturaRoute
   '/caixa': typeof AuthenticatedAppCaixaRoute
   '/configuracoes': typeof AuthenticatedAppConfiguracoesRoute
+  '/contas': typeof AuthenticatedAppContasRoute
   '/lembretes': typeof AuthenticatedAppLembretesRoute
 }
 export interface FileRoutesById {
@@ -121,6 +129,7 @@ export interface FileRoutesById {
   '/_authenticated/_app/assinatura': typeof AuthenticatedAppAssinaturaRoute
   '/_authenticated/_app/caixa': typeof AuthenticatedAppCaixaRoute
   '/_authenticated/_app/configuracoes': typeof AuthenticatedAppConfiguracoesRoute
+  '/_authenticated/_app/contas': typeof AuthenticatedAppContasRoute
   '/_authenticated/_app/lembretes': typeof AuthenticatedAppLembretesRoute
 }
 export interface FileRouteTypes {
@@ -135,6 +144,7 @@ export interface FileRouteTypes {
     | '/assinatura'
     | '/caixa'
     | '/configuracoes'
+    | '/contas'
     | '/lembretes'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -147,6 +157,7 @@ export interface FileRouteTypes {
     | '/assinatura'
     | '/caixa'
     | '/configuracoes'
+    | '/contas'
     | '/lembretes'
   id:
     | '__root__'
@@ -161,6 +172,7 @@ export interface FileRouteTypes {
     | '/_authenticated/_app/assinatura'
     | '/_authenticated/_app/caixa'
     | '/_authenticated/_app/configuracoes'
+    | '/_authenticated/_app/contas'
     | '/_authenticated/_app/lembretes'
   fileRoutesById: FileRoutesById
 }
@@ -252,6 +264,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppConfiguracoesRouteImport
       parentRoute: typeof AuthenticatedAppRouteRoute
     }
+    '/_authenticated/_app/contas': {
+      id: '/_authenticated/_app/contas'
+      path: '/contas'
+      fullPath: '/contas'
+      preLoaderRoute: typeof AuthenticatedAppContasRouteImport
+      parentRoute: typeof AuthenticatedAppRouteRoute
+    }
     '/_authenticated/_app/lembretes': {
       id: '/_authenticated/_app/lembretes'
       path: '/lembretes'
@@ -266,6 +285,7 @@ interface AuthenticatedAppRouteRouteChildren {
   AuthenticatedAppAssinaturaRoute: typeof AuthenticatedAppAssinaturaRoute
   AuthenticatedAppCaixaRoute: typeof AuthenticatedAppCaixaRoute
   AuthenticatedAppConfiguracoesRoute: typeof AuthenticatedAppConfiguracoesRoute
+  AuthenticatedAppContasRoute: typeof AuthenticatedAppContasRoute
   AuthenticatedAppLembretesRoute: typeof AuthenticatedAppLembretesRoute
 }
 
@@ -273,6 +293,7 @@ const AuthenticatedAppRouteRouteChildren: AuthenticatedAppRouteRouteChildren = {
   AuthenticatedAppAssinaturaRoute: AuthenticatedAppAssinaturaRoute,
   AuthenticatedAppCaixaRoute: AuthenticatedAppCaixaRoute,
   AuthenticatedAppConfiguracoesRoute: AuthenticatedAppConfiguracoesRoute,
+  AuthenticatedAppContasRoute: AuthenticatedAppContasRoute,
   AuthenticatedAppLembretesRoute: AuthenticatedAppLembretesRoute,
 }
 

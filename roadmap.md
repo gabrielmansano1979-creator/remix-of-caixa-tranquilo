@@ -19,4 +19,8 @@
 - [ ] Estados trialing→active→past_due (7d carência)→expired; useEntitlements + validação no servidor
 - [ ] /planos e /assinatura (uso vs limites, cancelar com motivo, downgrade bloqueado)
 - [ ] Chaves Stripe (secret, webhook secret, price IDs) — aguarda usuário
-- [ ] Fase futura: Configurações
+- [ ] /configuracoes: perfil, saldo/colchão, senha, notificações, exportar dados, excluir conta (LGPD)
+- [ ] Segurança: revisão RLS, Zod no servidor, rate limit (envio manual/import), sanitização templates, audit log
+- [ ] Qualidade: offline/erro de rede, a11y, 360px
+- [ ] Analytics trocável + checklist de ativação + suporte no menu
+- [ ] README: secrets, Stripe, Resend, cron, checklist go-live
