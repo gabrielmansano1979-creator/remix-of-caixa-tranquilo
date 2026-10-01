@@ -15,4 +15,8 @@
 - [ ] Descadastro público com token HMAC
 - [ ] Templates HTML das 4 etapas + e-mails do sistema (boas-vindas, trial 2 dias, trial encerrado, pagamento falhou, assinatura confirmada)
 - [ ] RESEND_API_KEY + domínio verificado — aguarda usuário
-- [ ] Fases futuras: Configurações, Assinatura, Stripe
+- [ ] Stripe: checkout, portal, webhook verificado e idempotente; price IDs em config; README
+- [ ] Estados trialing→active→past_due (7d carência)→expired; useEntitlements + validação no servidor
+- [ ] /planos e /assinatura (uso vs limites, cancelar com motivo, downgrade bloqueado)
+- [ ] Chaves Stripe (secret, webhook secret, price IDs) — aguarda usuário
+- [ ] Fase futura: Configurações
