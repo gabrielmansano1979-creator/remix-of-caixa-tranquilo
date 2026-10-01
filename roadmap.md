@@ -6,4 +6,7 @@
 - [ ] Auth: /login, /cadastro, /esqueci-senha, /redefinir-senha (e-mail + Google)
 - [ ] Bootstrap no cadastro: profile, 4 regras, subscription trialing
 - [ ] /termos e /privacidade
-- [ ] Fases futuras: telas Caixa, Contas, Lembretes, Configurações, Assinatura, Stripe, Resend, cron
+- [ ] Onboarding 2 passos (/onboarding)
+- [ ] /contas: abas, filtros, busca, tabela, marcar pago otimista, cadastro rápido, editar/excluir/mutar, histórico
+- [ ] Importação CSV com prévia + validação de limites no servidor
+- [ ] Fases futuras: telas Caixa, Lembretes, Configurações, Assinatura, Stripe, Resend, cron

@@ -249,6 +249,7 @@ export type Database = {
     Functions: {
       ensure_user_setup: { Args: never; Returns: undefined }
       get_access: { Args: { _user_id: string }; Returns: Json }
+      import_entries: { Args: { _rows: Json }; Returns: number }
       my_access: { Args: never; Returns: Json }
       plan_limits: {
         Args: { _plan: Database["public"]["Enums"]["plan_tier"] }
