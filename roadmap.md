@@ -10,5 +10,9 @@
 - [ ] /contas: abas, filtros, busca, tabela, marcar pago otimista, cadastro rápido, editar/excluir/mutar, histórico
 - [ ] Importação CSV com prévia + validação de limites no servidor
 - [ ] /caixa: semáforo, cards 15/30d, saldo inline, gráfico, top riscos, banner trial (projeção via RPC)
-- [ ] "Cobrar agora" envio real — aguarda integração de e-mail (Resend)
-- [ ] Fases futuras: Lembretes, Configurações, Assinatura, Stripe, Resend, cron
+- [ ] /lembretes: régua por plano, prévia, teste, uso mensal, últimos envios
+- [ ] Envio diário (08:00 SP) via Resend + logs + cota + opt-out; "Cobrar agora"
+- [ ] Descadastro público com token HMAC
+- [ ] Templates HTML das 4 etapas + e-mails do sistema (boas-vindas, trial 2 dias, trial encerrado, pagamento falhou, assinatura confirmada)
+- [ ] RESEND_API_KEY + domínio verificado — aguarda usuário
+- [ ] Fases futuras: Configurações, Assinatura, Stripe
