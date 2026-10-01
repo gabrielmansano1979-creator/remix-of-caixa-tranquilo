@@ -247,6 +247,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cash_projection: { Args: { _days?: number }; Returns: Json }
       ensure_user_setup: { Args: never; Returns: undefined }
       get_access: { Args: { _user_id: string }; Returns: Json }
       import_entries: { Args: { _rows: Json }; Returns: number }
@@ -254,6 +255,20 @@ export type Database = {
       plan_limits: {
         Args: { _plan: Database["public"]["Enums"]["plan_tier"] }
         Returns: Json
+      }
+      top_risks: {
+        Args: { _limit?: number }
+        Returns: {
+          amount_cents: number
+          counterparty_email: string
+          counterparty_name: string
+          description: string
+          due_date: string
+          entry_id: string
+          level: string
+          reason: string
+          score: number
+        }[]
       }
     }
     Enums: {

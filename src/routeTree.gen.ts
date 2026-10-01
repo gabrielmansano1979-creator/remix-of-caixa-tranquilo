@@ -16,6 +16,7 @@ import { Route as EsqueciSenhaRouteImport } from './routes/esqueci-senha'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as RedefinirSenhaRouteImport } from './routes/redefinir-senha'
 import { Route as AuthenticatedAppRouteRouteImport } from './routes/_authenticated/_app/route'
+import { Route as AuthenticatedOnboardingRouteImport } from './routes/_authenticated/onboarding'
 import { Route as AuthenticatedAppAssinaturaRouteImport } from './routes/_authenticated/_app/assinatura'
 import { Route as AuthenticatedAppCaixaRouteImport } from './routes/_authenticated/_app/caixa'
 import { Route as AuthenticatedAppConfiguracoesRouteImport } from './routes/_authenticated/_app/configuracoes'
@@ -54,6 +55,11 @@ const AuthenticatedAppRouteRoute = AuthenticatedAppRouteRouteImport.update({
   id: '/_app',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedOnboardingRoute = AuthenticatedOnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedAppAssinaturaRoute =
   AuthenticatedAppAssinaturaRouteImport.update({
     id: '/assinatura',
@@ -84,6 +90,7 @@ export interface FileRoutesByFullPath {
   '/esqueci-senha': typeof EsqueciSenhaRoute
   '/login': typeof LoginRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
+  '/onboarding': typeof AuthenticatedOnboardingRoute
   '/assinatura': typeof AuthenticatedAppAssinaturaRoute
   '/caixa': typeof AuthenticatedAppCaixaRoute
   '/configuracoes': typeof AuthenticatedAppConfiguracoesRoute
@@ -95,6 +102,7 @@ export interface FileRoutesByTo {
   '/esqueci-senha': typeof EsqueciSenhaRoute
   '/login': typeof LoginRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
+  '/onboarding': typeof AuthenticatedOnboardingRoute
   '/assinatura': typeof AuthenticatedAppAssinaturaRoute
   '/caixa': typeof AuthenticatedAppCaixaRoute
   '/configuracoes': typeof AuthenticatedAppConfiguracoesRoute
@@ -109,6 +117,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
   '/_authenticated/_app': typeof AuthenticatedAppRouteRouteWithChildren
+  '/_authenticated/onboarding': typeof AuthenticatedOnboardingRoute
   '/_authenticated/_app/assinatura': typeof AuthenticatedAppAssinaturaRoute
   '/_authenticated/_app/caixa': typeof AuthenticatedAppCaixaRoute
   '/_authenticated/_app/configuracoes': typeof AuthenticatedAppConfiguracoesRoute
@@ -122,6 +131,7 @@ export interface FileRouteTypes {
     | '/esqueci-senha'
     | '/login'
     | '/redefinir-senha'
+    | '/onboarding'
     | '/assinatura'
     | '/caixa'
     | '/configuracoes'
@@ -133,6 +143,7 @@ export interface FileRouteTypes {
     | '/esqueci-senha'
     | '/login'
     | '/redefinir-senha'
+    | '/onboarding'
     | '/assinatura'
     | '/caixa'
     | '/configuracoes'
@@ -146,6 +157,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/redefinir-senha'
     | '/_authenticated/_app'
+    | '/_authenticated/onboarding'
     | '/_authenticated/_app/assinatura'
     | '/_authenticated/_app/caixa'
     | '/_authenticated/_app/configuracoes'
@@ -212,6 +224,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppRouteRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/onboarding': {
+      id: '/_authenticated/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof AuthenticatedOnboardingRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/_app/assinatura': {
       id: '/_authenticated/_app/assinatura'
       path: '/assinatura'
@@ -264,10 +283,12 @@ const AuthenticatedAppRouteRouteWithChildren =
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAppRouteRoute: typeof AuthenticatedAppRouteRouteWithChildren
+  AuthenticatedOnboardingRoute: typeof AuthenticatedOnboardingRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAppRouteRoute: AuthenticatedAppRouteRouteWithChildren,
+  AuthenticatedOnboardingRoute: AuthenticatedOnboardingRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

@@ -9,4 +9,6 @@
 - [ ] Onboarding 2 passos (/onboarding)
 - [ ] /contas: abas, filtros, busca, tabela, marcar pago otimista, cadastro rápido, editar/excluir/mutar, histórico
 - [ ] Importação CSV com prévia + validação de limites no servidor
-- [ ] Fases futuras: telas Caixa, Lembretes, Configurações, Assinatura, Stripe, Resend, cron
+- [ ] /caixa: semáforo, cards 15/30d, saldo inline, gráfico, top riscos, banner trial (projeção via RPC)
+- [ ] "Cobrar agora" envio real — aguarda integração de e-mail (Resend)
+- [ ] Fases futuras: Lembretes, Configurações, Assinatura, Stripe, Resend, cron
