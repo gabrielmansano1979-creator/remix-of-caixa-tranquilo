@@ -25,6 +25,7 @@ import { Route as AuthenticatedAppConfiguracoesRouteImport } from './routes/_aut
 import { Route as AuthenticatedAppContasRouteImport } from './routes/_authenticated/_app/contas'
 import { Route as AuthenticatedAppLembretesRouteImport } from './routes/_authenticated/_app/lembretes'
 import { Route as AuthenticatedAppPlanosRouteImport } from './routes/_authenticated/_app/planos'
+import { Route as ApiPublicAsaasWebhookRouteImport } from './routes/api/public/asaas-webhook'
 import { Route as ApiPublicSendRemindersRouteImport } from './routes/api/public/send-reminders'
 import { Route as ApiPublicStripeWebhookRouteImport } from './routes/api/public/stripe-webhook'
 import { Route as ApiPublicUnsubscribeRouteImport } from './routes/api/public/unsubscribe'
@@ -110,6 +111,11 @@ const AuthenticatedAppPlanosRoute = AuthenticatedAppPlanosRouteImport.update({
   path: '/planos',
   getParentRoute: () => AuthenticatedAppRouteRoute,
 } as any)
+const ApiPublicAsaasWebhookRoute = ApiPublicAsaasWebhookRouteImport.update({
+  id: '/api/public/asaas-webhook',
+  path: '/api/public/asaas-webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicSendRemindersRoute = ApiPublicSendRemindersRouteImport.update({
   id: '/api/public/send-reminders',
   path: '/api/public/send-reminders',
@@ -141,6 +147,7 @@ export interface FileRoutesByFullPath {
   '/contas': typeof AuthenticatedAppContasRoute
   '/lembretes': typeof AuthenticatedAppLembretesRoute
   '/planos': typeof AuthenticatedAppPlanosRoute
+  '/api/public/asaas-webhook': typeof ApiPublicAsaasWebhookRoute
   '/api/public/send-reminders': typeof ApiPublicSendRemindersRoute
   '/api/public/stripe-webhook': typeof ApiPublicStripeWebhookRoute
   '/api/public/unsubscribe': typeof ApiPublicUnsubscribeRoute
@@ -160,6 +167,7 @@ export interface FileRoutesByTo {
   '/contas': typeof AuthenticatedAppContasRoute
   '/lembretes': typeof AuthenticatedAppLembretesRoute
   '/planos': typeof AuthenticatedAppPlanosRoute
+  '/api/public/asaas-webhook': typeof ApiPublicAsaasWebhookRoute
   '/api/public/send-reminders': typeof ApiPublicSendRemindersRoute
   '/api/public/stripe-webhook': typeof ApiPublicStripeWebhookRoute
   '/api/public/unsubscribe': typeof ApiPublicUnsubscribeRoute
@@ -182,6 +190,7 @@ export interface FileRoutesById {
   '/_authenticated/_app/contas': typeof AuthenticatedAppContasRoute
   '/_authenticated/_app/lembretes': typeof AuthenticatedAppLembretesRoute
   '/_authenticated/_app/planos': typeof AuthenticatedAppPlanosRoute
+  '/api/public/asaas-webhook': typeof ApiPublicAsaasWebhookRoute
   '/api/public/send-reminders': typeof ApiPublicSendRemindersRoute
   '/api/public/stripe-webhook': typeof ApiPublicStripeWebhookRoute
   '/api/public/unsubscribe': typeof ApiPublicUnsubscribeRoute
@@ -203,6 +212,7 @@ export interface FileRouteTypes {
     | '/contas'
     | '/lembretes'
     | '/planos'
+    | '/api/public/asaas-webhook'
     | '/api/public/send-reminders'
     | '/api/public/stripe-webhook'
     | '/api/public/unsubscribe'
@@ -222,6 +232,7 @@ export interface FileRouteTypes {
     | '/contas'
     | '/lembretes'
     | '/planos'
+    | '/api/public/asaas-webhook'
     | '/api/public/send-reminders'
     | '/api/public/stripe-webhook'
     | '/api/public/unsubscribe'
@@ -243,6 +254,7 @@ export interface FileRouteTypes {
     | '/_authenticated/_app/contas'
     | '/_authenticated/_app/lembretes'
     | '/_authenticated/_app/planos'
+    | '/api/public/asaas-webhook'
     | '/api/public/send-reminders'
     | '/api/public/stripe-webhook'
     | '/api/public/unsubscribe'
@@ -257,6 +269,7 @@ export interface RootRouteChildren {
   PrivacidadeRoute: typeof PrivacidadeRoute
   RedefinirSenhaRoute: typeof RedefinirSenhaRoute
   TermosRoute: typeof TermosRoute
+  ApiPublicAsaasWebhookRoute: typeof ApiPublicAsaasWebhookRoute
   ApiPublicSendRemindersRoute: typeof ApiPublicSendRemindersRoute
   ApiPublicStripeWebhookRoute: typeof ApiPublicStripeWebhookRoute
   ApiPublicUnsubscribeRoute: typeof ApiPublicUnsubscribeRoute
@@ -376,6 +389,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppPlanosRouteImport
       parentRoute: typeof AuthenticatedAppRouteRoute
     }
+    '/api/public/asaas-webhook': {
+      id: '/api/public/asaas-webhook'
+      path: '/api/public/asaas-webhook'
+      fullPath: '/api/public/asaas-webhook'
+      preLoaderRoute: typeof ApiPublicAsaasWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/send-reminders': {
       id: '/api/public/send-reminders'
       path: '/api/public/send-reminders'
@@ -445,6 +465,7 @@ const rootRouteChildren: RootRouteChildren = {
   PrivacidadeRoute: PrivacidadeRoute,
   RedefinirSenhaRoute: RedefinirSenhaRoute,
   TermosRoute: TermosRoute,
+  ApiPublicAsaasWebhookRoute: ApiPublicAsaasWebhookRoute,
   ApiPublicSendRemindersRoute: ApiPublicSendRemindersRoute,
   ApiPublicStripeWebhookRoute: ApiPublicStripeWebhookRoute,
   ApiPublicUnsubscribeRoute: ApiPublicUnsubscribeRoute,
