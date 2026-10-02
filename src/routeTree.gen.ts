@@ -24,6 +24,7 @@ import { Route as AuthenticatedAppCaixaRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedAppConfiguracoesRouteImport } from './routes/_authenticated/_app/configuracoes'
 import { Route as AuthenticatedAppContasRouteImport } from './routes/_authenticated/_app/contas'
 import { Route as AuthenticatedAppLembretesRouteImport } from './routes/_authenticated/_app/lembretes'
+import { Route as AuthenticatedAppPlanosRouteImport } from './routes/_authenticated/_app/planos'
 import { Route as ApiPublicSendRemindersRouteImport } from './routes/api/public/send-reminders'
 import { Route as ApiPublicStripeWebhookRouteImport } from './routes/api/public/stripe-webhook'
 import { Route as ApiPublicUnsubscribeRouteImport } from './routes/api/public/unsubscribe'
@@ -104,6 +105,11 @@ const AuthenticatedAppLembretesRoute =
     path: '/lembretes',
     getParentRoute: () => AuthenticatedAppRouteRoute,
   } as any)
+const AuthenticatedAppPlanosRoute = AuthenticatedAppPlanosRouteImport.update({
+  id: '/planos',
+  path: '/planos',
+  getParentRoute: () => AuthenticatedAppRouteRoute,
+} as any)
 const ApiPublicSendRemindersRoute = ApiPublicSendRemindersRouteImport.update({
   id: '/api/public/send-reminders',
   path: '/api/public/send-reminders',
@@ -134,6 +140,7 @@ export interface FileRoutesByFullPath {
   '/configuracoes': typeof AuthenticatedAppConfiguracoesRoute
   '/contas': typeof AuthenticatedAppContasRoute
   '/lembretes': typeof AuthenticatedAppLembretesRoute
+  '/planos': typeof AuthenticatedAppPlanosRoute
   '/api/public/send-reminders': typeof ApiPublicSendRemindersRoute
   '/api/public/stripe-webhook': typeof ApiPublicStripeWebhookRoute
   '/api/public/unsubscribe': typeof ApiPublicUnsubscribeRoute
@@ -152,6 +159,7 @@ export interface FileRoutesByTo {
   '/configuracoes': typeof AuthenticatedAppConfiguracoesRoute
   '/contas': typeof AuthenticatedAppContasRoute
   '/lembretes': typeof AuthenticatedAppLembretesRoute
+  '/planos': typeof AuthenticatedAppPlanosRoute
   '/api/public/send-reminders': typeof ApiPublicSendRemindersRoute
   '/api/public/stripe-webhook': typeof ApiPublicStripeWebhookRoute
   '/api/public/unsubscribe': typeof ApiPublicUnsubscribeRoute
@@ -173,6 +181,7 @@ export interface FileRoutesById {
   '/_authenticated/_app/configuracoes': typeof AuthenticatedAppConfiguracoesRoute
   '/_authenticated/_app/contas': typeof AuthenticatedAppContasRoute
   '/_authenticated/_app/lembretes': typeof AuthenticatedAppLembretesRoute
+  '/_authenticated/_app/planos': typeof AuthenticatedAppPlanosRoute
   '/api/public/send-reminders': typeof ApiPublicSendRemindersRoute
   '/api/public/stripe-webhook': typeof ApiPublicStripeWebhookRoute
   '/api/public/unsubscribe': typeof ApiPublicUnsubscribeRoute
@@ -193,6 +202,7 @@ export interface FileRouteTypes {
     | '/configuracoes'
     | '/contas'
     | '/lembretes'
+    | '/planos'
     | '/api/public/send-reminders'
     | '/api/public/stripe-webhook'
     | '/api/public/unsubscribe'
@@ -211,6 +221,7 @@ export interface FileRouteTypes {
     | '/configuracoes'
     | '/contas'
     | '/lembretes'
+    | '/planos'
     | '/api/public/send-reminders'
     | '/api/public/stripe-webhook'
     | '/api/public/unsubscribe'
@@ -231,6 +242,7 @@ export interface FileRouteTypes {
     | '/_authenticated/_app/configuracoes'
     | '/_authenticated/_app/contas'
     | '/_authenticated/_app/lembretes'
+    | '/_authenticated/_app/planos'
     | '/api/public/send-reminders'
     | '/api/public/stripe-webhook'
     | '/api/public/unsubscribe'
@@ -357,6 +369,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppLembretesRouteImport
       parentRoute: typeof AuthenticatedAppRouteRoute
     }
+    '/_authenticated/_app/planos': {
+      id: '/_authenticated/_app/planos'
+      path: '/planos'
+      fullPath: '/planos'
+      preLoaderRoute: typeof AuthenticatedAppPlanosRouteImport
+      parentRoute: typeof AuthenticatedAppRouteRoute
+    }
     '/api/public/send-reminders': {
       id: '/api/public/send-reminders'
       path: '/api/public/send-reminders'
@@ -387,6 +406,7 @@ interface AuthenticatedAppRouteRouteChildren {
   AuthenticatedAppConfiguracoesRoute: typeof AuthenticatedAppConfiguracoesRoute
   AuthenticatedAppContasRoute: typeof AuthenticatedAppContasRoute
   AuthenticatedAppLembretesRoute: typeof AuthenticatedAppLembretesRoute
+  AuthenticatedAppPlanosRoute: typeof AuthenticatedAppPlanosRoute
 }
 
 const AuthenticatedAppRouteRouteChildren: AuthenticatedAppRouteRouteChildren = {
@@ -395,6 +415,7 @@ const AuthenticatedAppRouteRouteChildren: AuthenticatedAppRouteRouteChildren = {
   AuthenticatedAppConfiguracoesRoute: AuthenticatedAppConfiguracoesRoute,
   AuthenticatedAppContasRoute: AuthenticatedAppContasRoute,
   AuthenticatedAppLembretesRoute: AuthenticatedAppLembretesRoute,
+  AuthenticatedAppPlanosRoute: AuthenticatedAppPlanosRoute,
 }
 
 const AuthenticatedAppRouteRouteWithChildren =
