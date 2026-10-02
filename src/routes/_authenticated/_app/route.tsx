@@ -1,6 +1,6 @@
 import { createFileRoute, Link, Outlet, redirect, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bell, CreditCard, ListChecks, LogOut, Settings, Wallet, AlertTriangle } from "lucide-react";
+import { Bell, CreditCard, ListChecks, LogOut, Settings, Wallet, AlertTriangle, LifeBuoy } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Logo, ThemeToggle } from "@/components/brand";
 import { accessQuery, profileQuery } from "@/lib/app-data";
@@ -72,6 +72,7 @@ function AppShell() {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild><Link to="/configuracoes"><Settings className="mr-2 h-4 w-4" />Configurações</Link></DropdownMenuItem>
                 <DropdownMenuItem asChild><Link to="/assinatura"><CreditCard className="mr-2 h-4 w-4" />Assinatura</Link></DropdownMenuItem>
+                <DropdownMenuItem asChild><a href="mailto:suporte@caixacritico.com.br"><LifeBuoy className="mr-2 h-4 w-4" />Suporte</a></DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={signOut}><LogOut className="mr-2 h-4 w-4" />Sair</DropdownMenuItem>
               </DropdownMenuContent>
@@ -86,10 +87,17 @@ function AppShell() {
             <Button asChild size="sm" className="h-10 rounded-xl"><Link to="/assinatura">Fazer upgrade</Link></Button>
           </div>
         )}
+        {access?.status === "past_due" && (
+          <div className="flex flex-wrap items-center gap-3 border-b bg-warning/10 px-4 py-3 text-sm md:px-8" role="status">
+            <AlertTriangle className="h-4 w-4 text-warning" />
+            <span className="flex-1">Não conseguimos cobrar sua assinatura. Atualize seu pagamento para não perder o acesso.</span>
+            <Button asChild size="sm" className="h-10 rounded-xl"><Link to="/assinatura">Atualizar pagamento</Link></Button>
+          </div>
+        )}
         {access?.status === "trialing" && access.trial_ends_at && (
           <div className="border-b bg-accent/50 px-4 py-2 text-center text-xs text-accent-foreground md:px-8">
-            Teste grátis com recursos do plano Pro até {formatDate(access.trial_ends_at)}.{" "}
-            <Link to="/assinatura" className="font-medium underline">Ver planos</Link>
+            Faltam {Math.max(0, Math.ceil((Date.parse(access.trial_ends_at) - Date.now()) / 86400000))} dia(s) do seu teste grátis (até {formatDate(access.trial_ends_at)}).{" "}
+            <Link to="/planos" className="font-medium underline">Escolher plano</Link>
           </div>
         )}
 

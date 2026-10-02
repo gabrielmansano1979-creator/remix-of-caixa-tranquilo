@@ -75,3 +75,11 @@ export const PLANS: PlanConfig[] = [
 ];
 
 export const getPlan = (id: PlanId) => PLANS.find((p) => p.id === id)!;
+
+// IDs de preço do Stripe (modo teste). Substitua pelos IDs criados no seu painel Stripe.
+// Também podem ser sobrescritos no servidor pelos secrets STRIPE_PRICE_<PLANO>_<MONTH|YEAR>.
+export const STRIPE_PRICE_IDS: Record<PlanId, { month: string; year: string }> = {
+  starter: { month: "price_starter_month_REPLACE", year: "price_starter_year_REPLACE" },
+  pro: { month: "price_pro_month_REPLACE", year: "price_pro_year_REPLACE" },
+  business: { month: "price_business_month_REPLACE", year: "price_business_year_REPLACE" },
+};

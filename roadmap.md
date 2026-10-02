@@ -1,26 +1,8 @@
 # Roadmap — Caixa Crítico
 
-- [x] Migrations + RLS (profiles, entries, reminder_rules, reminder_logs, subscriptions, unsubscribed_emails)
-- [ ] Design system + layout base (sidebar/bottom-nav, avatar menu)
-- [ ] Landing page (/) com preços, FAQ, SEO, robots/sitemap
-- [ ] Auth: /login, /cadastro, /esqueci-senha, /redefinir-senha (e-mail + Google)
-- [ ] Bootstrap no cadastro: profile, 4 regras, subscription trialing
-- [ ] /termos e /privacidade
-- [ ] Onboarding 2 passos (/onboarding)
-- [ ] /contas: abas, filtros, busca, tabela, marcar pago otimista, cadastro rápido, editar/excluir/mutar, histórico
-- [ ] Importação CSV com prévia + validação de limites no servidor
-- [ ] /caixa: semáforo, cards 15/30d, saldo inline, gráfico, top riscos, banner trial (projeção via RPC)
-- [ ] /lembretes: régua por plano, prévia, teste, uso mensal, últimos envios
-- [ ] Envio diário (08:00 SP) via Resend + logs + cota + opt-out; "Cobrar agora"
-- [ ] Descadastro público com token HMAC
-- [ ] Templates HTML das 4 etapas + e-mails do sistema (boas-vindas, trial 2 dias, trial encerrado, pagamento falhou, assinatura confirmada)
-- [ ] RESEND_API_KEY + domínio verificado — aguarda usuário
-- [ ] Stripe: checkout, portal, webhook verificado e idempotente; price IDs em config; README
-- [ ] Estados trialing→active→past_due (7d carência)→expired; useEntitlements + validação no servidor
-- [ ] /planos e /assinatura (uso vs limites, cancelar com motivo, downgrade bloqueado)
+- [x] Banco com regras de acesso, design system, layout, landing, auth, termos/privacidade
+- [x] Onboarding, Contas (+CSV), Caixa (projeção no banco), Lembretes, Planos, Assinatura, Configurações
+- [x] Envio diário, descadastro HMAC, templates, e-mails do sistema, Stripe (checkout/portal/webhook)
+- [ ] HMAC_SECRET (gerar), chaves Resend + domínio verificado — aguarda configuração
 - [ ] Chaves Stripe (secret, webhook secret, price IDs) — aguarda usuário
-- [ ] /configuracoes: perfil, saldo/colchão, senha, notificações, exportar dados, excluir conta (LGPD)
-- [ ] Segurança: revisão RLS, Zod no servidor, rate limit (envio manual/import), sanitização templates, audit log
-- [ ] Qualidade: offline/erro de rede, a11y, 360px
-- [ ] Analytics trocável + checklist de ativação + suporte no menu
-- [ ] README: secrets, Stripe, Resend, cron, checklist go-live
+- [ ] APP_URL e agendamento diário 08:00 — após publicar

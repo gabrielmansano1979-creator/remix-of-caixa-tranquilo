@@ -7,6 +7,11 @@ export interface Access {
   status: "trialing" | "active" | "past_due" | "canceled" | "expired";
   can_write: boolean;
   trial_ends_at: string | null;
+  has_subscription?: boolean;
+  grace_ends_at?: string | null;
+  current_period_end?: string | null;
+  cancel_at_period_end?: boolean;
+  billing_interval?: "month" | "year" | null;
   limits: { pending_entries: number; emails_per_month: number; csv_rows: number; top_risks: number; edit_rule_days: boolean; edit_rule_texts: boolean };
 }
 
@@ -26,6 +31,15 @@ export const profileQuery = queryOptions({
     const { data, error } = await supabase.from("profiles").select("*").maybeSingle();
     if (error) throw error;
     return data;
+  },
+});
+
+export const usageQuery = queryOptions({
+  queryKey: ["usage"],
+  queryFn: async () => {
+    const { data, error } = await supabase.rpc("my_usage");
+    if (error) throw error;
+    return data as unknown as { pending_entries: number; emails_month: number };
   },
 });
 
@@ -67,6 +81,8 @@ export function parseDbError(err: unknown): { kind?: LimitKind; message: string 
   if (msg.includes("READ_ONLY")) return { kind: "readonly", message: "Seu teste terminou. Assine para voltar a editar." };
   if (msg.includes("LIMIT_PENDING")) return { kind: "pending", message: "Você atingiu o limite de contas pendentes do seu plano." };
   if (msg.includes("LIMIT_CSV")) return { kind: "csv", message: "O arquivo excede o limite de linhas do seu plano." };
+  if (msg.includes("RATE_LIMIT")) return { message: "Muitas importações em pouco tempo. Aguarde alguns minutos." };
+  if (msg.includes("Failed to fetch") || msg.includes("NetworkError")) return { message: "Sem conexão. Verifique sua internet e tente de novo." };
   if (msg.includes("EMAIL_REQUIRED")) return { message: "Informe o e-mail do cliente para contas a receber." };
   return { message: "Não foi possível salvar. Tente novamente." };
 }

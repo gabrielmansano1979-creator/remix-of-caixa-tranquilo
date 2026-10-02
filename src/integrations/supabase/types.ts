@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      audit_logs: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          meta: Json
+          user_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          meta?: Json
+          user_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          meta?: Json
+          user_id?: string
+        }
+        Relationships: []
+      }
       entries: {
         Row: {
           amount_cents: number
@@ -66,11 +90,15 @@ export type Database = {
           created_at: string
           cushion_cents: number
           initial_balance_cents: number
+          notify_product_emails: boolean
           onboarding_done: boolean
           reminders_enabled: boolean
           reply_to_email: string | null
+          trial_end_sent: boolean
           trial_ends_at: string
+          trial_warn_sent: boolean
           user_id: string
+          welcome_sent: boolean
         }
         Insert: {
           balance_date?: string
@@ -78,11 +106,15 @@ export type Database = {
           created_at?: string
           cushion_cents?: number
           initial_balance_cents?: number
+          notify_product_emails?: boolean
           onboarding_done?: boolean
           reminders_enabled?: boolean
           reply_to_email?: string | null
+          trial_end_sent?: boolean
           trial_ends_at?: string
+          trial_warn_sent?: boolean
           user_id: string
+          welcome_sent?: boolean
         }
         Update: {
           balance_date?: string
@@ -90,11 +122,15 @@ export type Database = {
           created_at?: string
           cushion_cents?: number
           initial_balance_cents?: number
+          notify_product_emails?: boolean
           onboarding_done?: boolean
           reminders_enabled?: boolean
           reply_to_email?: string | null
+          trial_end_sent?: boolean
           trial_ends_at?: string
+          trial_warn_sent?: boolean
           user_id?: string
+          welcome_sent?: boolean
         }
         Relationships: []
       }
@@ -103,8 +139,9 @@ export type Database = {
           entry_id: string
           error: string | null
           id: string
+          manual: boolean
           provider_id: string | null
-          rule_id: string
+          rule_id: string | null
           sent_at: string
           sent_to: string
           status: Database["public"]["Enums"]["reminder_status"]
@@ -114,8 +151,9 @@ export type Database = {
           entry_id: string
           error?: string | null
           id?: string
+          manual?: boolean
           provider_id?: string | null
-          rule_id: string
+          rule_id?: string | null
           sent_at?: string
           sent_to: string
           status: Database["public"]["Enums"]["reminder_status"]
@@ -125,8 +163,9 @@ export type Database = {
           entry_id?: string
           error?: string | null
           id?: string
+          manual?: boolean
           provider_id?: string | null
-          rule_id?: string
+          rule_id?: string | null
           sent_at?: string
           sent_to?: string
           status?: Database["public"]["Enums"]["reminder_status"]
@@ -179,6 +218,24 @@ export type Database = {
           offset_days?: number
           subject_tpl?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      stripe_events: {
+        Row: {
+          id: string
+          processed_at: string
+          type: string
+        }
+        Insert: {
+          id: string
+          processed_at?: string
+          type: string
+        }
+        Update: {
+          id?: string
+          processed_at?: string
+          type?: string
         }
         Relationships: []
       }
@@ -252,6 +309,7 @@ export type Database = {
       get_access: { Args: { _user_id: string }; Returns: Json }
       import_entries: { Args: { _rows: Json }; Returns: number }
       my_access: { Args: never; Returns: Json }
+      my_usage: { Args: never; Returns: Json }
       plan_limits: {
         Args: { _plan: Database["public"]["Enums"]["plan_tier"] }
         Returns: Json
