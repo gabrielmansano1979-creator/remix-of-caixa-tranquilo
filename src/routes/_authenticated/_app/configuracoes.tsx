@@ -8,6 +8,7 @@ import { z } from "zod";
 import { toast } from "sonner";
 import { Download, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import type { Tables } from "@/integrations/supabase/types";
 import { parseDbError, profileQuery, todaySP } from "@/lib/app-data";
 import { deleteAccount } from "@/lib/account.functions";
 import { MoneyInput } from "@/components/money-input";
@@ -47,7 +48,7 @@ function ConfigPage() {
   );
 }
 
-function BusinessForm({ profile }: { profile: NonNullable<Awaited<ReturnType<typeof profileQuery.queryFn>>> }) {
+function BusinessForm({ profile }: { profile: Tables<"profiles"> }) {
   const qc = useQueryClient();
   const { register, handleSubmit, control, formState } = useForm<z.infer<typeof bizSchema>>({
     resolver: zodResolver(bizSchema),
@@ -81,7 +82,7 @@ function BusinessForm({ profile }: { profile: NonNullable<Awaited<ReturnType<typ
 
 function Notifications({ profile }: { profile: { user_id: string; reminders_enabled: boolean; notify_product_emails?: boolean } }) {
   const qc = useQueryClient();
-  const set = async (patch: Record<string, boolean>) => {
+  const set = async (patch: { reminders_enabled?: boolean; notify_product_emails?: boolean }) => {
     const { error } = await supabase.from("profiles").update(patch).eq("user_id", profile.user_id);
     if (error) return toast.error(parseDbError(error).message);
     qc.invalidateQueries({ queryKey: ["profile"] }); toast.success("Preferência salva.");
