@@ -31,6 +31,11 @@
       "texto": "Turno: Usuário pediu \"Continuar\" → A integração do Asaas está completa e funcional. Todos os componentes foram implementados: módulo de API (`asaas.server.ts`), webhook de con",
       "quem": "criefy",
       "em": "2026-10-02T06:07:54.511Z"
+    },
+    {
+      "texto": "Turno: Usuário pediu \"Configure-a\" → O arquivo `.env` já existe e contém a variável `ASAAS_API_KEY=\"\"` vazia, pronta para ser preenchida. Como esta é uma variável de ambiente qu",
+      "quem": "criefy",
+      "em": "2026-10-02T06:09:52.915Z"
     }
   ],
   "decisoes": [],
