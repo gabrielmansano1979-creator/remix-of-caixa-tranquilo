@@ -1,6 +1,8 @@
 // Server-only: lógica de envio da régua (cron diário) e e-mails do sistema.
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { appUrl, fromAddress, reminderEmail, sendResend, signUnsub, systemEmail } from "./email.server";
+import { appUrl, fromAddress, renderTpl, sendResend, systemEmail } from "./email.server";
+import { sendWhatsApp } from "./whatsapp.server";
+
 
 type Admin = SupabaseClient<any>;
 const todaySP = () => new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
@@ -13,33 +15,26 @@ export async function emailsUsedThisMonth(admin: Admin, userId: string) {
   return count ?? 0;
 }
 
-/** Envia um lembrete e grava o log. Idempotência da régua via UNIQUE(entry_id, rule_id). */
+/** Envia um lembrete por WhatsApp e grava o log. Idempotência da régua via UNIQUE(entry_id, rule_id). */
 export async function sendOne(admin: Admin, args: {
   profile: { user_id: string; business_name: string | null; reply_to_email: string | null };
-  entry: { id: string; description: string; amount_cents: number; due_date: string; counterparty_name: string | null; counterparty_email: string };
+  entry: { id: string; description: string; amount_cents: number; due_date: string; counterparty_name: string | null; counterparty_whatsapp: string };
   rule: { id: string | null; subject_tpl: string; body_tpl: string; offset_days: number };
   manual?: boolean;
 }) {
   const { profile, entry, rule } = args;
+  const to = entry.counterparty_whatsapp;
   if (rule.id) {
-    // Reserva o slot antes de enviar (evita envio duplo em execuções concorrentes).
-    const { error } = await admin.from("reminder_logs").insert({ user_id: profile.user_id, entry_id: entry.id, rule_id: rule.id, sent_to: entry.counterparty_email, status: "failed", error: "pending" });
-    if (error) return { skipped: true };
+    const { error } = await admin.from("reminder_logs").insert({ user_id: profile.user_id, entry_id: entry.id, rule_id: rule.id, sent_to: to, status: "failed", error: "pending" });
+    if (error) return { skipped: true as const };
   }
-  const unsub = `${appUrl()}/api/public/unsubscribe?t=${encodeURIComponent(signUnsub(profile.user_id, entry.counterparty_email))}`;
-  const mail = reminderEmail({
-    subjectTpl: rule.subject_tpl, bodyTpl: rule.body_tpl, offset: rule.offset_days, replyTo: profile.reply_to_email ?? "",
-    vars: { cliente: entry.counterparty_name ?? "", valor: entry.amount_cents, vencimento: entry.due_date, descricao: entry.description, empresa: profile.business_name ?? "Nosso negócio" },
-    unsubscribeUrl: unsub,
-  });
-  const r = await sendResend({
-    from: fromAddress(profile.business_name), to: entry.counterparty_email, replyTo: profile.reply_to_email ?? undefined,
-    subject: mail.subject, html: mail.html, text: mail.text,
-    headers: { "List-Unsubscribe": `<${unsub}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" },
-  });
+  const empresa = profile.business_name ?? "Nosso negócio";
+  const vars = { cliente: entry.counterparty_name ?? "", valor: entry.amount_cents, vencimento: entry.due_date, descricao: entry.description, empresa };
+  const text = `*${renderTpl(rule.subject_tpl, vars, false)}*\n\n${renderTpl(rule.body_tpl, vars, false)}\n\n_Mensagem automática de ${empresa}. Responda SAIR para não receber mais lembretes._`;
+  const r = await sendWhatsApp(to, text);
   const row = { status: r.ok ? "sent" : "failed", provider_id: r.ok ? r.id : null, error: r.ok ? null : r.error, sent_at: new Date().toISOString() };
   if (rule.id) await admin.from("reminder_logs").update(row).eq("entry_id", entry.id).eq("rule_id", rule.id);
-  else await admin.from("reminder_logs").insert({ ...row, user_id: profile.user_id, entry_id: entry.id, rule_id: null, manual: !!args.manual, sent_to: entry.counterparty_email });
+  else await admin.from("reminder_logs").insert({ ...row, user_id: profile.user_id, entry_id: entry.id, rule_id: null, manual: !!args.manual, sent_to: to });
   return r;
 }
 
@@ -54,7 +49,7 @@ export async function runDailyReminders(admin: Admin) {
     stats.users++;
     const [{ data: rules }, { data: entries }, { data: unsubs }] = await Promise.all([
       admin.from("reminder_rules").select("*").eq("user_id", p.user_id).eq("active", true),
-      admin.from("entries").select("id, description, amount_cents, due_date, counterparty_name, counterparty_email").eq("user_id", p.user_id).eq("type", "income").eq("status", "pending").eq("reminders_muted", false).not("counterparty_email", "is", null),
+      admin.from("entries").select("id, description, amount_cents, due_date, counterparty_name, counterparty_whatsapp").eq("user_id", p.user_id).eq("type", "income").eq("status", "pending").eq("reminders_muted", false).not("counterparty_whatsapp", "is", null),
       admin.from("unsubscribed_emails").select("email").eq("user_id", p.user_id),
     ]);
     if (!rules?.length || !entries?.length) continue;
@@ -62,12 +57,12 @@ export async function runDailyReminders(admin: Admin) {
     let used = await emailsUsedThisMonth(admin, p.user_id);
     const quota = access.limits.emails_per_month;
     for (const e of entries) {
-      if (blocked.has(e.counterparty_email.toLowerCase())) continue;
+      if (!e.counterparty_whatsapp || blocked.has(e.counterparty_whatsapp)) continue;
       const diff = daysBetween(today, e.due_date);
       const rule = rules.find((r) => r.offset_days === diff);
       if (!rule) continue;
       if (used >= quota) { stats.skipped++; continue; }
-      const r = await sendOne(admin, { profile: p, entry: e, rule });
+      const r = await sendOne(admin, { profile: p, entry: { ...e, counterparty_whatsapp: e.counterparty_whatsapp! }, rule });
       if ("skipped" in r) { stats.skipped++; continue; }
       if (r.ok) { stats.sent++; used++; } else stats.failed++;
     }

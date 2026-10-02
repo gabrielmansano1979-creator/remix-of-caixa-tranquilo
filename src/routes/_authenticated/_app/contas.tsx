@@ -242,7 +242,7 @@ function EntryDetail({ entry, onClose }: { entry: Entry | null; onClose: () => v
               <div><dt className="text-muted-foreground">Status</dt><dd><StatusBadge e={entry} /></dd></div>
               <div><dt className="text-muted-foreground">Vencimento</dt><dd className="num">{formatDate(entry.due_date)}</dd></div>
               <div><dt className="text-muted-foreground">Pago em</dt><dd className="num">{entry.paid_at ? formatDate(entry.paid_at) : "—"}</dd></div>
-              <div className="col-span-2"><dt className="text-muted-foreground">{entry.type === "income" ? "Cliente" : "Fornecedor"}</dt><dd>{entry.counterparty_name || "—"} {entry.counterparty_email && <span className="text-muted-foreground">· {entry.counterparty_email}</span>}</dd></div>
+              <div className="col-span-2"><dt className="text-muted-foreground">{entry.type === "income" ? "Cliente" : "Fornecedor"}</dt><dd>{entry.counterparty_name || "—"} {entry.counterparty_whatsapp && <span className="text-muted-foreground">· WhatsApp {entry.counterparty_whatsapp}</span>}</dd></div>
             </dl>
             {entry.type === "income" && (
               <div className="mt-8">
