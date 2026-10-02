@@ -43,6 +43,7 @@ export type Database = {
           amount_cents: number
           counterparty_email: string | null
           counterparty_name: string | null
+          counterparty_whatsapp: string | null
           created_at: string
           description: string
           due_date: string
@@ -57,6 +58,7 @@ export type Database = {
           amount_cents: number
           counterparty_email?: string | null
           counterparty_name?: string | null
+          counterparty_whatsapp?: string | null
           created_at?: string
           description: string
           due_date: string
@@ -71,6 +73,7 @@ export type Database = {
           amount_cents?: number
           counterparty_email?: string | null
           counterparty_name?: string | null
+          counterparty_whatsapp?: string | null
           created_at?: string
           description?: string
           due_date?: string
@@ -320,6 +323,7 @@ export type Database = {
           amount_cents: number
           counterparty_email: string
           counterparty_name: string
+          counterparty_whatsapp: string
           description: string
           due_date: string
           entry_id: string
