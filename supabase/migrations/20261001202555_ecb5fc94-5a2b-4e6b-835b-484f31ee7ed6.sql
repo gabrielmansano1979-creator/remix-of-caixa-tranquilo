@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.get_access(uuid) FROM authenticated;
