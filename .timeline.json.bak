@@ -1,0 +1,29 @@
+{
+  "steps": [
+    {
+      "id": "step_init_1790906826516",
+      "label": "Analisando projeto e aplicando alterações...",
+      "status": "done",
+      "type": "system",
+      "startedAt": 1790906826516,
+      "timeStr": "75s"
+    },
+    {
+      "id": "step-12",
+      "label": "Comando executado",
+      "detail": "Concluído",
+      "status": "done",
+      "startedAt": 1790906868988,
+      "finishedAt": 1790906869205,
+      "timeStr": "0.2s",
+      "tool": "Bash",
+      "path": "",
+      "file": "",
+      "diff": "",
+      "tipo": "command"
+    }
+  ],
+  "images": [],
+  "finalResponse": "",
+  "updatedAt": 1790906901146
+}

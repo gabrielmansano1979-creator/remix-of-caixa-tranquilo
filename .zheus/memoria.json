@@ -1,0 +1,28 @@
+{
+  "criadoEm": "2026-10-02T01:52:10.329Z",
+  "resumo": "",
+  "marcos": [
+    {
+      "texto": "Turno: Usuário pediu \"Clone esse repositório do github: https://github.com/gabrielmansano1979-creator/remix-of-caixa-tranquilo.git\" → O repositório GitHub solicitado não foi encontrado (erro 404). Isso pode acontecer por dois motivos: 1. **Repositório privado**: O repositór",
+      "quem": "criefy",
+      "em": "2026-10-02T01:52:10.329Z"
+    },
+    {
+      "texto": "Turno: Usuário pediu \"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\" → O token de acesso fornecido não possui permissão de leitura para este repositório (erro 403). Para clonar repositórios privados do GitHub, é",
+      "quem": "criefy",
+      "em": "2026-10-02T01:59:41.386Z"
+    },
+    {
+      "texto": "Turno: Usuário pediu \"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\" → O repositório `remix-of-caixa-tranquilo` não foi encontrado (erro 404) mesmo com os três tokens PAT fornecidos. A API do GitHub confirma que",
+      "quem": "criefy",
+      "em": "2026-10-02T02:04:23.412Z"
+    },
+    {
+      "texto": "Turno: Usuário pediu \"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\" → Repositório clonado e integrado com sucesso ao projeto. **O que foi feito:** - Clonagem do repositório `remix-of-caixa-tranquilo` realizada ",
+      "quem": "criefy",
+      "em": "2026-10-02T02:11:02.406Z"
+    }
+  ],
+  "decisoes": [],
+  "motorAtual": null
+}
