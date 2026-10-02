@@ -8,6 +8,7 @@ import { createCheckoutSession } from "@/lib/billing.functions";
 import { useEntitlements } from "@/hooks/use-entitlements";
 import { track } from "@/lib/analytics";
 import { Button } from "@/components/ui/button";
+import { PixPaymentDialog } from "@/components/pix-payment-dialog";
 
 const ORDER: PlanId[] = ["starter", "pro", "business"];
 
@@ -16,6 +17,7 @@ export function PlanPicker() {
   const checkout = useServerFn(createCheckoutSession);
   const [yearly, setYearly] = useState(ent.access?.billing_interval === "year");
   const [busy, setBusy] = useState<PlanId | null>(null);
+  const [pixData, setPixData] = useState<{ qrCode?: string; copyPaste?: string; paymentId?: string } | null>(null);
   const subscribed = ent.access?.has_subscription && ["active", "past_due", "canceled"].includes(ent.access.status);
   const current = subscribed ? ent.access?.plan : null;
 
@@ -28,8 +30,15 @@ export function PlanPicker() {
     track("upgrade_click", { plan, interval: yearly ? "year" : "month" });
     try {
       const r = await checkout({ data: { plan, interval: yearly ? "year" : "month" } });
-      if (r.url) window.location.href = r.url;
-      else toast.error(r.error ?? "Não foi possível continuar.");
+      if (r.error) {
+        toast.error(r.error);
+      } else if (r.qrCode) {
+        setPixData({ qrCode: r.qrCode, copyPaste: r.copyPaste, paymentId: r.paymentId });
+      } else if (r.url) {
+        window.location.href = r.url;
+      } else {
+        toast.error("Não foi possível continuar.");
+      }
     } catch { toast.error("Sem conexão. Tente novamente."); }
     setBusy(null);
   };
@@ -63,7 +72,15 @@ export function PlanPicker() {
           );
         })}
       </div>
-      <p className="mt-4 text-center text-xs text-muted-foreground">Troca de plano com cobrança proporcional calculada automaticamente. Pagamento seguro via Stripe.</p>
+      <p className="mt-4 text-center text-xs text-muted-foreground">Pagamento seguro via Pix (Asaas). Confirmação automática em segundos.</p>
+
+      <PixPaymentDialog
+        open={!!pixData}
+        onOpenChange={(open) => !open && setPixData(null)}
+        qrCode={pixData?.qrCode}
+        copyPaste={pixData?.copyPaste}
+        paymentId={pixData?.paymentId}
+      />
     </div>
   );
 }
