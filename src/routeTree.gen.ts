@@ -14,7 +14,9 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as CadastroRouteImport } from './routes/cadastro'
 import { Route as EsqueciSenhaRouteImport } from './routes/esqueci-senha'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as PrivacidadeRouteImport } from './routes/privacidade'
 import { Route as RedefinirSenhaRouteImport } from './routes/redefinir-senha'
+import { Route as TermosRouteImport } from './routes/termos'
 import { Route as AuthenticatedAppRouteRouteImport } from './routes/_authenticated/_app/route'
 import { Route as AuthenticatedOnboardingRouteImport } from './routes/_authenticated/onboarding'
 import { Route as AuthenticatedAppAssinaturaRouteImport } from './routes/_authenticated/_app/assinatura'
@@ -22,6 +24,9 @@ import { Route as AuthenticatedAppCaixaRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedAppConfiguracoesRouteImport } from './routes/_authenticated/_app/configuracoes'
 import { Route as AuthenticatedAppContasRouteImport } from './routes/_authenticated/_app/contas'
 import { Route as AuthenticatedAppLembretesRouteImport } from './routes/_authenticated/_app/lembretes'
+import { Route as ApiPublicSendRemindersRouteImport } from './routes/api/public/send-reminders'
+import { Route as ApiPublicStripeWebhookRouteImport } from './routes/api/public/stripe-webhook'
+import { Route as ApiPublicUnsubscribeRouteImport } from './routes/api/public/unsubscribe'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -47,9 +52,19 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PrivacidadeRoute = PrivacidadeRouteImport.update({
+  id: '/privacidade',
+  path: '/privacidade',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RedefinirSenhaRoute = RedefinirSenhaRouteImport.update({
   id: '/redefinir-senha',
   path: '/redefinir-senha',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TermosRoute = TermosRouteImport.update({
+  id: '/termos',
+  path: '/termos',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedAppRouteRoute = AuthenticatedAppRouteRouteImport.update({
@@ -89,32 +104,57 @@ const AuthenticatedAppLembretesRoute =
     path: '/lembretes',
     getParentRoute: () => AuthenticatedAppRouteRoute,
   } as any)
+const ApiPublicSendRemindersRoute = ApiPublicSendRemindersRouteImport.update({
+  id: '/api/public/send-reminders',
+  path: '/api/public/send-reminders',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicStripeWebhookRoute = ApiPublicStripeWebhookRouteImport.update({
+  id: '/api/public/stripe-webhook',
+  path: '/api/public/stripe-webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicUnsubscribeRoute = ApiPublicUnsubscribeRouteImport.update({
+  id: '/api/public/unsubscribe',
+  path: '/api/public/unsubscribe',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/cadastro': typeof CadastroRoute
   '/esqueci-senha': typeof EsqueciSenhaRoute
   '/login': typeof LoginRoute
+  '/privacidade': typeof PrivacidadeRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
+  '/termos': typeof TermosRoute
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/assinatura': typeof AuthenticatedAppAssinaturaRoute
   '/caixa': typeof AuthenticatedAppCaixaRoute
   '/configuracoes': typeof AuthenticatedAppConfiguracoesRoute
   '/contas': typeof AuthenticatedAppContasRoute
   '/lembretes': typeof AuthenticatedAppLembretesRoute
+  '/api/public/send-reminders': typeof ApiPublicSendRemindersRoute
+  '/api/public/stripe-webhook': typeof ApiPublicStripeWebhookRoute
+  '/api/public/unsubscribe': typeof ApiPublicUnsubscribeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/cadastro': typeof CadastroRoute
   '/esqueci-senha': typeof EsqueciSenhaRoute
   '/login': typeof LoginRoute
+  '/privacidade': typeof PrivacidadeRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
+  '/termos': typeof TermosRoute
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/assinatura': typeof AuthenticatedAppAssinaturaRoute
   '/caixa': typeof AuthenticatedAppCaixaRoute
   '/configuracoes': typeof AuthenticatedAppConfiguracoesRoute
   '/contas': typeof AuthenticatedAppContasRoute
   '/lembretes': typeof AuthenticatedAppLembretesRoute
+  '/api/public/send-reminders': typeof ApiPublicSendRemindersRoute
+  '/api/public/stripe-webhook': typeof ApiPublicStripeWebhookRoute
+  '/api/public/unsubscribe': typeof ApiPublicUnsubscribeRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -123,7 +163,9 @@ export interface FileRoutesById {
   '/cadastro': typeof CadastroRoute
   '/esqueci-senha': typeof EsqueciSenhaRoute
   '/login': typeof LoginRoute
+  '/privacidade': typeof PrivacidadeRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
+  '/termos': typeof TermosRoute
   '/_authenticated/_app': typeof AuthenticatedAppRouteRouteWithChildren
   '/_authenticated/onboarding': typeof AuthenticatedOnboardingRoute
   '/_authenticated/_app/assinatura': typeof AuthenticatedAppAssinaturaRoute
@@ -131,6 +173,9 @@ export interface FileRoutesById {
   '/_authenticated/_app/configuracoes': typeof AuthenticatedAppConfiguracoesRoute
   '/_authenticated/_app/contas': typeof AuthenticatedAppContasRoute
   '/_authenticated/_app/lembretes': typeof AuthenticatedAppLembretesRoute
+  '/api/public/send-reminders': typeof ApiPublicSendRemindersRoute
+  '/api/public/stripe-webhook': typeof ApiPublicStripeWebhookRoute
+  '/api/public/unsubscribe': typeof ApiPublicUnsubscribeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -139,26 +184,36 @@ export interface FileRouteTypes {
     | '/cadastro'
     | '/esqueci-senha'
     | '/login'
+    | '/privacidade'
     | '/redefinir-senha'
+    | '/termos'
     | '/onboarding'
     | '/assinatura'
     | '/caixa'
     | '/configuracoes'
     | '/contas'
     | '/lembretes'
+    | '/api/public/send-reminders'
+    | '/api/public/stripe-webhook'
+    | '/api/public/unsubscribe'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/cadastro'
     | '/esqueci-senha'
     | '/login'
+    | '/privacidade'
     | '/redefinir-senha'
+    | '/termos'
     | '/onboarding'
     | '/assinatura'
     | '/caixa'
     | '/configuracoes'
     | '/contas'
     | '/lembretes'
+    | '/api/public/send-reminders'
+    | '/api/public/stripe-webhook'
+    | '/api/public/unsubscribe'
   id:
     | '__root__'
     | '/'
@@ -166,7 +221,9 @@ export interface FileRouteTypes {
     | '/cadastro'
     | '/esqueci-senha'
     | '/login'
+    | '/privacidade'
     | '/redefinir-senha'
+    | '/termos'
     | '/_authenticated/_app'
     | '/_authenticated/onboarding'
     | '/_authenticated/_app/assinatura'
@@ -174,6 +231,9 @@ export interface FileRouteTypes {
     | '/_authenticated/_app/configuracoes'
     | '/_authenticated/_app/contas'
     | '/_authenticated/_app/lembretes'
+    | '/api/public/send-reminders'
+    | '/api/public/stripe-webhook'
+    | '/api/public/unsubscribe'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -182,7 +242,12 @@ export interface RootRouteChildren {
   CadastroRoute: typeof CadastroRoute
   EsqueciSenhaRoute: typeof EsqueciSenhaRoute
   LoginRoute: typeof LoginRoute
+  PrivacidadeRoute: typeof PrivacidadeRoute
   RedefinirSenhaRoute: typeof RedefinirSenhaRoute
+  TermosRoute: typeof TermosRoute
+  ApiPublicSendRemindersRoute: typeof ApiPublicSendRemindersRoute
+  ApiPublicStripeWebhookRoute: typeof ApiPublicStripeWebhookRoute
+  ApiPublicUnsubscribeRoute: typeof ApiPublicUnsubscribeRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -222,11 +287,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/privacidade': {
+      id: '/privacidade'
+      path: '/privacidade'
+      fullPath: '/privacidade'
+      preLoaderRoute: typeof PrivacidadeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/redefinir-senha': {
       id: '/redefinir-senha'
       path: '/redefinir-senha'
       fullPath: '/redefinir-senha'
       preLoaderRoute: typeof RedefinirSenhaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/termos': {
+      id: '/termos'
+      path: '/termos'
+      fullPath: '/termos'
+      preLoaderRoute: typeof TermosRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/_app': {
@@ -278,6 +357,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppLembretesRouteImport
       parentRoute: typeof AuthenticatedAppRouteRoute
     }
+    '/api/public/send-reminders': {
+      id: '/api/public/send-reminders'
+      path: '/api/public/send-reminders'
+      fullPath: '/api/public/send-reminders'
+      preLoaderRoute: typeof ApiPublicSendRemindersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/stripe-webhook': {
+      id: '/api/public/stripe-webhook'
+      path: '/api/public/stripe-webhook'
+      fullPath: '/api/public/stripe-webhook'
+      preLoaderRoute: typeof ApiPublicStripeWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/unsubscribe': {
+      id: '/api/public/unsubscribe'
+      path: '/api/public/unsubscribe'
+      fullPath: '/api/public/unsubscribe'
+      preLoaderRoute: typeof ApiPublicUnsubscribeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -321,7 +421,12 @@ const rootRouteChildren: RootRouteChildren = {
   CadastroRoute: CadastroRoute,
   EsqueciSenhaRoute: EsqueciSenhaRoute,
   LoginRoute: LoginRoute,
+  PrivacidadeRoute: PrivacidadeRoute,
   RedefinirSenhaRoute: RedefinirSenhaRoute,
+  TermosRoute: TermosRoute,
+  ApiPublicSendRemindersRoute: ApiPublicSendRemindersRoute,
+  ApiPublicStripeWebhookRoute: ApiPublicStripeWebhookRoute,
+  ApiPublicUnsubscribeRoute: ApiPublicUnsubscribeRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
