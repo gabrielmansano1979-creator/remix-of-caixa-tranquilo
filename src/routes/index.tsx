@@ -10,7 +10,7 @@ import { PLANS } from "@/config/plans";
 import { formatBRL } from "@/lib/format";
 
 const TITLE = "Caixa Crítico — Saiba se seu caixa fecha nos próximos 30 dias";
-const DESC = "Previsão de caixa de 15 e 30 dias e cobrança automática por e-mail para microempresas e profissionais liberais. 7 dias grátis, sem cartão.";
+const DESC = "Previsão de caixa de 15 e 30 dias e cobrança automática pelo WhatsApp para microempresas e profissionais liberais. 7 dias grátis, sem cartão.";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -105,9 +105,9 @@ function Landing() {
           <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 md:grid-cols-2">
             <div>
               <h2 className="text-3xl font-semibold tracking-tight">Cobranças educadas, no seu nome</h2>
-              <p className="mt-3 text-muted-foreground">Seu cliente recebe um e-mail claro, com o nome do seu negócio. Se responder, a resposta vai direto para o seu e-mail.</p>
+              <p className="mt-3 text-muted-foreground">Seu cliente recebe uma mensagem clara no WhatsApp, com o nome do seu negócio.</p>
               <ul className="mt-6 space-y-2 text-sm">
-                {["Tom amigável que fica mais firme com o atraso", "Para de cobrar assim que você marca como pago", "Link de descadastro em todo e-mail"].map((t) => (
+                {["Tom amigável que fica mais firme com o atraso", "Para de cobrar assim que você marca como pago", "Cliente pode pedir para parar a qualquer momento"].map((t) => (
                   <li key={t} className="flex gap-2"><CheckCircle2 className="h-4 w-4 text-success" />{t}</li>
                 ))}
               </ul>
@@ -136,8 +136,8 @@ function Landing() {
               ["Preciso de cartão para testar?", "Não. São 7 dias grátis com todos os recursos do plano Pro, sem cartão. Depois, você escolhe se quer assinar."],
               ["Como funciona o cancelamento?", "Você cancela em dois cliques, a qualquer momento. O acesso continua até o fim do período já pago."],
               ["Meus dados estão seguros? E a LGPD?", "Seus dados ficam isolados por conta, com acesso protegido e criptografia em trânsito. Seguimos a LGPD: você pode exportar ou excluir tudo quando quiser."],
-              ["Vai ter cobrança por WhatsApp?", "Por enquanto, apenas e-mail — é o canal com melhor entrega e menor risco de bloqueio. WhatsApp está no nosso radar para o futuro."],
-              ["Posso importar uma planilha?", "Sim. Envie um CSV com descrição, valor, vencimento, tipo, nome e e-mail. Mostramos uma prévia com os erros antes de importar."],
+              ["A cobrança é pelo WhatsApp?", "Sim. Basta cadastrar o WhatsApp do cliente na conta a receber e os lembretes saem sozinhos."],
+              ["Posso importar uma planilha?", "Sim. Envie um CSV com descrição, valor, vencimento, tipo, nome e WhatsApp. Mostramos uma prévia com os erros antes de importar."],
             ].map(([q, a]) => (
               <AccordionItem key={q} value={q}>
                 <AccordionTrigger className="text-left">{q}</AccordionTrigger>
