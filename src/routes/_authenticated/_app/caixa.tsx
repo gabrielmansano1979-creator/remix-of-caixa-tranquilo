@@ -11,7 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { accessQuery, entriesQuery, parseDbError, profileQuery, todaySP } from "@/lib/app-data";
 import { formatBRL, formatDate } from "@/lib/format";
 import { sendNow } from "@/lib/reminders.functions";
-import { useMarkPaid } from "./contas";
+import { useMarkPaid } from "@/components/contas/shared";
 import { MoneyInput } from "@/components/money-input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
