@@ -2,13 +2,13 @@ export interface CsvRow {
   line: number;
   raw: Record<string, string>;
   errors: string[];
-  value?: { type: "income" | "expense"; description: string; amount_cents: number; due_date: string; counterparty_name: string; counterparty_email: string };
+  value?: { type: "income" | "expense"; description: string; amount_cents: number; due_date: string; counterparty_name: string; counterparty_email: string; counterparty_whatsapp: string };
 }
 
 export const CSV_TEMPLATE =
-  "descricao,valor,vencimento,tipo,nome,email\n" +
-  'Consultoria março,"1.500,00",15/10/2026,entrada,Maria Silva,maria@exemplo.com\n' +
-  "Aluguel escritório,1200,2026-10-10,saida,Imobiliária Centro,\n";
+  "descricao,valor,vencimento,tipo,nome,email,whatsapp\n" +
+  'Consultoria março,"1.500,00",15/10/2026,entrada,Maria Silva,maria@exemplo.com,(11) 98765-4321\n' +
+  "Aluguel escritório,1200,2026-10-10,saida,Imobiliária Centro,,\n";
 
 function splitLine(line: string, sep: string) {
   const out: string[] = [];
@@ -42,6 +42,7 @@ export function parseDate(s: string): string | null {
   return isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== iso ? null : iso;
 }
 
+import { toE164 } from "./phone";
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function parseCsv(text: string): { rows: CsvRow[]; headerError?: string } {
@@ -49,7 +50,7 @@ export function parseCsv(text: string): { rows: CsvRow[]; headerError?: string }
   if (!lines.length) return { rows: [], headerError: "Arquivo vazio." };
   const sep = lines[0].split(";").length > lines[0].split(",").length ? ";" : ",";
   const head = splitLine(lines[0], sep).map((h) => h.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
-  const need = ["descricao", "valor", "vencimento", "tipo", "nome", "email"];
+  const need = ["descricao", "valor", "vencimento", "tipo", "nome", "whatsapp"];
   const missing = need.filter((n) => !head.includes(n));
   if (missing.length) return { rows: [], headerError: `Colunas ausentes: ${missing.join(", ")}.` };
   const rows = lines.slice(1).map((l, i) => {
@@ -65,11 +66,13 @@ export function parseCsv(text: string): { rows: CsvRow[]; headerError?: string }
     const tipo = raw.tipo.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     const type = tipo === "entrada" ? "income" : tipo === "saida" ? "expense" : null;
     if (!type) errors.push("Tipo deve ser entrada ou saida");
-    const email = raw.email.toLowerCase();
+    const email = (raw.email ?? "").toLowerCase();
+    const wa = toE164(raw.whatsapp ?? "");
+    if (raw.whatsapp && !wa) errors.push("WhatsApp inválido");
     if (email && !EMAIL.test(email)) errors.push("E-mail inválido");
-    if (type === "income" && !email) errors.push("E-mail obrigatório para entrada");
+    if (type === "income" && !wa) errors.push("WhatsApp obrigatório para entrada");
     const row: CsvRow = { line: i + 2, raw, errors };
-    if (!errors.length) row.value = { type: type!, description, amount_cents: amount!, due_date: date!, counterparty_name: raw.nome.slice(0, 120), counterparty_email: email };
+    if (!errors.length) row.value = { type: type!, description, amount_cents: amount!, due_date: date!, counterparty_name: raw.nome.slice(0, 120), counterparty_email: email, counterparty_whatsapp: wa ?? "" };
     return row;
   });
   return { rows };

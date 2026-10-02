@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { toE164 } from "@/lib/phone";
 
 const schema = z
   .object({
@@ -22,8 +23,9 @@ const schema = z
     due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Informe o vencimento."),
     counterparty_name: z.string().trim().max(120),
     counterparty_email: z.string().trim().max(255).email("E-mail inválido.").or(z.literal("")),
+    counterparty_whatsapp: z.string().trim().max(25).refine((v) => !v || toE164(v), "WhatsApp inválido. Use DDD + número."),
   })
-  .refine((d) => d.type === "expense" || d.counterparty_email, { message: "E-mail obrigatório para contas a receber.", path: ["counterparty_email"] });
+  .refine((d) => d.type === "expense" || d.counterparty_whatsapp, { message: "WhatsApp obrigatório para contas a receber.", path: ["counterparty_whatsapp"] });
 type FormV = z.infer<typeof schema>;
 
 const LAST_TYPE = "cc:lastType";
@@ -35,7 +37,7 @@ export function EntryFormDialog({ open, onOpenChange, entry, onLimit }: {
   const addAnother = useRef(false);
   const blank = (): FormV => ({
     type: (typeof window !== "undefined" && (localStorage.getItem(LAST_TYPE) as "income" | "expense")) || "income",
-    description: "", amount_cents: 0, due_date: todaySP(), counterparty_name: "", counterparty_email: "",
+    description: "", amount_cents: 0, due_date: todaySP(), counterparty_name: "", counterparty_email: "", counterparty_whatsapp: "",
   });
   const form = useForm<FormV>({ resolver: zodResolver(schema), defaultValues: blank() });
   const { register, handleSubmit, control, formState, watch, setValue, reset, setFocus } = form;
@@ -44,14 +46,14 @@ export function EntryFormDialog({ open, onOpenChange, entry, onLimit }: {
     if (!open) return;
     reset(entry ? {
       type: entry.type, description: entry.description, amount_cents: entry.amount_cents, due_date: entry.due_date,
-      counterparty_name: entry.counterparty_name ?? "", counterparty_email: entry.counterparty_email ?? "",
+      counterparty_name: entry.counterparty_name ?? "", counterparty_email: entry.counterparty_email ?? "", counterparty_whatsapp: entry.counterparty_whatsapp ?? "",
     } : blank());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, entry]);
 
   const save = useMutation({
     mutationFn: async (v: FormV) => {
-      const payload = { ...v, counterparty_email: v.counterparty_email.toLowerCase() || null, counterparty_name: v.counterparty_name || null };
+      const payload = { ...v, counterparty_email: v.counterparty_email.toLowerCase() || null, counterparty_name: v.counterparty_name || null, counterparty_whatsapp: toE164(v.counterparty_whatsapp) };
       const { error } = entry
         ? await supabase.from("entries").update(payload).eq("id", entry.id)
         : await supabase.from("entries").insert(payload);
@@ -119,7 +121,13 @@ export function EntryFormDialog({ open, onOpenChange, entry, onLimit }: {
             <Input id="cp_name" className="mt-1.5 h-11 rounded-xl" {...register("counterparty_name")} />
           </div>
           <div>
-            <Label htmlFor="cp_email">E-mail {type === "income" ? "do cliente" : "(opcional)"}</Label>
+            <Label htmlFor="cp_wa">WhatsApp {type === "income" ? "do cliente" : "(opcional)"}</Label>
+            <Input id="cp_wa" type="tel" inputMode="tel" placeholder="(11) 98765-4321" autoComplete="tel" className="mt-1.5 h-11 rounded-xl" {...register("counterparty_whatsapp")} />
+            <p className="mt-1 text-xs text-muted-foreground">As cobranças automáticas são enviadas para este número.</p>
+            <FieldError msg={formState.errors.counterparty_whatsapp?.message} />
+          </div>
+          <div>
+            <Label htmlFor="cp_email">E-mail (opcional)</Label>
             <Input id="cp_email" type="email" className="mt-1.5 h-11 rounded-xl" {...register("counterparty_email")} />
             <FieldError msg={formState.errors.counterparty_email?.message} />
           </div>

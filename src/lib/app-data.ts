@@ -51,6 +51,7 @@ export type Entry = {
   due_date: string;
   counterparty_name: string | null;
   counterparty_email: string | null;
+  counterparty_whatsapp: string | null;
   status: "pending" | "paid";
   paid_at: string | null;
   reminders_muted: boolean;
@@ -83,6 +84,6 @@ export function parseDbError(err: unknown): { kind?: LimitKind; message: string 
   if (msg.includes("LIMIT_CSV")) return { kind: "csv", message: "O arquivo excede o limite de linhas do seu plano." };
   if (msg.includes("RATE_LIMIT")) return { message: "Muitas importações em pouco tempo. Aguarde alguns minutos." };
   if (msg.includes("Failed to fetch") || msg.includes("NetworkError")) return { message: "Sem conexão. Verifique sua internet e tente de novo." };
-  if (msg.includes("EMAIL_REQUIRED")) return { message: "Informe o e-mail do cliente para contas a receber." };
+  if (msg.includes("WHATSAPP_REQUIRED")) return { message: "Informe o WhatsApp do cliente (com DDD) para contas a receber." };
   return { message: "Não foi possível salvar. Tente novamente." };
 }
