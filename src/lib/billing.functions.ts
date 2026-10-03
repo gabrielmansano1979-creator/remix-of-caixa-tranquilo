@@ -18,18 +18,18 @@ async function ensureCustomer(userId: string, email: string | undefined, fullNam
   const { data: sub } = await supabaseAdmin.from("subscriptions").select("asaas_customer_id").eq("user_id", userId).maybeSingle();
   if (sub?.asaas_customer_id) return sub.asaas_customer_id;
 
-  let customer = email ? await asaas.getCustomerByEmail(email) : null;
+  let customer: { id: string } | null = email ? await asaas.getCustomerByEmail(email) : null;
   if (!customer) {
     customer = await asaas.createCustomer(email || `${userId}@criefy.local`, fullName || userId);
   }
 
   await supabaseAdmin.from("subscriptions").upsert({
     user_id: userId,
-    asaas_customer_id: customer.id,
+    asaas_customer_id: customer!.id,
     updated_at: new Date().toISOString()
   }, { onConflict: "user_id" });
 
-  return customer.id;
+  return customer!.id;
 }
 
 export const createCheckoutSession = createServerFn({ method: "POST" })
