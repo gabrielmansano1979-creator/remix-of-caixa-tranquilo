@@ -38,7 +38,7 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
               updated_at: new Date().toISOString()
             }).eq("asaas_payment_id", paymentId);
 
-            await sendSystemTo(db, sub.user_id, "payment_confirmed");
+            await sendSystemTo(db, sub.user_id, "subscription_confirmed");
             await db.from("audit_logs").insert({
               user_id: sub.user_id,
               action: "subscription_start",

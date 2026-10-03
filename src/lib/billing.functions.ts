@@ -1,13 +1,13 @@
 import { createServerFn } from "@tanstack/react-start";
-import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { getPlan } from "@/config/plans";
 
 type Out = { url?: string; error?: string; qrCode?: string; copyPaste?: string; paymentId?: string };
-const origin = () => {
-  const env = process.env.APP_URL;
+const origin = async () => {
+  const env = process.env["APP_URL"];
   if (env) return env.replace(/\/$/, "");
+  const { getRequest } = await import("@tanstack/react-start/server");
   return new URL(getRequest().url).origin;
 };
 
@@ -18,18 +18,18 @@ async function ensureCustomer(userId: string, email: string | undefined, fullNam
   const { data: sub } = await supabaseAdmin.from("subscriptions").select("asaas_customer_id").eq("user_id", userId).maybeSingle();
   if (sub?.asaas_customer_id) return sub.asaas_customer_id;
 
-  let customer = email ? await asaas.getCustomerByEmail(email) : null;
+  let customer: { id: string } | null = email ? await asaas.getCustomerByEmail(email) : null;
   if (!customer) {
     customer = await asaas.createCustomer(email || `${userId}@criefy.local`, fullName || userId);
   }
 
   await supabaseAdmin.from("subscriptions").upsert({
     user_id: userId,
-    asaas_customer_id: customer.id,
+    asaas_customer_id: customer!.id,
     updated_at: new Date().toISOString()
   }, { onConflict: "user_id" });
 
-  return customer.id;
+  return customer!.id;
 }
 
 export const createCheckoutSession = createServerFn({ method: "POST" })
