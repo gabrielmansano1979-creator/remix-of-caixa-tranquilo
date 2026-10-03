@@ -1,13 +1,13 @@
 import { createServerFn } from "@tanstack/react-start";
-import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { getPlan } from "@/config/plans";
 
 type Out = { url?: string; error?: string; qrCode?: string; copyPaste?: string; paymentId?: string };
-const origin = () => {
-  const env = process.env.APP_URL;
+const origin = async () => {
+  const env = process.env["APP_URL"];
   if (env) return env.replace(/\/$/, "");
+  const { getRequest } = await import("@tanstack/react-start/server");
   return new URL(getRequest().url).origin;
 };
 
