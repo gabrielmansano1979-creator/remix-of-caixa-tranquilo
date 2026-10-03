@@ -1,3 +1,4 @@
+import { SupportChat } from "@/components/support-chat";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet,
@@ -127,6 +128,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <Outlet />
       <Toaster position="top-center" richColors />
+      <SupportChat />
     </QueryClientProvider>
   );
 }
