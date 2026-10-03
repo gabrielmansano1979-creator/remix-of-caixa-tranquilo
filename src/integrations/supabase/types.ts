@@ -14,6 +14,24 @@ export type Database = {
   }
   public: {
     Tables: {
+      asaas_events: {
+        Row: {
+          id: string
+          processed_at: string
+          type: string | null
+        }
+        Insert: {
+          id: string
+          processed_at?: string
+          type?: string | null
+        }
+        Update: {
+          id?: string
+          processed_at?: string
+          type?: string | null
+        }
+        Relationships: []
+      }
       audit_logs: {
         Row: {
           action: string
@@ -250,11 +268,14 @@ export type Database = {
       }
       subscriptions: {
         Row: {
+          asaas_customer_id: string | null
+          asaas_payment_id: string | null
           billing_interval:
             | Database["public"]["Enums"]["billing_interval"]
             | null
           cancel_at_period_end: boolean
           current_period_end: string | null
+          paid_at: string | null
           plan: Database["public"]["Enums"]["plan_tier"] | null
           status: Database["public"]["Enums"]["sub_status"]
           stripe_customer_id: string | null
@@ -263,11 +284,14 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          asaas_customer_id?: string | null
+          asaas_payment_id?: string | null
           billing_interval?:
             | Database["public"]["Enums"]["billing_interval"]
             | null
           cancel_at_period_end?: boolean
           current_period_end?: string | null
+          paid_at?: string | null
           plan?: Database["public"]["Enums"]["plan_tier"] | null
           status?: Database["public"]["Enums"]["sub_status"]
           stripe_customer_id?: string | null
@@ -276,11 +300,14 @@ export type Database = {
           user_id: string
         }
         Update: {
+          asaas_customer_id?: string | null
+          asaas_payment_id?: string | null
           billing_interval?:
             | Database["public"]["Enums"]["billing_interval"]
             | null
           cancel_at_period_end?: boolean
           current_period_end?: string | null
+          paid_at?: string | null
           plan?: Database["public"]["Enums"]["plan_tier"] | null
           status?: Database["public"]["Enums"]["sub_status"]
           stripe_customer_id?: string | null
@@ -375,7 +402,13 @@ export type Database = {
       entry_type: "income" | "expense"
       plan_tier: "starter" | "pro" | "business"
       reminder_status: "sent" | "failed" | "bounced"
-      sub_status: "trialing" | "active" | "past_due" | "canceled" | "expired"
+      sub_status:
+        | "trialing"
+        | "active"
+        | "past_due"
+        | "canceled"
+        | "expired"
+        | "pending_pix"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -508,7 +541,14 @@ export const Constants = {
       entry_type: ["income", "expense"],
       plan_tier: ["starter", "pro", "business"],
       reminder_status: ["sent", "failed", "bounced"],
-      sub_status: ["trialing", "active", "past_due", "canceled", "expired"],
+      sub_status: [
+        "trialing",
+        "active",
+        "past_due",
+        "canceled",
+        "expired",
+        "pending_pix",
+      ],
     },
   },
 } as const
