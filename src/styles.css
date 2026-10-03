@@ -143,3 +143,11 @@
 @utility num {
   font-variant-numeric: tabular-nums;
 }
+
+@keyframes cc-float { 0%,100% { transform: translateY(0) rotate(var(--r,0deg)); } 50% { transform: translateY(-18px) rotate(var(--r,0deg)); } }
+@keyframes cc-marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.float-a { --r: -4deg; animation: cc-float 7s ease-in-out infinite; }
+.float-b { --r: 3deg; animation: cc-float 9s ease-in-out infinite 1s; }
+.float-c { --r: -2deg; animation: cc-float 8s ease-in-out infinite 2s; }
+.marquee { animation: cc-marquee 40s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .float-a,.float-b,.float-c,.marquee { animation: none; } }

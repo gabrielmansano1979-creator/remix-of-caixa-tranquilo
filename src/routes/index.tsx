@@ -6,7 +6,11 @@ import {
 import { Logo, ThemeToggle } from "@/components/brand";
 import { Button } from "@/components/ui/button";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { PLANS } from "@/config/plans";
+import { PLANS, FIRST_PIX_DISCOUNT } from "@/config/plans";
+import fin1 from "@/assets/fin-1.jpg";
+import fin2 from "@/assets/fin-2.jpg";
+import fin3 from "@/assets/fin-3.jpg";
+import fin4 from "@/assets/fin-4.jpg";
 import { formatBRL } from "@/lib/format";
 
 import ogBanner from "@/assets/critical-cash-og.jpg.asset.json";
@@ -14,7 +18,7 @@ import logoAsset from "@/assets/critical-cash-logo.png.asset.json";
 
 const SITE_URL = "https://critical-cash.lovable.app";
 const TITLE = "Critical Cash — Saiba se seu caixa fecha nos próximos 30 dias";
-const DESC = "Previsão de caixa de 15 e 30 dias e cobrança automática pelo WhatsApp para microempresas e profissionais liberais. 7 dias grátis, sem cartão.";
+const DESC = "Previsão de caixa de 15 e 30 dias e cobrança automática pelo WhatsApp para microempresas e profissionais liberais. 20% de desconto na primeira assinatura via Pix.";
 const OG_IMAGE = `${SITE_URL}${ogBanner.url}`;
 const LOGO_URL = `${SITE_URL}${logoAsset.url}`;
 
@@ -58,7 +62,7 @@ function Landing() {
             <a href="#precos" className="hidden px-3 text-sm text-muted-foreground hover:text-foreground sm:inline">Preços</a>
             <ThemeToggle />
             <Button asChild variant="ghost" className="h-11 rounded-xl"><Link to="/login">Entrar</Link></Button>
-            <Button asChild className="hidden h-11 rounded-xl sm:inline-flex"><Link to="/cadastro">Começar grátis</Link></Button>
+            <Button asChild className="hidden h-11 rounded-xl sm:inline-flex"><Link to="/cadastro">Assinar agora</Link></Button>
           </nav>
         </div>
       </header>
@@ -77,12 +81,20 @@ function Landing() {
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Button asChild size="lg" className="h-12 rounded-xl px-6 text-base">
-                <Link to="/cadastro">Começar 7 dias grátis <ArrowRight className="ml-2 h-4 w-4" /></Link>
+                <Link to="/cadastro">Assinar com 20% off <ArrowRight className="ml-2 h-4 w-4" /></Link>
               </Button>
-              <p className="self-center text-sm text-muted-foreground">Sem cartão de crédito · Cancele quando quiser</p>
+              <p className="self-center text-sm text-muted-foreground">20% off na 1ª assinatura no Pix · Cancele quando quiser</p>
             </div>
           </div>
-          <DashboardMockup />
+          <MovingGallery />
+        </section>
+
+        <section className="overflow-hidden border-y bg-card py-10" aria-label="Momentos financeiros">
+          <div className="marquee flex w-max gap-4">
+            {[fin1, fin2, fin3, fin4, fin1, fin2, fin3, fin4].map((src, i) => (
+              <img key={i} src={src} alt="" loading="lazy" width={768} height={960} className="h-48 w-40 rounded-2xl object-cover shadow-[var(--shadow-soft)] md:h-64 md:w-52" />
+            ))}
+          </div>
         </section>
 
         <section className="border-y bg-card py-16">
@@ -153,7 +165,7 @@ function Landing() {
           <h2 className="text-center text-3xl font-semibold tracking-tight">Perguntas frequentes</h2>
           <Accordion type="single" collapsible className="mt-8">
             {[
-              ["Preciso de cartão para testar?", "Não. São 7 dias grátis com todos os recursos do plano Pro, sem cartão. Depois, você escolhe se quer assinar."],
+              ["Tem teste grátis?", "Não. A cobrança começa no primeiro acesso, mas a sua primeira assinatura paga via Pix sai com 20% de desconto."],
               ["Como funciona o cancelamento?", "Você cancela em dois cliques, a qualquer momento. O acesso continua até o fim do período já pago."],
               ["Meus dados estão seguros? E a LGPD?", "Seus dados ficam isolados por conta, com acesso protegido e criptografia em trânsito. Seguimos a LGPD: você pode exportar ou excluir tudo quando quiser."],
               ["A cobrança é pelo WhatsApp?", "Sim. Basta cadastrar o WhatsApp do cliente na conta a receber e os lembretes saem sozinhos."],
@@ -170,9 +182,9 @@ function Landing() {
         <section className="px-4 pb-16">
           <div className="mx-auto max-w-4xl rounded-3xl bg-primary px-6 py-12 text-center text-primary-foreground">
             <h2 className="text-3xl font-semibold tracking-tight">Pare de adivinhar o seu caixa</h2>
-            <p className="mt-2 opacity-90">Configure em 2 minutos. Sem cartão.</p>
+            <p className="mt-2 opacity-90">Configure em 2 minutos. 20% off na primeira assinatura via Pix.</p>
             <Button asChild size="lg" variant="secondary" className="mt-6 h-12 rounded-xl px-6 text-base">
-              <Link to="/cadastro">Começar 7 dias grátis</Link>
+              <Link to="/cadastro">Assinar com 20% off no Pix</Link>
             </Button>
           </div>
         </section>
@@ -188,6 +200,17 @@ function Landing() {
           </nav>
         </div>
       </footer>
+    </div>
+  );
+}
+
+function MovingGallery() {
+  return (
+    <div className="relative h-[460px] md:h-[540px]" aria-hidden="true">
+      <img src={fin1} alt="" width={768} height={960} className="float-a absolute left-0 top-0 h-64 w-48 rounded-3xl object-cover shadow-xl md:h-80 md:w-60" />
+      <img src={fin2} alt="" width={768} height={960} className="float-b absolute right-0 top-10 h-56 w-44 rounded-3xl object-cover shadow-xl md:h-72 md:w-56" />
+      <img src={fin4} alt="" width={768} height={960} className="float-c absolute bottom-0 left-1/4 h-48 w-56 rounded-3xl object-cover shadow-xl md:h-56 md:w-72" />
+      <div className="float-b absolute bottom-24 right-2 w-56"><DashboardMockup /></div>
     </div>
   );
 }
@@ -244,10 +267,11 @@ function Pricing() {
             {p.popular && <span className="absolute -top-3 left-6 rounded-full bg-primary px-3 py-1 text-xs font-medium text-primary-foreground">Mais popular</span>}
             <h3 className="text-lg font-semibold">{p.name}</h3>
             <p className="mt-3"><span className="num text-4xl font-bold">{formatBRL(yearly ? p.priceYearCents : p.priceMonthCents, true)}</span><span className="text-muted-foreground">/{yearly ? "ano" : "mês"}</span></p>
+            <p className="mt-1 text-sm font-medium text-success">1ª assinatura no Pix: <span className="num">{formatBRL(Math.round((yearly ? p.priceYearCents : p.priceMonthCents) * (1 - FIRST_PIX_DISCOUNT)), true)}</span></p>
             <ul className="mt-6 space-y-2 text-sm">
               {p.features.map((f) => <li key={f} className="flex gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />{f}</li>)}
             </ul>
-            <Button asChild variant={p.popular ? "default" : "outline"} className="mt-6 h-11 w-full rounded-xl"><Link to="/cadastro">Começar 7 dias grátis</Link></Button>
+            <Button asChild variant={p.popular ? "default" : "outline"} className="mt-6 h-11 w-full rounded-xl"><Link to="/cadastro">Assinar com 20% off no Pix</Link></Button>
           </div>
         ))}
       </div>

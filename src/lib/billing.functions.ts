@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { getPlan } from "@/config/plans";
+import { getPlan, FIRST_PIX_DISCOUNT } from "@/config/plans";
 
 type Out = { url?: string; error?: string; qrCode?: string; copyPaste?: string; paymentId?: string };
 const origin = async () => {
@@ -53,11 +53,11 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
 
       const customerId = await ensureCustomer(userId, customerEmail, customerName);
 
-      const priceCents = data.plan === "starter"
-        ? (data.interval === "year" ? 9700 : 970)
-        : data.plan === "pro"
-          ? (data.interval === "year" ? 19700 : 1970)
-          : (data.interval === "year" ? 49700 : 4970);
+      const plan = getPlan(data.plan);
+      const basePrice = data.interval === "year" ? plan.priceYearCents : plan.priceMonthCents;
+      const { data: prev } = await supabaseAdmin.from("subscriptions").select("paid_at").eq("user_id", userId).maybeSingle();
+      const isFirst = !prev?.paid_at;
+      const priceCents = isFirst ? Math.round(basePrice * (1 - FIRST_PIX_DISCOUNT)) : basePrice;
 
       const externalRef = `sub_${userId}_${Date.now()}`;
       const charge = await asaas.createPixCharge(customerId, priceCents, externalRef);

@@ -18,7 +18,9 @@ export interface PlanConfig {
   features: string[];
 }
 
-export const TRIAL_DAYS = 7;
+export const TRIAL_DAYS = 0; // cobrança desde o primeiro acesso
+/** Desconto da primeira assinatura paga via Pix. */
+export const FIRST_PIX_DISCOUNT = 0.2;
 export const TRIAL_PLAN: PlanId = "pro";
 export const USAGE_WARNING_RATIO = 0.8;
 
