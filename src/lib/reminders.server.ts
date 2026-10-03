@@ -83,7 +83,7 @@ export async function runSystemEmails(admin: Admin) {
     const ends = Date.parse(p.trial_ends_at);
     const send = async (kind: Parameters<typeof systemEmail>[0], flag: string) => {
       const m = systemEmail(kind, url);
-      const r = await sendResend({ from: fromAddress("Caixa Crítico"), to: email, subject: m.subject, html: m.html, text: m.text });
+      const r = await sendResend({ from: fromAddress("Critical Cash"), to: email, subject: m.subject, html: m.html, text: m.text });
       if (r.ok) await admin.from("profiles").update({ [flag]: true }).eq("user_id", p.user_id);
     };
     if (!p.welcome_sent) await send("welcome", "welcome_sent");
@@ -97,5 +97,5 @@ export async function sendSystemTo(admin: Admin, userId: string, kind: Parameter
   const { data: u } = await admin.auth.admin.getUserById(userId);
   if (!u?.user?.email) return;
   const m = systemEmail(kind, appUrl());
-  await sendResend({ from: fromAddress("Caixa Crítico"), to: u.user.email, subject: m.subject, html: m.html, text: m.text });
+  await sendResend({ from: fromAddress("Critical Cash"), to: u.user.email, subject: m.subject, html: m.html, text: m.text });
 }

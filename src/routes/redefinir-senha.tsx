@@ -13,9 +13,9 @@ import { Button } from "@/components/ui/button";
 export const Route = createFileRoute("/redefinir-senha")({
   head: () => ({
     meta: [
-      { title: "Nova senha — Caixa Crítico" },
+      { title: "Nova senha — Critical Cash" },
       { name: "description", content: "Defina uma nova senha para sua conta." },
-      { property: "og:title", content: "Nova senha — Caixa Crítico" },
+      { property: "og:title", content: "Nova senha — Critical Cash" },
       { property: "og:description", content: "Defina uma nova senha para sua conta." },
       { name: "robots", content: "noindex" },
     ],

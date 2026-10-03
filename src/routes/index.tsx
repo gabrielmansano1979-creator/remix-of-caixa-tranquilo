@@ -9,8 +9,14 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { PLANS } from "@/config/plans";
 import { formatBRL } from "@/lib/format";
 
-const TITLE = "Caixa Crítico — Saiba se seu caixa fecha nos próximos 30 dias";
+import ogBanner from "@/assets/critical-cash-og.jpg.asset.json";
+import logoAsset from "@/assets/critical-cash-logo.png.asset.json";
+
+const SITE_URL = "https://critical-cash.lovable.app";
+const TITLE = "Critical Cash — Saiba se seu caixa fecha nos próximos 30 dias";
 const DESC = "Previsão de caixa de 15 e 30 dias e cobrança automática pelo WhatsApp para microempresas e profissionais liberais. 7 dias grátis, sem cartão.";
+const OG_IMAGE = `${SITE_URL}${ogBanner.url}`;
+const LOGO_URL = `${SITE_URL}${logoAsset.url}`;
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -20,10 +26,24 @@ export const Route = createFileRoute("/")({
       { property: "og:title", content: TITLE },
       { property: "og:description", content: DESC },
       { property: "og:type", content: "website" },
-      { property: "og:url", content: "/" },
+      { property: "og:url", content: SITE_URL },
+      { property: "og:image", content: OG_IMAGE },
+      { property: "og:image:width", content: "1200" },
+      { property: "og:image:height", content: "630" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:image", content: OG_IMAGE },
     ],
-    links: [{ rel: "canonical", href: "/" }],
+    links: [{ rel: "canonical", href: SITE_URL }],
+    scripts: [{
+      type: "application/ld+json",
+      children: JSON.stringify({
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        name: "Critical Cash",
+        url: SITE_URL,
+        logo: LOGO_URL,
+      }),
+    }],
   }),
   component: Landing,
 });
@@ -160,7 +180,7 @@ function Landing() {
 
       <footer className="border-t">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 py-8 text-sm text-muted-foreground sm:flex-row">
-          <p>© {new Date().getFullYear()} Caixa Crítico</p>
+          <p>© {new Date().getFullYear()} Critical Cash</p>
           <nav className="flex gap-5">
             <Link to="/termos" className="hover:text-foreground">Termos</Link>
             <Link to="/privacidade" className="hover:text-foreground">Privacidade</Link>

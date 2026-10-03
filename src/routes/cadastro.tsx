@@ -13,9 +13,9 @@ import { Button } from "@/components/ui/button";
 export const Route = createFileRoute("/cadastro")({
   head: () => ({
     meta: [
-      { title: "Criar conta — 7 dias grátis | Caixa Crítico" },
-      { name: "description", content: "Teste o Caixa Crítico por 7 dias, sem cartão de crédito." },
-      { property: "og:title", content: "Criar conta — Caixa Crítico" },
+      { title: "Criar conta — 7 dias grátis | Critical Cash" },
+      { name: "description", content: "Teste o Critical Cash por 7 dias, sem cartão de crédito." },
+      { property: "og:title", content: "Criar conta — Critical Cash" },
       { property: "og:description", content: "Teste grátis por 7 dias, sem cartão." },
     ],
   }),

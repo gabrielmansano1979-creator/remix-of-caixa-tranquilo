@@ -18,7 +18,7 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export const Route = createFileRoute("/_authenticated/onboarding")({
-  head: () => ({ meta: [{ title: "Primeiros passos — Caixa Crítico" }, { name: "robots", content: "noindex" }] }),
+  head: () => ({ meta: [{ title: "Primeiros passos — Critical Cash" }, { name: "robots", content: "noindex" }] }),
   loader: ({ context }) => context.queryClient.ensureQueryData(profileQuery),
   pendingComponent: () => <div className="mx-auto max-w-lg p-6"><Skeleton className="h-96 rounded-2xl" /></div>,
   errorComponent: () => <p className="p-6 text-center text-danger">Não foi possível carregar. Recarregue a página.</p>,

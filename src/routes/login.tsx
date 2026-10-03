@@ -12,10 +12,10 @@ import { Button } from "@/components/ui/button";
 export const Route = createFileRoute("/login")({
   head: () => ({
     meta: [
-      { title: "Entrar — Caixa Crítico" },
-      { name: "description", content: "Acesse sua conta do Caixa Crítico." },
-      { property: "og:title", content: "Entrar — Caixa Crítico" },
-      { property: "og:description", content: "Acesse sua conta do Caixa Crítico." },
+      { title: "Entrar — Critical Cash" },
+      { name: "description", content: "Acesse sua conta do Critical Cash." },
+      { property: "og:title", content: "Entrar — Critical Cash" },
+      { property: "og:description", content: "Acesse sua conta do Critical Cash." },
     ],
   }),
   component: LoginPage,

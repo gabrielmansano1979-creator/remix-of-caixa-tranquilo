@@ -39,7 +39,7 @@ export function layout({ heading, color, bodyHtml, footerHtml }: { heading: stri
 export function reminderEmail(opts: { subjectTpl: string; bodyTpl: string; offset: number; vars: TplVars; replyTo: string; unsubscribeUrl: string }) {
   const st = stageFor(opts.offset);
   const paragraphs = renderTpl(opts.bodyTpl, opts.vars, true).split(/\n{2,}|\n/).map((p) => `<p style="margin:0 0 12px">${p}</p>`).join("");
-  const footer = `Enviado por <strong>${esc(opts.vars.empresa)}</strong> via Caixa Crítico. Dúvidas? Responda este e-mail (${esc(opts.replyTo)}).<br>Já pagou? Desconsidere esta mensagem.<br><a href="${esc(opts.unsubscribeUrl)}" style="color:#64748b">Não quero mais receber lembretes</a>`;
+  const footer = `Enviado por <strong>${esc(opts.vars.empresa)}</strong> via Critical Cash. Dúvidas? Responda este e-mail (${esc(opts.replyTo)}).<br>Já pagou? Desconsidere esta mensagem.<br><a href="${esc(opts.unsubscribeUrl)}" style="color:#64748b">Não quero mais receber lembretes</a>`;
   return {
     subject: renderTpl(opts.subjectTpl, opts.vars, false).slice(0, 200),
     html: layout({ heading: st.label, color: st.color, bodyHtml: paragraphs, footerHtml: footer }),
@@ -49,17 +49,17 @@ export function reminderEmail(opts: { subjectTpl: string; bodyTpl: string; offse
 
 export type SystemEmail = "welcome" | "trial_ending" | "trial_ended" | "payment_failed" | "subscription_confirmed";
 const SYS: Record<SystemEmail, { subject: string; heading: string; body: string; cta: string; path: string }> = {
-  welcome: { subject: "Bem-vindo ao Caixa Crítico", heading: "Boas-vindas", body: "Sua conta está pronta e você tem 7 dias grátis com tudo do plano Pro. Cadastre suas primeiras contas e veja em segundos se o caixa fecha.", cta: "Abrir meu caixa", path: "/caixa" },
+  welcome: { subject: "Bem-vindo ao Critical Cash", heading: "Boas-vindas", body: "Sua conta está pronta e você tem 7 dias grátis com tudo do plano Pro. Cadastre suas primeiras contas e veja em segundos se o caixa fecha.", cta: "Abrir meu caixa", path: "/caixa" },
   trial_ending: { subject: "Seu teste grátis acaba em 2 dias", heading: "Faltam 2 dias", body: "Seu teste termina em 2 dias. Escolha um plano para manter a projeção e os lembretes automáticos funcionando.", cta: "Escolher plano", path: "/planos" },
   trial_ended: { subject: "Seu teste grátis terminou", heading: "Teste encerrado", body: "Sua conta está em modo somente leitura e os lembretes estão pausados. Seus dados ficam guardados por 90 dias.", cta: "Assinar agora", path: "/planos" },
   payment_failed: { subject: "Não conseguimos processar seu pagamento", heading: "Pagamento não aprovado", body: "Houve um problema com a cobrança da sua assinatura. Atualize seu pagamento em até 7 dias para não perder o acesso.", cta: "Atualizar pagamento", path: "/assinatura" },
-  subscription_confirmed: { subject: "Assinatura confirmada", heading: "Tudo certo", body: "Sua assinatura está ativa. Obrigado por confiar no Caixa Crítico!", cta: "Ver assinatura", path: "/assinatura" },
+  subscription_confirmed: { subject: "Assinatura confirmada", heading: "Tudo certo", body: "Sua assinatura está ativa. Obrigado por confiar no Critical Cash!", cta: "Ver assinatura", path: "/assinatura" },
 };
 
 export function systemEmail(kind: SystemEmail, appUrl: string) {
   const s = SYS[kind];
   const body = `<p style="margin:0 0 20px">${esc(s.body)}</p><a href="${esc(appUrl + s.path)}" style="display:inline-block;background:#0F766E;color:#fff;text-decoration:none;padding:12px 20px;border-radius:10px;font-weight:600">${esc(s.cta)}</a>`;
-  return { subject: s.subject, html: layout({ heading: s.heading, color: "#0F766E", bodyHtml: body, footerHtml: "Caixa Crítico · E-mail sobre a sua conta." }), text: `${s.body}\n\n${appUrl + s.path}` };
+  return { subject: s.subject, html: layout({ heading: s.heading, color: "#0F766E", bodyHtml: body, footerHtml: "Critical Cash · E-mail sobre a sua conta." }), text: `${s.body}\n\n${appUrl + s.path}` };
 }
 
 export async function sendResend(p: { from: string; to: string; replyTo?: string; subject: string; html: string; text: string; headers?: Record<string, string> }) {
@@ -81,7 +81,7 @@ export async function sendResend(p: { from: string; to: string; replyTo?: string
 
 export const fromAddress = (name?: string | null) => {
   const email = process.env.RESEND_FROM_EMAIL ?? "cobranca@example.com";
-  const safe = (name || "Caixa Crítico").replace(/[<>"\r\n]/g, "").slice(0, 60);
+  const safe = (name || "Critical Cash").replace(/[<>"\r\n]/g, "").slice(0, 60);
   return `${safe} <${email}>`;
 };
 export const appUrl = () => (process.env.APP_URL ?? "").replace(/\/$/, "");
