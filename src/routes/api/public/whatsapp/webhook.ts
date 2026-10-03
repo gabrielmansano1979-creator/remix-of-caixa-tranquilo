@@ -17,7 +17,7 @@ async function processEvent(admin: Admin, ev: { event: string; payload: any }): 
     const cur = RANK[log.delivery_status ?? "accepted"] ?? 0;
     if ((RANK[s.status] ?? 0) < cur) continue;
     const at = s.timestamp ? new Date(Number(s.timestamp) * 1000).toISOString() : null;
-    const upd: Record<string, unknown> = { delivery_status: s.status, delivery_status_at: at };
+    const upd: any = { delivery_status: s.status, delivery_status_at: at };
     if (s.status === "failed") { upd.status = "failed"; upd.error = JSON.stringify(s.errors ?? []).slice(0, 500); }
     const { error: e2 } = await admin.from("reminder_logs").update(upd).eq("id", log.id);
     if (e2) throw e2;
@@ -48,7 +48,7 @@ export const Route = createFileRoute("/api/public/whatsapp/webhook")({
         const { data: pending, error: selErr } = await supabaseAdmin.from("whatsapp_webhook_events").select("id, event, payload, delivery_id, received_at")
           .is("processed_at", null).order("received_at", { ascending: true }).limit(20);
         if (selErr) return new Response("db error", { status: 500 });
-        const { data: cur } = await supabaseAdmin.from("whatsapp_webhook_events").select("id, event, payload, delivery_id, processed_at").eq("delivery_id", deliveryId).single();
+        const { data: cur } = await supabaseAdmin.from("whatsapp_webhook_events").select("id, event, payload, delivery_id, processed_at, received_at").eq("delivery_id", deliveryId).single();
         const list = [...(pending ?? [])];
         if (cur && !cur.processed_at && !list.some((p) => p.id === cur.id)) list.push(cur);
         let failed = false;
