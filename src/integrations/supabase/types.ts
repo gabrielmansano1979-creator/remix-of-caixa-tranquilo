@@ -139,6 +139,8 @@ export type Database = {
       }
       reminder_logs: {
         Row: {
+          delivery_status: string | null
+          delivery_status_at: string | null
           entry_id: string
           error: string | null
           id: string
@@ -151,6 +153,8 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          delivery_status?: string | null
+          delivery_status_at?: string | null
           entry_id: string
           error?: string | null
           id?: string
@@ -163,6 +167,8 @@ export type Database = {
           user_id: string
         }
         Update: {
+          delivery_status?: string | null
+          delivery_status_at?: string | null
           entry_id?: string
           error?: string | null
           id?: string
@@ -299,6 +305,36 @@ export type Database = {
           created_at?: string
           email?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      whatsapp_webhook_events: {
+        Row: {
+          delivery_id: string
+          event: string
+          id: string
+          payload: Json
+          processed_at: string | null
+          processing_error: string | null
+          received_at: string
+        }
+        Insert: {
+          delivery_id: string
+          event: string
+          id?: string
+          payload: Json
+          processed_at?: string | null
+          processing_error?: string | null
+          received_at?: string
+        }
+        Update: {
+          delivery_id?: string
+          event?: string
+          id?: string
+          payload?: Json
+          processed_at?: string | null
+          processing_error?: string | null
+          received_at?: string
         }
         Relationships: []
       }

@@ -32,7 +32,7 @@ export async function sendOne(admin: Admin, args: {
   const vars = { cliente: entry.counterparty_name ?? "", valor: entry.amount_cents, vencimento: entry.due_date, descricao: entry.description, empresa };
   const text = `*${renderTpl(rule.subject_tpl, vars, false)}*\n\n${renderTpl(rule.body_tpl, vars, false)}\n\n_Mensagem automática de ${empresa}. Responda SAIR para não receber mais lembretes._`;
   const r = await sendWhatsApp(to, text);
-  const row = { status: r.ok ? "sent" : "failed", provider_id: r.ok ? r.id : null, error: r.ok ? null : r.error, sent_at: new Date().toISOString() };
+  const row = { status: r.ok ? "sent" : "failed", provider_id: r.ok ? r.id : null, delivery_status: r.ok ? "accepted" : null, error: r.ok ? null : r.error, sent_at: new Date().toISOString() };
   if (rule.id) await admin.from("reminder_logs").update(row).eq("entry_id", entry.id).eq("rule_id", rule.id);
   else await admin.from("reminder_logs").insert({ ...row, user_id: profile.user_id, entry_id: entry.id, rule_id: null, manual: !!args.manual, sent_to: to });
   return r;
