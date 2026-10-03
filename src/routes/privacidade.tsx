@@ -4,16 +4,16 @@ import { LegalPage } from "@/components/legal-page";
 export const Route = createFileRoute("/privacidade")({
   head: () => ({
     meta: [
-      { title: "Política de Privacidade (LGPD) — Caixa Crítico" },
-      { name: "description", content: "Como o Caixa Crítico trata seus dados pessoais conforme a LGPD." },
-      { property: "og:title", content: "Política de Privacidade — Caixa Crítico" },
+      { title: "Política de Privacidade (LGPD) — Critical Cash" },
+      { name: "description", content: "Como o Critical Cash trata seus dados pessoais conforme a LGPD." },
+      { property: "og:title", content: "Política de Privacidade — Critical Cash" },
       { property: "og:description", content: "Tratamento de dados pessoais conforme a LGPD." },
     ],
     links: [{ rel: "canonical", href: "/privacidade" }],
   }),
   component: () => (
     <LegalPage title="Política de Privacidade" updated="[DD/MM/AAAA]">
-      <p>Esta política descreve como [RAZÃO SOCIAL] (“controladora”) trata dados pessoais no Caixa Crítico, conforme a Lei nº 13.709/2018 (LGPD).</p>
+      <p>Esta política descreve como [RAZÃO SOCIAL] (“controladora”) trata dados pessoais no Critical Cash, conforme a Lei nº 13.709/2018 (LGPD).</p>
       <h2>1. Dados que coletamos</h2>
       <ul><li>Da conta: e-mail, nome do negócio, e-mail de resposta.</li><li>Financeiros cadastrados por você: contas, valores, vencimentos.</li><li>De terceiros (seus clientes): nome e e-mail, usados apenas para enviar lembretes em seu nome — você é o controlador desses dados e nós, operadores.</li><li>Técnicos: registros de acesso e envio de e-mails.</li></ul>
       <h2>2. Finalidades e bases legais</h2>

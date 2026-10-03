@@ -12,9 +12,9 @@ import { Button } from "@/components/ui/button";
 export const Route = createFileRoute("/esqueci-senha")({
   head: () => ({
     meta: [
-      { title: "Recuperar senha — Caixa Crítico" },
+      { title: "Recuperar senha — Critical Cash" },
       { name: "description", content: "Receba um link para redefinir sua senha." },
-      { property: "og:title", content: "Recuperar senha — Caixa Crítico" },
+      { property: "og:title", content: "Recuperar senha — Critical Cash" },
       { property: "og:description", content: "Receba um link para redefinir sua senha." },
     ],
   }),

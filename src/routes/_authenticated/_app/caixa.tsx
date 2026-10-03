@@ -18,7 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 export const Route = createFileRoute("/_authenticated/_app/caixa")({
-  head: () => ({ meta: [{ title: "Caixa — Caixa Crítico" }, { name: "robots", content: "noindex" }] }),
+  head: () => ({ meta: [{ title: "Caixa — Critical Cash" }, { name: "robots", content: "noindex" }] }),
   component: CaixaPage,
 });
 

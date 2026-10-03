@@ -20,7 +20,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 
 export const Route = createFileRoute("/_authenticated/_app/assinatura")({
   validateSearch: z.object({ sucesso: z.number().optional() }),
-  head: () => ({ meta: [{ title: "Assinatura — Caixa Crítico" }, { name: "robots", content: "noindex" }] }),
+  head: () => ({ meta: [{ title: "Assinatura — Critical Cash" }, { name: "robots", content: "noindex" }] }),
   component: AssinaturaPage,
 });
 

@@ -18,7 +18,7 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export const Route = createFileRoute("/_authenticated/_app/lembretes")({
-  head: () => ({ meta: [{ title: "Lembretes — Caixa Crítico" }, { name: "robots", content: "noindex" }] }),
+  head: () => ({ meta: [{ title: "Lembretes — Critical Cash" }, { name: "robots", content: "noindex" }] }),
   component: LembretesPage,
 });
 

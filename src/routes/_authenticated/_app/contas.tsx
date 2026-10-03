@@ -25,7 +25,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 
 export const Route = createFileRoute("/_authenticated/_app/contas")({
   validateSearch: z.object({ novo: z.number().optional(), importar: z.number().optional() }),
-  head: () => ({ meta: [{ title: "Contas — Caixa Crítico" }, { name: "robots", content: "noindex" }] }),
+  head: () => ({ meta: [{ title: "Contas — Critical Cash" }, { name: "robots", content: "noindex" }] }),
   component: ContasPage,
 });
 

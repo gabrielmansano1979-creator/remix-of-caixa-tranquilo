@@ -21,7 +21,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/_authenticated/_app/configuracoes")({
-  head: () => ({ meta: [{ title: "Configurações — Caixa Crítico" }, { name: "robots", content: "noindex" }] }),
+  head: () => ({ meta: [{ title: "Configurações — Critical Cash" }, { name: "robots", content: "noindex" }] }),
   component: ConfigPage,
 });
 

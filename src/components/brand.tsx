@@ -9,7 +9,7 @@ export function Logo({ to = "/" }: { to?: "/" | "/caixa" }) {
       <span className="grid h-8 w-8 place-items-center rounded-lg bg-primary text-primary-foreground text-sm font-bold">
         C
       </span>
-      <span>Caixa Crítico</span>
+      <span>Critical Cash</span>
     </Link>
   );
 }
