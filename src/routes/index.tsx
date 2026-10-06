@@ -141,6 +141,45 @@ function Landing() {
           </ol>
         </section>
 
+        <section className="border-y bg-card py-16" aria-label="Depoimentos de clientes">
+          <div className="mx-auto max-w-6xl px-4">
+            <h2 className="text-center text-3xl font-semibold tracking-tight">Quem usa, recomenda</h2>
+            <p className="mx-auto mt-3 max-w-xl text-center text-muted-foreground">Microempresários e profissionais liberais que trocaram o susto pela previsão.</p>
+            <div className="mt-10 grid gap-5 md:grid-cols-3">
+              {[
+                { nome: "Mariana L.", cargo: "Designer freelancer, São Paulo/SP", iniciais: "ML", texto: "Eu vivia apagando incêndio no fim do mês. Hoje abro o app de manhã e já sei se posso fechar um projeto novo. O semáforo virou meu termômetro." },
+                { nome: "Ricardo A.", cargo: "Dono de padaria, Belo Horizonte/MG", iniciais: "RA", texto: "As cobranças saem sozinhas e os clientes pagam sem eu precisar ligar. Recuperei em um mês o que estava parado há três." },
+                { nome: "Carla S.", cargo: "Consultora de marketing, Curitiba/PR", iniciais: "CS", texto: "Configurei em minutos importando minha planilha. O aviso de 'caixa negativo em 12 dias' me salvou de atrasar o aluguel do escritório." },
+              ].map((d) => (
+                <figure key={d.nome} className="flex flex-col rounded-2xl border bg-background p-6 shadow-[var(--shadow-soft)]">
+                  <div className="flex gap-1" aria-label="5 de 5 estrelas">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <svg key={i} viewBox="0 0 24 24" className="h-4 w-4 fill-[#fbbf24]" aria-hidden="true"><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7-6.2-3.7-6.2 3.7 1.6-7L2 9.2l7.1-.6z" /></svg>
+                    ))}
+                  </div>
+                  <blockquote className="mt-4 flex-1 text-sm leading-relaxed text-muted-foreground">“{d.texto}”</blockquote>
+                  <figcaption className="mt-5 flex items-center gap-3">
+                    <span className="grid h-10 w-10 place-items-center rounded-full bg-primary/10 text-sm font-semibold text-primary">{d.iniciais}</span>
+                    <span>
+                      <span className="block text-sm font-semibold">{d.nome}</span>
+                      <span className="block text-xs text-muted-foreground">{d.cargo}</span>
+                    </span>
+                  </figcaption>
+                </figure>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="mx-auto max-w-6xl px-4 py-16" aria-label="O aplicativo em uso">
+          <h2 className="text-center text-3xl font-semibold tracking-tight">Veja o Critical Cash em ação</h2>
+          <p className="mx-auto mt-3 max-w-xl text-center text-muted-foreground">No celular ou no computador: saldo, semáforo e contas a receber sempre à mão.</p>
+          <div className="mt-10 grid items-center gap-6 md:grid-cols-5">
+            <img src={appPhone} alt="Celular exibindo o saldo disponível e a evolução do caixa no Critical Cash" loading="lazy" width={768} height={960} className="float-a mx-auto w-full max-w-xs rounded-3xl object-cover shadow-xl md:col-span-2" />
+            <img src={appLaptop} alt="Notebook exibindo a lista de contas a receber do Critical Cash" loading="lazy" width={1024} height={768} className="float-b w-full rounded-3xl object-cover shadow-xl md:col-span-3" />
+          </div>
+        </section>
+
         <section className="border-y bg-card py-16">
           <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 md:grid-cols-2">
             <div>
