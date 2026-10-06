@@ -17,6 +17,7 @@ export function PlanPicker() {
   const checkout = useServerFn(createCheckoutSession);
   const [yearly, setYearly] = useState(ent.access?.billing_interval === "year");
   const [busy, setBusy] = useState<PlanId | null>(null);
+  const [doc, setDoc] = useState("");
   const [pixData, setPixData] = useState<{ qrCode?: string; copyPaste?: string; paymentId?: string } | null>(null);
   const subscribed = ent.access?.has_subscription && ["active", "past_due", "canceled"].includes(ent.access.status);
   const current = subscribed ? ent.access?.plan : null;
@@ -26,10 +27,12 @@ export function PlanPicker() {
     if (ent.usage && ent.usage.pending_entries > p.limits.pendingEntries) {
       return toast.error(`Você tem ${ent.usage.pending_entries} contas pendentes; o ${p.name} permite ${p.limits.pendingEntries}. Quite ou exclua algumas antes.`);
     }
+    const digits = doc.replace(/\D/g, "");
+    if (digits.length !== 11 && digits.length !== 14) return toast.error("Informe seu CPF ou CNPJ para gerar o Pix.");
     setBusy(plan);
     track("upgrade_click", { plan, interval: yearly ? "year" : "month" });
     try {
-      const r = await checkout({ data: { plan, interval: yearly ? "year" : "month" } });
+      const r = await checkout({ data: { plan, interval: yearly ? "year" : "month", cpfCnpj: digits } });
       if (r.error) {
         toast.error(r.error);
       } else if (r.qrCode) {
@@ -53,6 +56,11 @@ export function PlanPicker() {
             </button>
           ))}
         </div>
+      </div>
+      <div className="mx-auto mt-6 max-w-xs">
+        <label htmlFor="cpf-cnpj" className="text-sm font-medium">CPF ou CNPJ (exigido para o Pix)</label>
+        <input id="cpf-cnpj" inputMode="numeric" value={doc} onChange={(e) => setDoc(e.target.value)} placeholder="000.000.000-00" maxLength={18}
+          className="mt-1.5 h-11 w-full rounded-xl border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" />
       </div>
       <div className="mt-8 grid gap-4 md:grid-cols-3">
         {PLANS.map((p) => {

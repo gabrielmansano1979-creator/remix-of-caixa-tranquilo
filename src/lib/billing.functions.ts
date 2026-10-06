@@ -11,17 +11,19 @@ const origin = async () => {
   return new URL(getRequest().url).origin;
 };
 
-async function ensureCustomer(userId: string, email: string | undefined, fullName?: string) {
+async function ensureCustomer(userId: string, email: string | undefined, fullName: string | undefined, doc: string) {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const asaas = await import("./asaas.server");
 
   const { data: sub } = await supabaseAdmin.from("subscriptions").select("asaas_customer_id").eq("user_id", userId).maybeSingle();
-  if (sub?.asaas_customer_id) return sub.asaas_customer_id;
+  if (sub?.asaas_customer_id) {
+    await asaas.updateCustomerDoc(sub.asaas_customer_id, doc);
+    return sub.asaas_customer_id;
+  }
 
   let customer: { id: string } | null = email ? await asaas.getCustomerByEmail(email) : null;
-  if (!customer) {
-    customer = await asaas.createCustomer(email || `${userId}@criefy.local`, fullName || userId);
-  }
+  if (customer) await asaas.updateCustomerDoc(customer.id, doc);
+  else customer = await asaas.createCustomer(email || `${userId}@criticalcash.app`, fullName || (email ?? "Cliente").split("@")[0], doc);
 
   await supabaseAdmin.from("subscriptions").upsert({
     user_id: userId,
@@ -34,7 +36,7 @@ async function ensureCustomer(userId: string, email: string | undefined, fullNam
 
 export const createCheckoutSession = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ plan: z.enum(["starter", "pro", "business"]), interval: z.enum(["month", "year"]) }).parse(d))
+  .inputValidator((d: unknown) => z.object({ plan: z.enum(["starter", "pro", "business"]), interval: z.enum(["month", "year"]), cpfCnpj: z.string().transform((v) => v.replace(/\D/g, "")).refine((v) => v.length === 11 || v.length === 14, "CPF ou CNPJ inválido") }).parse(d))
   .handler(async ({ data, context }): Promise<Out> => {
     try {
       const { supabase, userId, claims } = context;
@@ -51,7 +53,7 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       const customerEmail = (claims as { email?: string }).email || `${userId}@criefy.local`;
       const customerName = (claims as { user_metadata?: { full_name?: string } }).user_metadata?.full_name;
 
-      const customerId = await ensureCustomer(userId, customerEmail, customerName);
+      const customerId = await ensureCustomer(userId, customerEmail, customerName, data.cpfCnpj);
 
       const plan = getPlan(data.plan);
       const basePrice = data.interval === "year" ? plan.priceYearCents : plan.priceMonthCents;
@@ -60,7 +62,7 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       const priceCents = isFirst ? Math.round(basePrice * (1 - FIRST_PIX_DISCOUNT)) : basePrice;
 
       const externalRef = `sub_${userId}_${Date.now()}`;
-      const charge = await asaas.createPixCharge(customerId, priceCents, externalRef);
+      const charge = await asaas.createPixCharge(customerId, priceCents, externalRef, `Critical Cash ${plan.name} ${data.interval === "year" ? "anual" : "mensal"}${isFirst ? " (20% off 1ª assinatura)" : ""}`);
 
       await supabaseAdmin.from("subscriptions").upsert({
         user_id: userId,
@@ -78,11 +80,12 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
         paymentId: charge.id
       };
     } catch (e) {
-      const msg = String(e);
-      return { error: msg.includes("NOT_CONFIGURED")
-        ? "Pagamentos ainda não configurados. Configure ASAAS_API_KEY no cofre."
-        : "Não foi possível iniciar o pagamento."
-      };
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("checkout error", msg);
+      if (msg.includes("NOT_CONFIGURED")) return { error: "Pagamentos ainda não configurados." };
+      if (msg.startsWith("ASAAS_401")) return { error: "A chave do Asaas é inválida ou de outro ambiente. Gere uma nova chave no Asaas." };
+      const desc = msg.split(":").slice(1).join(":").trim();
+      return { error: desc ? `Asaas: ${desc}` : "Não foi possível gerar o Pix. Tente novamente." };
     }
   });
 
