@@ -72,25 +72,29 @@ function Landing() {
       </header>
 
       <main>
-        <section className="mx-auto grid max-w-6xl items-center gap-12 px-4 py-14 md:grid-cols-2 md:py-24">
-          <div>
+        <section className="mx-auto max-w-6xl px-4 pb-14 pt-10 md:pb-24 md:pt-14">
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-3" aria-label="Quem usa o Critical Cash">
+            <img src={heroA} alt="Dono de loja conferindo o caixa no celular" width={1024} height={768} className="float-a h-44 w-full rounded-3xl object-cover shadow-xl md:h-72" />
+            <img src={appPhone} alt="Aplicativo Critical Cash mostrando saldo positivo no celular" width={768} height={960} className="float-b h-44 w-full rounded-3xl object-cover shadow-xl md:h-72" />
+            <img src={heroB} alt="Profissional liberal planejando as finanças no notebook" loading="lazy" width={1024} height={768} className="float-c col-span-2 h-44 w-full rounded-3xl object-cover shadow-xl md:col-span-1 md:h-72" />
+          </div>
+          <div className="mx-auto mt-12 max-w-3xl text-center">
             <p className="inline-flex items-center gap-2 rounded-full bg-accent px-3 py-1 text-xs font-medium text-accent-foreground">
               <ShieldCheck className="h-3.5 w-3.5" />Para microempresas e profissionais liberais
             </p>
             <h1 className="mt-5 text-4xl font-bold leading-tight tracking-tight md:text-5xl">
               Saiba se o seu caixa fecha nos próximos 30 dias — e receba o que é seu sem esforço
             </h1>
-            <p className="mt-5 max-w-xl text-lg text-muted-foreground">
+            <p className="mx-auto mt-5 max-w-xl text-lg text-muted-foreground">
               Abra o app e veja em 5 segundos se vai faltar dinheiro. Enquanto isso, os lembretes de cobrança saem sozinhos para seus clientes.
             </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+            <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
               <Button asChild size="lg" className="h-12 rounded-xl px-6 text-base">
                 <Link to="/cadastro">Assinar com 20% off <ArrowRight className="ml-2 h-4 w-4" /></Link>
               </Button>
               <p className="self-center text-sm text-muted-foreground">20% off na 1ª assinatura no Pix · Cancele quando quiser</p>
             </div>
           </div>
-          <MovingGallery />
         </section>
 
         <section className="overflow-hidden border-y bg-card py-10" aria-label="Momentos financeiros">
