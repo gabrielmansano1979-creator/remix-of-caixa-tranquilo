@@ -11,6 +11,10 @@ import fin1 from "@/assets/fin-1.jpg";
 import fin2 from "@/assets/fin-2.jpg";
 import fin3 from "@/assets/fin-3.jpg";
 import fin4 from "@/assets/fin-4.jpg";
+import heroA from "@/assets/hero-a.jpg";
+import heroB from "@/assets/hero-b.jpg";
+import appPhone from "@/assets/app-phone.jpg";
+import appLaptop from "@/assets/app-laptop.jpg";
 import { formatBRL } from "@/lib/format";
 
 import ogBanner from "@/assets/critical-cash-og.jpg.asset.json";
