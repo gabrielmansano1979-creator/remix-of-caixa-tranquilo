@@ -251,20 +251,6 @@ function Landing() {
   );
 }
 
-function MovingGallery() {
-  return (
-    <div className="relative h-[460px] md:h-[540px]" aria-hidden="true">
-      <img src={fin1} alt="" width={768} height={960} className="float-a absolute left-0 top-0 h-64 w-48 rounded-3xl object-cover shadow-xl md:h-80 md:w-60" />
-      <img src={fin2} alt="" width={768} height={960} className="float-b absolute right-0 top-10 h-56 w-44 rounded-3xl object-cover shadow-xl md:h-72 md:w-56" />
-      <img src={fin4} alt="" width={768} height={960} className="float-c absolute bottom-0 left-1/4 h-48 w-56 rounded-3xl object-cover shadow-xl md:h-56 md:w-72" />
-      <div className="float-c absolute bottom-28 right-0 flex w-60 items-start gap-2 rounded-2xl border bg-card p-3 shadow-xl">
-        <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-warning" />
-        <p className="text-sm"><span className="font-semibold text-warning">Atenção</span><br />Caixa abaixo da reserva em 18/10</p>
-      </div>
-    </div>
-  );
-}
-
 function DashboardMockup() {
   const pts = [60, 52, 48, 40, 30, 22, 18, 26, 34, 42, 50, 46];
   const path = pts.map((y, i) => `${i === 0 ? "M" : "L"}${i * 28},${y}`).join(" ");
