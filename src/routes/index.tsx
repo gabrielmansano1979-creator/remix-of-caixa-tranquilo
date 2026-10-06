@@ -11,6 +11,10 @@ import fin1 from "@/assets/fin-1.jpg";
 import fin2 from "@/assets/fin-2.jpg";
 import fin3 from "@/assets/fin-3.jpg";
 import fin4 from "@/assets/fin-4.jpg";
+import heroA from "@/assets/hero-a.jpg";
+import heroB from "@/assets/hero-b.jpg";
+import appPhone from "@/assets/app-phone.jpg";
+import appLaptop from "@/assets/app-laptop.jpg";
 import { formatBRL } from "@/lib/format";
 
 import ogBanner from "@/assets/critical-cash-og.jpg.asset.json";
@@ -68,25 +72,29 @@ function Landing() {
       </header>
 
       <main>
-        <section className="mx-auto grid max-w-6xl items-center gap-12 px-4 py-14 md:grid-cols-2 md:py-24">
-          <div>
+        <section className="mx-auto max-w-6xl px-4 pb-14 pt-10 md:pb-24 md:pt-14">
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-3" aria-label="Quem usa o Critical Cash">
+            <img src={heroA} alt="Dono de loja conferindo o caixa no celular" width={1024} height={768} className="float-a h-44 w-full rounded-3xl object-cover shadow-xl md:h-72" />
+            <img src={appPhone} alt="Aplicativo Critical Cash mostrando saldo positivo no celular" width={768} height={960} className="float-b h-44 w-full rounded-3xl object-cover shadow-xl md:h-72" />
+            <img src={heroB} alt="Profissional liberal planejando as finanças no notebook" loading="lazy" width={1024} height={768} className="float-c col-span-2 h-44 w-full rounded-3xl object-cover shadow-xl md:col-span-1 md:h-72" />
+          </div>
+          <div className="mx-auto mt-12 max-w-3xl text-center">
             <p className="inline-flex items-center gap-2 rounded-full bg-accent px-3 py-1 text-xs font-medium text-accent-foreground">
               <ShieldCheck className="h-3.5 w-3.5" />Para microempresas e profissionais liberais
             </p>
             <h1 className="mt-5 text-4xl font-bold leading-tight tracking-tight md:text-5xl">
               Saiba se o seu caixa fecha nos próximos 30 dias — e receba o que é seu sem esforço
             </h1>
-            <p className="mt-5 max-w-xl text-lg text-muted-foreground">
+            <p className="mx-auto mt-5 max-w-xl text-lg text-muted-foreground">
               Abra o app e veja em 5 segundos se vai faltar dinheiro. Enquanto isso, os lembretes de cobrança saem sozinhos para seus clientes.
             </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+            <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
               <Button asChild size="lg" className="h-12 rounded-xl px-6 text-base">
                 <Link to="/cadastro">Assinar com 20% off <ArrowRight className="ml-2 h-4 w-4" /></Link>
               </Button>
               <p className="self-center text-sm text-muted-foreground">20% off na 1ª assinatura no Pix · Cancele quando quiser</p>
             </div>
           </div>
-          <MovingGallery />
         </section>
 
         <section className="overflow-hidden border-y bg-card py-10" aria-label="Momentos financeiros">
@@ -131,6 +139,45 @@ function Landing() {
               </li>
             ))}
           </ol>
+        </section>
+
+        <section className="border-y bg-card py-16" aria-label="Depoimentos de clientes">
+          <div className="mx-auto max-w-6xl px-4">
+            <h2 className="text-center text-3xl font-semibold tracking-tight">Quem usa, recomenda</h2>
+            <p className="mx-auto mt-3 max-w-xl text-center text-muted-foreground">Microempresários e profissionais liberais que trocaram o susto pela previsão.</p>
+            <div className="mt-10 grid gap-5 md:grid-cols-3">
+              {[
+                { nome: "Mariana L.", cargo: "Designer freelancer, São Paulo/SP", iniciais: "ML", texto: "Eu vivia apagando incêndio no fim do mês. Hoje abro o app de manhã e já sei se posso fechar um projeto novo. O semáforo virou meu termômetro." },
+                { nome: "Ricardo A.", cargo: "Dono de padaria, Belo Horizonte/MG", iniciais: "RA", texto: "As cobranças saem sozinhas e os clientes pagam sem eu precisar ligar. Recuperei em um mês o que estava parado há três." },
+                { nome: "Carla S.", cargo: "Consultora de marketing, Curitiba/PR", iniciais: "CS", texto: "Configurei em minutos importando minha planilha. O aviso de 'caixa negativo em 12 dias' me salvou de atrasar o aluguel do escritório." },
+              ].map((d) => (
+                <figure key={d.nome} className="flex flex-col rounded-2xl border bg-background p-6 shadow-[var(--shadow-soft)]">
+                  <div className="flex gap-1" aria-label="5 de 5 estrelas">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <svg key={i} viewBox="0 0 24 24" className="h-4 w-4 fill-[#fbbf24]" aria-hidden="true"><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7-6.2-3.7-6.2 3.7 1.6-7L2 9.2l7.1-.6z" /></svg>
+                    ))}
+                  </div>
+                  <blockquote className="mt-4 flex-1 text-sm leading-relaxed text-muted-foreground">“{d.texto}”</blockquote>
+                  <figcaption className="mt-5 flex items-center gap-3">
+                    <span className="grid h-10 w-10 place-items-center rounded-full bg-primary/10 text-sm font-semibold text-primary">{d.iniciais}</span>
+                    <span>
+                      <span className="block text-sm font-semibold">{d.nome}</span>
+                      <span className="block text-xs text-muted-foreground">{d.cargo}</span>
+                    </span>
+                  </figcaption>
+                </figure>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="mx-auto max-w-6xl px-4 py-16" aria-label="O aplicativo em uso">
+          <h2 className="text-center text-3xl font-semibold tracking-tight">Veja o Critical Cash em ação</h2>
+          <p className="mx-auto mt-3 max-w-xl text-center text-muted-foreground">No celular ou no computador: saldo, semáforo e contas a receber sempre à mão.</p>
+          <div className="mt-10 grid items-center gap-6 md:grid-cols-5">
+            <img src={appPhone} alt="Celular exibindo o saldo disponível e a evolução do caixa no Critical Cash" loading="lazy" width={768} height={960} className="float-a mx-auto w-full max-w-xs rounded-3xl object-cover shadow-xl md:col-span-2" />
+            <img src={appLaptop} alt="Notebook exibindo a lista de contas a receber do Critical Cash" loading="lazy" width={1024} height={768} className="float-b w-full rounded-3xl object-cover shadow-xl md:col-span-3" />
+          </div>
         </section>
 
         <section className="border-y bg-card py-16">
@@ -200,20 +247,6 @@ function Landing() {
           </nav>
         </div>
       </footer>
-    </div>
-  );
-}
-
-function MovingGallery() {
-  return (
-    <div className="relative h-[460px] md:h-[540px]" aria-hidden="true">
-      <img src={fin1} alt="" width={768} height={960} className="float-a absolute left-0 top-0 h-64 w-48 rounded-3xl object-cover shadow-xl md:h-80 md:w-60" />
-      <img src={fin2} alt="" width={768} height={960} className="float-b absolute right-0 top-10 h-56 w-44 rounded-3xl object-cover shadow-xl md:h-72 md:w-56" />
-      <img src={fin4} alt="" width={768} height={960} className="float-c absolute bottom-0 left-1/4 h-48 w-56 rounded-3xl object-cover shadow-xl md:h-56 md:w-72" />
-      <div className="float-c absolute bottom-28 right-0 flex w-60 items-start gap-2 rounded-2xl border bg-card p-3 shadow-xl">
-        <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-warning" />
-        <p className="text-sm"><span className="font-semibold text-warning">Atenção</span><br />Caixa abaixo da reserva em 18/10</p>
-      </div>
     </div>
   );
 }
