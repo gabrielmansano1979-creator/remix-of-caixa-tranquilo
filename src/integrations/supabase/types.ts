@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_feedback: {
+        Row: {
+          comment: string | null
+          created_at: string
+          dismissed: boolean
+          id: string
+          rating: number | null
+          user_id: string
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string
+          dismissed?: boolean
+          id?: string
+          rating?: number | null
+          user_id?: string
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string
+          dismissed?: boolean
+          id?: string
+          rating?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       asaas_events: {
         Row: {
           id: string
