@@ -15,59 +15,66 @@ export async function emailsUsedThisMonth(admin: Admin, userId: string) {
   return count ?? 0;
 }
 
-/** Envia um lembrete por WhatsApp e grava o log. Idempotência da régua via UNIQUE(entry_id, rule_id). */
-export async function sendOne(admin: Admin, args: {
-  profile: { user_id: string; business_name: string | null; reply_to_email: string | null };
-  entry: { id: string; description: string; amount_cents: number; due_date: string; counterparty_name: string | null; counterparty_whatsapp: string };
-  rule: { id: string | null; subject_tpl: string; body_tpl: string; offset_days: number };
-  manual?: boolean;
-}) {
-  const { profile, entry, rule } = args;
-  const to = entry.counterparty_whatsapp;
-  if (rule.id) {
-    const { error } = await admin.from("reminder_logs").insert({ user_id: profile.user_id, entry_id: entry.id, rule_id: rule.id, sent_to: to, status: "failed", error: "pending" });
-    if (error) return { skipped: true as const };
-  }
-  const empresa = profile.business_name ?? "Nosso negócio";
-  const vars = { cliente: entry.counterparty_name ?? "", valor: entry.amount_cents, vencimento: entry.due_date, descricao: entry.description, empresa };
-  const text = `*${renderTpl(rule.subject_tpl, vars, false)}*\n\n${renderTpl(rule.body_tpl, vars, false)}\n\n_Mensagem automática de ${empresa}. Responda SAIR para não receber mais lembretes._`;
-  const r = await sendWhatsApp(to, text);
-  const row = { status: r.ok ? "sent" : "failed", provider_id: r.ok ? r.id : null, delivery_status: r.ok ? "accepted" : null, error: r.ok ? null : r.error, sent_at: new Date().toISOString() };
-  if (rule.id) await admin.from("reminder_logs").update(row).eq("entry_id", entry.id).eq("rule_id", rule.id);
-  else await admin.from("reminder_logs").insert({ ...row, user_id: profile.user_id, entry_id: entry.id, rule_id: null, manual: !!args.manual, sent_to: to });
-  return r;
+type Channel = 'email' | 'whatsapp';
+type ReminderArgs = {
+ profile: { user_id: string; business_name: string | null; reply_to_email: string | null };
+ entry: { id: string; description: string; amount_cents: number; due_date: string; counterparty_name: string | null; counterparty_whatsapp?: string | null; counterparty_email?: string | null; pix_url?: string | null };
+ rule: { id: string | null; subject_tpl: string; body_tpl: string; offset_days: number; channel?: string };
+ manual?: boolean; channel?: Channel;
+};
+/** One delivery per channel, independently claimed before contacting a provider. */
+export async function sendOne(admin: Admin, args: ReminderArgs) {
+ const { profile, entry, rule } = args;
+ const channel = args.channel ?? 'whatsapp';
+ const to = channel === 'email' ? entry.counterparty_email : entry.counterparty_whatsapp;
+ if (!to) return { skipped: true as const };
+ const { data: blocked } = await admin.from('unsubscribed_emails').select('email').eq('user_id',profile.user_id).eq('email',to.toLowerCase()).maybeSingle();
+ if (blocked) return { skipped: true as const };
+ const { data: claim, error: claimError } = await admin.from('reminder_logs').insert({user_id:profile.user_id,entry_id:entry.id,rule_id:null,stage_rule_id:rule.id,channel,sent_to:to,status:'failed',error:'pending',manual:!!args.manual}).select('id').single();
+ if (claimError || !claim) return { skipped: true as const };
+ const empresa = profile.business_name ?? 'Nosso negócio';
+ const vars = {cliente:entry.counterparty_name ?? '',valor:entry.amount_cents,vencimento:entry.due_date,descricao:entry.description,empresa,link_pix:entry.pix_url ?? ''};
+ let r: {ok:true;id:string|null} | {ok:false;error:string};
+ try {
+   if(channel === 'email') {
+     const { reminderEmail, signUnsub } = await import('./email.server');
+     const m = reminderEmail({subjectTpl:rule.subject_tpl,bodyTpl:rule.body_tpl,offset:rule.offset_days,vars,replyTo:profile.reply_to_email ?? '',unsubscribeUrl:appUrl()+'/api/public/unsubscribe?token='+encodeURIComponent(signUnsub(profile.user_id,to))});
+     r = await sendResend({from:fromAddress(empresa),to,replyTo:profile.reply_to_email ?? undefined,...m});
+   } else {
+     const text = `*${renderTpl(rule.subject_tpl,vars,false)}*\n\n${renderTpl(rule.body_tpl,vars,false)}\n\n_Mensagem automática de ${empresa}. Responda SAIR para não receber mais lembretes._`;
+     r = await sendWhatsApp(to,text);
+   }
+ } catch { r = {ok:false,error:'Serviço de envio indisponível.'}; }
+ await admin.from('reminder_logs').update({status:r.ok?'sent':'failed',provider_id:r.ok?r.id:null,delivery_status:r.ok?'accepted':null,error:r.ok?null:r.error,sent_at:new Date().toISOString()}).eq('id',claim.id);
+ return r;
 }
 
 export async function runDailyReminders(admin: Admin) {
-  const today = todaySP();
-  const stats = { sent: 0, failed: 0, skipped: 0, users: 0 };
-  const { data: profiles } = await admin.from("profiles").select("user_id, business_name, reply_to_email, reminders_enabled").eq("reminders_enabled", true);
-  for (const p of profiles ?? []) {
-    const { data: acc } = await admin.rpc("get_access", { _user_id: p.user_id });
-    const access = acc as { can_write: boolean; status: string; limits: { emails_per_month: number } } | null;
-    if (!access?.can_write || !["trialing", "active", "past_due", "canceled"].includes(access.status)) continue;
-    stats.users++;
-    const [{ data: rules }, { data: entries }, { data: unsubs }] = await Promise.all([
-      admin.from("reminder_rules").select("*").eq("user_id", p.user_id).eq("active", true),
-      admin.from("entries").select("id, description, amount_cents, due_date, counterparty_name, counterparty_whatsapp").eq("user_id", p.user_id).eq("type", "income").eq("status", "pending").eq("reminders_muted", false).not("counterparty_whatsapp", "is", null),
-      admin.from("unsubscribed_emails").select("email").eq("user_id", p.user_id),
-    ]);
-    if (!rules?.length || !entries?.length) continue;
-    const blocked = new Set((unsubs ?? []).map((u) => u.email.toLowerCase()));
-    let used = await emailsUsedThisMonth(admin, p.user_id);
-    const quota = access.limits.emails_per_month;
-    for (const e of entries) {
-      if (!e.counterparty_whatsapp || blocked.has(e.counterparty_whatsapp)) continue;
-      const diff = daysBetween(today, e.due_date);
-      const rule = rules.find((r) => r.offset_days === diff);
-      if (!rule) continue;
-      if (used >= quota) { stats.skipped++; continue; }
-      const r = await sendOne(admin, { profile: p, entry: { ...e, counterparty_whatsapp: e.counterparty_whatsapp! }, rule });
-      if ("skipped" in r) { stats.skipped++; continue; }
-      if (r.ok) { stats.sent++; used++; } else stats.failed++;
-    }
-  }
-  return stats;
+ const today = todaySP(); const stats = {sent:0,failed:0,skipped:0,users:0};
+ const {data:profiles} = await admin.from('profiles').select('user_id,business_name,reply_to_email,reminders_enabled').eq('reminders_enabled',true);
+ for(const p of profiles ?? []) {
+   const {data:acc} = await admin.rpc('get_access',{_user_id:p.user_id});
+   const access = acc as {can_write:boolean;plan:string;limits:{emails_per_month:number}} | null;
+   if(!access?.can_write) continue;
+   stats.users++;
+   const [{data:rules},{data:entries}] = await Promise.all([
+     admin.from('reminder_rules').select('*').eq('user_id',p.user_id).eq('active',true),
+     admin.from('entries').select('id,description,amount_cents,due_date,counterparty_name,counterparty_whatsapp,counterparty_email,pix_url').eq('user_id',p.user_id).eq('type','income').eq('status','pending').eq('reminders_muted',false)
+   ]);
+   let used = await emailsUsedThisMonth(admin,p.user_id);
+   for(const e of entries ?? []) {
+     const matching = (rules ?? []).filter(r=>r.offset_days===daysBetween(today,e.due_date));
+     for(const rule of matching) {
+       const channels: Channel[] = access.plan==='starter' ? ['email'] : rule.channel==='both' ? ['email','whatsapp'] : [rule.channel==='email'?'email':'whatsapp'];
+       for(const channel of channels) {
+         if(used >= access.limits.emails_per_month) {stats.skipped++;continue;}
+         const r = await sendOne(admin,{profile:p,entry:e,rule,channel});
+         if('skipped' in r) stats.skipped++; else if(r.ok) {stats.sent++;used++;} else stats.failed++;
+       }
+     }
+   }
+ }
+ return stats;
 }
 
 /** E-mails do sistema: boas-vindas, trial acabando (2 dias), trial encerrado. */

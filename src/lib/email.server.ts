@@ -7,13 +7,13 @@ export const esc = (s: string) =>
 const brl = (c: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(c / 100);
 const dt = (iso: string) => iso.split("-").reverse().join("/");
 
-export interface TplVars { cliente: string; valor: number; vencimento: string; descricao: string; empresa: string }
+export interface TplVars { cliente: string; valor: number; vencimento: string; descricao: string; empresa: string; link_pix?: string }
 
 /** Substitui variáveis com valores ESCAPADOS (o template em si também é escapado). */
 export function renderTpl(tpl: string, v: TplVars, html: boolean) {
-  const map: Record<string, string> = { cliente: v.cliente || "cliente", valor: brl(v.valor), vencimento: dt(v.vencimento), descricao: v.descricao, empresa: v.empresa };
+  const map: Record<string, string> = { cliente: v.cliente || "cliente", valor: brl(v.valor), vencimento: dt(v.vencimento), descricao: v.descricao, empresa: v.empresa, nome_cliente: v.cliente || "cliente", data_vencimento: dt(v.vencimento), link_pix: v.link_pix ?? "" };
   const base = html ? esc(tpl) : tpl;
-  return base.replace(/\{\{\s*(cliente|valor|vencimento|descricao|empresa)\s*\}\}/g, (_m, k: string) => (html ? `<strong>${esc(map[k] ?? "")}</strong>` : map[k] ?? ""));
+  return base.replace(/\{\{?\s*(cliente|nome_cliente|valor|vencimento|data_vencimento|descricao|empresa|link_pix)\s*\}\}?/g, (_m, k: string) => (html ? `<strong>${esc(map[k] ?? "")}</strong>` : map[k] ?? ""));
 }
 
 const STAGES = {

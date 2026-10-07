@@ -8,6 +8,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { parseDbError } from "@/lib/app-data";
 import { useEntitlements } from "@/hooks/use-entitlements";
 import { sendTest } from "@/lib/reminders.functions";
+import { ReminderPreview } from "@/components/reminder-preview";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { formatBRL } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -22,8 +24,8 @@ export const Route = createFileRoute("/_authenticated/_app/lembretes")({
   component: LembretesPage,
 });
 
-type Rule = { id: string; label: string; offset_days: number; subject_tpl: string; body_tpl: string; active: boolean };
-const VARS = ["cliente", "valor", "vencimento", "descricao", "empresa"] as const;
+type Rule = { id: string; label: string; offset_days: number; subject_tpl: string; body_tpl: string; active: boolean; channel: "email" | "whatsapp" | "both" };
+const VARS = ["cliente", "valor", "vencimento", "descricao", "empresa", "link_pix"] as const;
 const offsetLabel = (n: number) => (n < 0 ? `${-n} dia(s) antes` : n === 0 ? "No dia do vencimento" : `${n} dia(s) após`);
 
 function preview(tpl: string, empresa: string) {
@@ -39,7 +41,7 @@ function LembretesPage() {
     return data as Rule[];
   } });
   const logs = useQuery({ queryKey: ["recent-logs"], queryFn: async () => {
-    const { data, error } = await supabase.from("reminder_logs").select("id, status, sent_to, sent_at, manual, entries(description)").neq("error", "pending").order("sent_at", { ascending: false }).limit(15);
+    const { data, error } = await supabase.from("reminder_logs").select("id, status, sent_to, sent_at, manual, channel, entries(description)").or("error.is.null,error.neq.pending").order("sent_at", { ascending: false }).limit(15);
     if (error) throw error;
     return data;
   } });
@@ -57,7 +59,7 @@ function LembretesPage() {
 
       <section className="rounded-2xl border bg-card p-5 shadow-[var(--shadow-soft)]">
         <div className="flex items-center justify-between text-sm">
-          <span className="font-medium">E-mails enviados este mês</span>
+          <span className="font-medium">Lembretes enviados este mês</span>
           <span className="num">{used} de {quota}</span>
         </div>
         <Progress value={quota ? Math.min(100, (used / quota) * 100) : 0} className="mt-2 h-2" aria-label="Uso mensal de e-mails" />
@@ -92,7 +94,7 @@ function LembretesPage() {
                 <li key={l.id} className="flex items-center justify-between gap-3 py-2.5">
                   <div className="min-w-0">
                     <p className="truncate font-medium">{(l.entries as { description?: string } | null)?.description ?? "—"}{l.manual ? " · manual" : ""}</p>
-                    <p className="truncate text-xs text-muted-foreground">{l.sent_to} · {new Date(l.sent_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}</p>
+                    <p className="truncate text-xs text-muted-foreground">{l.channel === "email" ? "E-mail" : "WhatsApp"} · {l.sent_to} · {new Date(l.sent_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}</p>
                   </div>
                   {l.status === "sent" ? <span className="flex shrink-0 items-center gap-1 text-success"><CheckCircle2 className="h-4 w-4" />Enviado</span>
                     : <span className="flex shrink-0 items-center gap-1 text-danger"><AlertTriangle className="h-4 w-4" />{l.status === "bounced" ? "Devolvido" : "Falhou"}</span>}
@@ -153,7 +155,8 @@ function RuleCard({ rule, canDays, canTexts, empresa }: { rule: Rule; canDays: b
           <Switch id={`act-${rule.id}`} checked={rule.active} disabled={!canDays || save.isPending} onCheckedChange={(v) => save.mutate({ active: v })} />
         </div>
       </div>
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="mt-4"><Label htmlFor={`channel-${rule.id}`}>Canal de envio</Label><Select value={canDays ? rule.channel : 'email'} disabled={!canDays || save.isPending} onValueChange={v => save.mutate({channel: v as Rule['channel']})}><SelectTrigger id={`channel-${rule.id}`} className="mt-2 min-h-11"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="email">Somente E-mail</SelectItem><SelectItem value="whatsapp">WhatsApp</SelectItem><SelectItem value="both">E-mail + WhatsApp</SelectItem></SelectContent></Select></div>
+       <div className="mt-3 flex flex-wrap gap-2"><ReminderPreview modal company={empresa} subject={subject} body={body} />
         <Button size="sm" variant="ghost" className="h-10" onClick={() => setOpen(!open)}>{open ? "Fechar" : canDays ? "Editar" : "Ver e-mail"}</Button>
         <Button size="sm" variant="outline" className="h-10 rounded-lg" disabled={sendT.isPending} onClick={() => sendT.mutate()}><Send className="mr-1 h-4 w-4" />Enviar e-mail de teste para mim</Button>
       </div>
