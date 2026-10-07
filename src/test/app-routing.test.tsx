@@ -6,6 +6,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { routeTree } from "@/routeTree.gen";
 
 function renderAt(path: string) {
+  // SSR owns the document shell; a browser unit test mounts only its children.
+  routeTree.update({ shellComponent: ({ children }) => <>{children}</> });
   const queryClient = new QueryClient();
   const router = createRouter({
     routeTree,

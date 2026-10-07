@@ -24,6 +24,7 @@ const schema = z
     counterparty_name: z.string().trim().max(120),
     counterparty_email: z.string().trim().max(255).email("E-mail inválido.").or(z.literal("")),
     counterparty_whatsapp: z.string().trim().max(25).refine((v) => !v || toE164(v), "WhatsApp inválido. Use DDD + número."),
+    pix_url: z.string().trim().max(2000).url("Informe um link válido.").refine(v => v.startsWith("https://"), "Use um link https.").or(z.literal("")),
   });
 type FormV = z.infer<typeof schema>;
 
@@ -36,7 +37,7 @@ export function EntryFormDialog({ open, onOpenChange, entry, onLimit }: {
   const addAnother = useRef(false);
   const blank = (): FormV => ({
     type: (typeof window !== "undefined" && (localStorage.getItem(LAST_TYPE) as "income" | "expense")) || "income",
-    description: "", amount_cents: 0, due_date: todaySP(), counterparty_name: "", counterparty_email: "", counterparty_whatsapp: "",
+    description: "", amount_cents: 0, due_date: todaySP(), counterparty_name: "", counterparty_email: "", counterparty_whatsapp: "", pix_url: "",
   });
   const form = useForm<FormV>({ resolver: zodResolver(schema), defaultValues: blank() });
   const { register, handleSubmit, control, formState, watch, setValue, reset, setFocus } = form;
@@ -46,13 +47,14 @@ export function EntryFormDialog({ open, onOpenChange, entry, onLimit }: {
     reset(entry ? {
       type: entry.type, description: entry.description, amount_cents: entry.amount_cents, due_date: entry.due_date,
       counterparty_name: entry.counterparty_name ?? "", counterparty_email: entry.counterparty_email ?? "", counterparty_whatsapp: entry.counterparty_whatsapp ?? "",
+      pix_url: entry.pix_url ?? "",
     } : blank());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, entry]);
 
   const save = useMutation({
     mutationFn: async (v: FormV) => {
-      const payload = { ...v, counterparty_email: v.counterparty_email.toLowerCase() || null, counterparty_name: v.counterparty_name || null, counterparty_whatsapp: toE164(v.counterparty_whatsapp) };
+      const payload = { ...v, pix_url: v.pix_url || null, counterparty_email: v.counterparty_email.toLowerCase() || null, counterparty_name: v.counterparty_name || null, counterparty_whatsapp: toE164(v.counterparty_whatsapp) };
       const { error } = entry
         ? await supabase.from("entries").update(payload).eq("id", entry.id)
         : await supabase.from("entries").insert(payload);
