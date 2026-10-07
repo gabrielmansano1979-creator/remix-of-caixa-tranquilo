@@ -12,7 +12,7 @@ export function SupportChat() {
   const [busy, setBusy] = useState(false);
   const ask = useServerFn(askSupport);
   const end = useRef<HTMLDivElement>(null);
-  useEffect(() => end.current?.scrollIntoView({ behavior: "smooth" }), [msgs, open]);
+  useEffect(() => { end.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs, open]);
 
   const send = async () => {
     const t = text.trim();
