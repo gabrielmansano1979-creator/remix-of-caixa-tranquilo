@@ -243,7 +243,7 @@ function Landing() {
           <nav className="flex gap-5">
             <Link to="/termos" className="hover:text-foreground">Termos</Link>
             <Link to="/privacidade" className="hover:text-foreground">Privacidade</Link>
-            <a href="mailto:contato@caixacritico.com.br" className="hover:text-foreground">Contato</a>
+            <a href="mailto:criticalcash2026@gmail.com" className="hover:text-foreground">Contato</a>
           </nav>
         </div>
       </footer>

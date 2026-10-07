@@ -27,7 +27,7 @@ export const Route = createFileRoute("/privacidade")({
       <h2>6. Descadastro de lembretes</h2>
       <p>Todo e-mail de cobrança contém um link para o destinatário deixar de receber lembretes.</p>
       <h2>7. Encarregado (DPO)</h2>
-      <p>[Nome do encarregado] — [dpo@seudominio.com.br]</p>
+      <p>[Nome do encarregado] — [criticalcash2026@gmail.com]</p>
     </LegalPage>
   ),
 });
