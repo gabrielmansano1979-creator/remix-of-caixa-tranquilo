@@ -94,6 +94,7 @@ export type Database = {
           due_date: string
           id: string
           paid_at: string | null
+          pix_url: string | null
           reminders_muted: boolean
           status: Database["public"]["Enums"]["entry_status"]
           type: Database["public"]["Enums"]["entry_type"]
@@ -109,6 +110,7 @@ export type Database = {
           due_date: string
           id?: string
           paid_at?: string | null
+          pix_url?: string | null
           reminders_muted?: boolean
           status?: Database["public"]["Enums"]["entry_status"]
           type: Database["public"]["Enums"]["entry_type"]
@@ -124,6 +126,7 @@ export type Database = {
           due_date?: string
           id?: string
           paid_at?: string | null
+          pix_url?: string | null
           reminders_muted?: boolean
           status?: Database["public"]["Enums"]["entry_status"]
           type?: Database["public"]["Enums"]["entry_type"]
@@ -137,7 +140,9 @@ export type Database = {
           business_name: string | null
           created_at: string
           cushion_cents: number
+          full_name: string | null
           initial_balance_cents: number
+          notification_whatsapp: string | null
           notify_product_emails: boolean
           onboarding_done: boolean
           reminders_enabled: boolean
@@ -153,7 +158,9 @@ export type Database = {
           business_name?: string | null
           created_at?: string
           cushion_cents?: number
+          full_name?: string | null
           initial_balance_cents?: number
+          notification_whatsapp?: string | null
           notify_product_emails?: boolean
           onboarding_done?: boolean
           reminders_enabled?: boolean
@@ -169,7 +176,9 @@ export type Database = {
           business_name?: string | null
           created_at?: string
           cushion_cents?: number
+          full_name?: string | null
           initial_balance_cents?: number
+          notification_whatsapp?: string | null
           notify_product_emails?: boolean
           onboarding_done?: boolean
           reminders_enabled?: boolean
@@ -184,6 +193,7 @@ export type Database = {
       }
       reminder_logs: {
         Row: {
+          channel: string
           delivery_status: string | null
           delivery_status_at: string | null
           entry_id: string
@@ -194,10 +204,12 @@ export type Database = {
           rule_id: string | null
           sent_at: string
           sent_to: string
+          stage_rule_id: string | null
           status: Database["public"]["Enums"]["reminder_status"]
           user_id: string
         }
         Insert: {
+          channel?: string
           delivery_status?: string | null
           delivery_status_at?: string | null
           entry_id: string
@@ -208,10 +220,12 @@ export type Database = {
           rule_id?: string | null
           sent_at?: string
           sent_to: string
+          stage_rule_id?: string | null
           status: Database["public"]["Enums"]["reminder_status"]
           user_id: string
         }
         Update: {
+          channel?: string
           delivery_status?: string | null
           delivery_status_at?: string | null
           entry_id?: string
@@ -222,6 +236,7 @@ export type Database = {
           rule_id?: string | null
           sent_at?: string
           sent_to?: string
+          stage_rule_id?: string | null
           status?: Database["public"]["Enums"]["reminder_status"]
           user_id?: string
         }
@@ -240,12 +255,20 @@ export type Database = {
             referencedRelation: "reminder_rules"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "reminder_logs_stage_rule_id_fkey"
+            columns: ["stage_rule_id"]
+            isOneToOne: false
+            referencedRelation: "reminder_rules"
+            referencedColumns: ["id"]
+          },
         ]
       }
       reminder_rules: {
         Row: {
           active: boolean
           body_tpl: string
+          channel: string
           created_at: string
           id: string
           label: string
@@ -256,6 +279,7 @@ export type Database = {
         Insert: {
           active?: boolean
           body_tpl: string
+          channel?: string
           created_at?: string
           id?: string
           label: string
@@ -266,6 +290,7 @@ export type Database = {
         Update: {
           active?: boolean
           body_tpl?: string
+          channel?: string
           created_at?: string
           id?: string
           label?: string
