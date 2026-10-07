@@ -8,6 +8,8 @@ export const Route = createFileRoute("/termos")({
       { name: "description", content: "Termos de uso do Critical Cash, previsão de caixa e cobrança automática." },
       { property: "og:title", content: "Termos de Uso — Critical Cash" },
       { property: "og:description", content: "Condições de uso do serviço Critical Cash." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
     links: [{ rel: "canonical", href: "/termos" }],
   }),

@@ -14,6 +14,12 @@ Antes de planejar ou alterar arquivos, leia `CLAUDE.md` integralmente. Ele cont√
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
 
+## Application architecture
+- Keep PLG trial defaults in database setup and client plan configuration together, so access and offers cannot diverge.
+- Store new reminder deliveries with stage_rule_id and channel; keep legacy rule_id null on new deliveries to preserve per-channel idempotency without breaking historical records.
+- Persist onboarding profile and financial inputs through authenticated database access; derive the semaphore from cash_projection rather than simulated state.
+- Use the shared ReminderPreview for public examples and in-app previews, so both channel renderings remain consistent.
+
 <!-- CRIEFY:MEMORIA:INICIO -->
 # Mem√≥ria do projeto (mantida pelo CrieFy)
 

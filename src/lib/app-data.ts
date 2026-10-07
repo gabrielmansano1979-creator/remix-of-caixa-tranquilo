@@ -52,6 +52,7 @@ export type Entry = {
   counterparty_name: string | null;
   counterparty_email: string | null;
   counterparty_whatsapp: string | null;
+  pix_url?: string | null;
   status: "pending" | "paid";
   paid_at: string | null;
   reminders_muted: boolean;

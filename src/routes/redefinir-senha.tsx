@@ -18,6 +18,8 @@ export const Route = createFileRoute("/redefinir-senha")({
       { property: "og:title", content: "Nova senha — Critical Cash" },
       { property: "og:description", content: "Defina uma nova senha para sua conta." },
       { name: "robots", content: "noindex" },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: ResetPage,

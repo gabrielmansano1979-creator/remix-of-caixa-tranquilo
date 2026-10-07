@@ -8,6 +8,8 @@ export const Route = createFileRoute("/privacidade")({
       { name: "description", content: "Como o Critical Cash trata seus dados pessoais conforme a LGPD." },
       { property: "og:title", content: "Política de Privacidade — Critical Cash" },
       { property: "og:description", content: "Tratamento de dados pessoais conforme a LGPD." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
     links: [{ rel: "canonical", href: "/privacidade" }],
   }),

@@ -132,6 +132,7 @@ export function EntryFormDialog({ open, onOpenChange, entry, onLimit }: {
             <Input id="cp_email" type="email" className="mt-1.5 h-11 rounded-xl" {...register("counterparty_email")} />
             <FieldError msg={formState.errors.counterparty_email?.message} />
           </div>
+          <div><Label htmlFor="pix_url">Link Pix do cliente (opcional)</Label><Input id="pix_url" type="url" maxLength={2000} className="mt-1.5 h-11" {...register("pix_url")} /><FieldError msg={formState.errors.pix_url?.message} /></div>
           <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row">
             {!entry && (
               <Button type="button" variant="outline" className="h-11 flex-1 rounded-xl" disabled={save.isPending} onClick={() => submit(true)}>

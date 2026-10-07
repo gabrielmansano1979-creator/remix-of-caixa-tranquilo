@@ -26,7 +26,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 
 export const Route = createFileRoute("/_authenticated/_app/contas")({
   validateSearch: z.object({ novo: z.number().optional(), importar: z.number().optional() }),
-  head: () => ({ meta: [{ title: "Contas — Critical Cash" }, { name: "robots", content: "noindex" }] }),
+  head: () => ({ meta: [{ title: "Contas — Critical Cash" }, { name: "description", content: "Acompanhe suas contas, vencimentos e envios de cobrança." }, { property: "og:title", content: "Contas — Critical Cash" }, { property: "og:description", content: "Acompanhe suas contas, vencimentos e envios de cobrança." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }, { name: "robots", content: "noindex" }] }),
   component: ContasPage,
 });
 

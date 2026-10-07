@@ -20,7 +20,7 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export const Route = createFileRoute("/_authenticated/_app/lembretes")({
-  head: () => ({ meta: [{ title: "Lembretes — Critical Cash" }, { name: "robots", content: "noindex" }] }),
+  head: () => ({ meta: [{ title: "Lembretes — Critical Cash" }, { name: "description", content: "Configure seus lembretes de cobrança por E-mail e WhatsApp." }, { property: "og:title", content: "Lembretes — Critical Cash" }, { property: "og:description", content: "Configure seus lembretes de cobrança por E-mail e WhatsApp." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }, { name: "robots", content: "noindex" }] }),
   component: LembretesPage,
 });
 

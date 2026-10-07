@@ -20,7 +20,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 
 export const Route = createFileRoute("/_authenticated/_app/assinatura")({
   validateSearch: z.object({ sucesso: z.number().optional() }),
-  head: () => ({ meta: [{ title: "Assinatura — Critical Cash" }, { name: "robots", content: "noindex" }] }),
+  head: () => ({ meta: [{ title: "Assinatura — Critical Cash" }, { name: "description", content: "Gerencie sua assinatura e o período de teste do Critical Cash." }, { property: "og:title", content: "Assinatura — Critical Cash" }, { property: "og:description", content: "Gerencie sua assinatura e o período de teste do Critical Cash." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }, { name: "robots", content: "noindex" }] }),
   component: AssinaturaPage,
 });
 

@@ -18,7 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 export const Route = createFileRoute("/_authenticated/_app/caixa")({
-  head: () => ({ meta: [{ title: "Caixa — Critical Cash" }, { name: "robots", content: "noindex" }] }),
+  head: () => ({ meta: [{ title: "Caixa — Critical Cash" }, { name: "description", content: "Confira a previsão do seu caixa para os próximos 30 dias." }, { property: "og:title", content: "Caixa — Critical Cash" }, { property: "og:description", content: "Confira a previsão do seu caixa para os próximos 30 dias." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }, { name: "robots", content: "noindex" }] }),
   component: CaixaPage,
 });
 
