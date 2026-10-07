@@ -38,7 +38,7 @@ export function CsvImportDialog({ open, onOpenChange, onLimit }: { open: boolean
   const imp = useMutation({
     mutationFn: async () => {
       if (valid.length > maxRows) throw new Error("LIMIT_CSV");
-      const { data, error } = await supabase.rpc("import_entries", { _rows: valid.map((r) => r.value!) });
+      const { data, error } = await supabase.rpc("import_entries", { _rows: valid.flatMap((r) => r.value ? [r.value] : []) });
       if (error) throw error;
       return data as number;
     },

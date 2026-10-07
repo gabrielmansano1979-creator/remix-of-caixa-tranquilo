@@ -24,8 +24,7 @@ const schema = z
     counterparty_name: z.string().trim().max(120),
     counterparty_email: z.string().trim().max(255).email("E-mail inválido.").or(z.literal("")),
     counterparty_whatsapp: z.string().trim().max(25).refine((v) => !v || toE164(v), "WhatsApp inválido. Use DDD + número."),
-  })
-  .refine((d) => d.type === "expense" || d.counterparty_whatsapp, { message: "WhatsApp obrigatório para contas a receber.", path: ["counterparty_whatsapp"] });
+  });
 type FormV = z.infer<typeof schema>;
 
 const LAST_TYPE = "cc:lastType";
@@ -123,7 +122,7 @@ export function EntryFormDialog({ open, onOpenChange, entry, onLimit }: {
           <div>
             <Label htmlFor="cp_wa">WhatsApp {type === "income" ? "do cliente" : "(opcional)"}</Label>
             <Input id="cp_wa" type="tel" inputMode="tel" placeholder="(11) 98765-4321" autoComplete="tel" className="mt-1.5 h-11 rounded-xl" {...register("counterparty_whatsapp")} />
-            <p className="mt-1 text-xs text-muted-foreground">As cobranças automáticas são enviadas para este número.</p>
+            <p className="mt-1 text-xs text-muted-foreground">Preencha para enviar lembretes pelo WhatsApp.</p>
             <FieldError msg={formState.errors.counterparty_whatsapp?.message} />
           </div>
           <div>
