@@ -12,7 +12,7 @@ export function Logo({ to = "/" }: { to?: "/" | "/caixa" }) {
         alt=""
         width={512}
         height={512}
-        className="h-8 w-8 shrink-0 object-contain"
+        className="h-11 w-11 shrink-0 object-contain"
       />
       <span>Critical Cash</span>
     </Link>
