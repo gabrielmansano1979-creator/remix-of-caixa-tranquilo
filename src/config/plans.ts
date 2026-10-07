@@ -18,7 +18,7 @@ export interface PlanConfig {
   features: string[];
 }
 
-export const TRIAL_DAYS = 0; // cobrança desde o primeiro acesso
+export const TRIAL_DAYS = 7; // teste sem cartão, com recursos Pro
 /** Desconto da primeira assinatura paga via Pix. */
 export const FIRST_PIX_DISCOUNT = 0.2;
 export const TRIAL_PLAN: PlanId = "pro";
@@ -51,6 +51,7 @@ export const PLANS: PlanConfig[] = [
     features: [
       "Até 500 contas pendentes",
       "800 e-mails de cobrança/mês",
+      "Lembretes por E-mail e WhatsApp",
       "Importação CSV (até 500 linhas)",
       "Edite dias e ative/desative etapas",
       "Projeção de 15 e 30 dias",
@@ -67,6 +68,7 @@ export const PLANS: PlanConfig[] = [
     features: [
       "Até 2.000 contas pendentes",
       "4.000 e-mails de cobrança/mês",
+      "Lembretes por E-mail e WhatsApp",
       "Importação CSV (até 2.000 linhas)",
       "Edite textos e remetente com seu nome",
       "Projeção de 15 e 30 dias",
@@ -76,7 +78,11 @@ export const PLANS: PlanConfig[] = [
   },
 ];
 
-export const getPlan = (id: PlanId) => PLANS.find((p) => p.id === id)!;
+export const getPlan = (id: PlanId) => {
+  const plan = PLANS.find((p) => p.id === id);
+  if (!plan) throw new Error("Plano inválido");
+  return plan;
+};
 
 // IDs de preço do Stripe (modo teste). Substitua pelos IDs criados no seu painel Stripe.
 // Também podem ser sobrescritos no servidor pelos secrets STRIPE_PRICE_<PLANO>_<MONTH|YEAR>.
