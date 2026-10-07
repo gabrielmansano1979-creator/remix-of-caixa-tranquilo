@@ -13,10 +13,10 @@ import { Button } from "@/components/ui/button";
 export const Route = createFileRoute("/cadastro")({
   head: () => ({
     meta: [
-      { title: "Criar conta — 7 dias grátis | Critical Cash" },
-      { name: "description", content: "Teste o Critical Cash por 7 dias, sem cartão de crédito." },
+      { title: "Criar conta | Critical Cash" },
+      { name: "description", content: "Crie sua conta e assine a partir de hoje. A primeira assinatura paga no Pix sai com 20% de desconto." },
       { property: "og:title", content: "Criar conta — Critical Cash" },
-      { property: "og:description", content: "Teste grátis por 7 dias, sem cartão." },
+      { property: "og:description", content: "Primeira assinatura no Pix com 20% de desconto. Cancele quando quiser." },
     ],
   }),
   component: SignupPage,
@@ -54,7 +54,7 @@ function SignupPage() {
         <div className="flex flex-col items-center text-center">
           <span className="grid h-14 w-14 place-items-center rounded-full bg-accent text-accent-foreground"><MailCheck className="h-7 w-7" /></span>
           <p className="mt-4 text-sm text-muted-foreground">
-            Enviamos um link para <strong className="text-foreground">{sentTo}</strong>. Clique nele para ativar sua conta e começar seus 7 dias grátis.
+            Enviamos um link para <strong className="text-foreground">{sentTo}</strong>. Clique nele para ativar sua conta e escolher seu plano.
           </p>
           <Link to="/login" className="mt-6 text-sm font-medium text-primary hover:underline">Ir para o login</Link>
         </div>
@@ -64,8 +64,8 @@ function SignupPage() {
 
   return (
     <AuthShell
-      title="Comece seus 7 dias grátis"
-      subtitle="Sem cartão de crédito. Cancele quando quiser."
+      title="Crie sua conta"
+      subtitle="A cobrança começa no primeiro acesso. Sua primeira assinatura no Pix tem 20% de desconto."
       footer={<>Já tem conta? <Link to="/login" className="font-medium text-primary hover:underline">Entrar</Link></>}
     >
       <GoogleButton label="Cadastrar com Google" />
@@ -89,7 +89,7 @@ function SignupPage() {
         </div>
         {error && <p className="rounded-xl bg-danger/10 p-3 text-sm text-danger" role="alert">{error}</p>}
         <Button type="submit" className="h-11 w-full rounded-xl" disabled={formState.isSubmitting}>
-          {formState.isSubmitting ? "Criando conta…" : "Criar conta grátis"}
+          {formState.isSubmitting ? "Criando conta…" : "Criar conta"}
         </Button>
         <p className="text-center text-xs text-muted-foreground">
           Ao criar a conta você aceita os <Link to="/termos" className="underline">Termos</Link> e a <Link to="/privacidade" className="underline">Política de Privacidade</Link>.

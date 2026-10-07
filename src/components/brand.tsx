@@ -2,13 +2,18 @@ import { Link } from "@tanstack/react-router";
 import { Moon, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import appIcon from "@/assets/app-icon.png.asset.json";
 
 export function Logo({ to = "/" }: { to?: "/" | "/caixa" }) {
   return (
     <Link to={to} className="flex items-center gap-2 font-semibold tracking-tight">
-      <span className="grid h-8 w-8 place-items-center rounded-lg bg-primary text-primary-foreground text-sm font-bold">
-        C
-      </span>
+      <img
+        src={appIcon.url}
+        alt=""
+        width={512}
+        height={512}
+        className="h-11 w-11 shrink-0 object-contain"
+      />
       <span>Critical Cash</span>
     </Link>
   );
