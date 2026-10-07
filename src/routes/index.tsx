@@ -233,6 +233,10 @@ function Landing() {
             <Button asChild size="lg" variant="secondary" className="mt-6 h-12 rounded-xl px-6 text-base">
               <Link to="/cadastro">Assinar com 20% off no Pix</Link>
             </Button>
+            <p className="mt-5 text-sm opacity-90">
+              Ficou com dúvida? Fale com a gente:{" "}
+              <a href="mailto:criticalcash2026@gmail.com" className="font-medium underline underline-offset-4">criticalcash2026@gmail.com</a>
+            </p>
           </div>
         </section>
       </main>
@@ -243,7 +247,7 @@ function Landing() {
           <nav className="flex gap-5">
             <Link to="/termos" className="hover:text-foreground">Termos</Link>
             <Link to="/privacidade" className="hover:text-foreground">Privacidade</Link>
-            <a href="mailto:criticalcash2026@gmail.com" className="hover:text-foreground">Contato</a>
+            <a href="mailto:criticalcash2026@gmail.com" className="hover:text-foreground">criticalcash2026@gmail.com</a>
           </nav>
         </div>
       </footer>
