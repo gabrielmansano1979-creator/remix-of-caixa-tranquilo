@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -6,6 +6,7 @@ import { useState } from "react";
 import { MailCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { AuthShell, GoogleButton, Divider, FieldError, PasswordStrength, passwordScore, translateAuthError } from "@/components/auth-shell";
+import { toE164 } from "@/lib/phone";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -14,9 +15,11 @@ export const Route = createFileRoute("/cadastro")({
   head: () => ({
     meta: [
       { title: "Criar conta | Critical Cash" },
-      { name: "description", content: "Crie sua conta e assine a partir de hoje. A primeira assinatura paga no Pix sai com 20% de desconto." },
+      { name: "description", content: "Teste o Critical Cash por 7 dias sem cartão de crédito." },
       { property: "og:title", content: "Criar conta — Critical Cash" },
-      { property: "og:description", content: "Primeira assinatura no Pix com 20% de desconto. Cancele quando quiser." },
+      { property: "og:description", content: "Comece seu teste de 7 dias sem cartão." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: SignupPage,
@@ -24,6 +27,9 @@ export const Route = createFileRoute("/cadastro")({
 
 const schema = z
   .object({
+    full_name: z.string().trim().min(2, "Informe seu nome.").max(120),
+    business_name: z.string().trim().min(2, "Informe o nome do negócio.").max(120),
+    whatsapp: z.string().max(25).refine(v => !!toE164(v), "Informe um WhatsApp com DDD."),
     email: z.string().trim().email("Informe um e-mail válido.").max(255),
     password: z.string().min(8, "A senha precisa ter ao menos 8 caracteres.").max(72),
     confirm: z.string(),
@@ -32,6 +38,7 @@ const schema = z
   .refine((d) => d.password === d.confirm, { message: "As senhas não conferem.", path: ["confirm"] });
 
 function SignupPage() {
+  const navigate = useNavigate();
   const [sentTo, setSentTo] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { register, handleSubmit, formState, watch } = useForm<z.infer<typeof schema>>({ resolver: zodResolver(schema) });
@@ -39,12 +46,13 @@ function SignupPage() {
 
   const onSubmit = handleSubmit(async (v) => {
     setError(null);
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email: v.email,
       password: v.password,
-      options: { emailRedirectTo: window.location.origin + "/login" },
+      options: { emailRedirectTo: window.location.origin + "/login", data: { full_name: v.full_name, business_name: v.business_name, notification_whatsapp: toE164(v.whatsapp) } },
     });
     if (error) return setError(translateAuthError(error.message));
+    if (data.session) { await supabase.rpc("ensure_user_setup"); await navigate({ to: "/onboarding" }); return; }
     setSentTo(v.email);
   });
 
@@ -54,7 +62,7 @@ function SignupPage() {
         <div className="flex flex-col items-center text-center">
           <span className="grid h-14 w-14 place-items-center rounded-full bg-accent text-accent-foreground"><MailCheck className="h-7 w-7" /></span>
           <p className="mt-4 text-sm text-muted-foreground">
-            Enviamos um link para <strong className="text-foreground">{sentTo}</strong>. Clique nele para ativar sua conta e escolher seu plano.
+            Enviamos um link para <strong className="text-foreground">{sentTo}</strong>. Clique nele para ativar sua conta e começar seu teste grátis.
           </p>
           <Link to="/login" className="mt-6 text-sm font-medium text-primary hover:underline">Ir para o login</Link>
         </div>
@@ -64,13 +72,14 @@ function SignupPage() {
 
   return (
     <AuthShell
-      title="Crie sua conta"
-      subtitle="A cobrança começa no primeiro acesso. Sua primeira assinatura no Pix tem 20% de desconto."
+      title="Comece seus 7 dias grátis"
+      subtitle="Passo 1 de 3 · Sem cartão de crédito."
       footer={<>Já tem conta? <Link to="/login" className="font-medium text-primary hover:underline">Entrar</Link></>}
     >
       <GoogleButton label="Cadastrar com Google" />
       <Divider />
       <form onSubmit={onSubmit} noValidate className="space-y-4">
+        {([['full_name', 'Seu nome'], ['business_name', 'Nome do negócio'], ['whatsapp', 'WhatsApp para notificações']] as const).map(([key,label]) => <div key={key}><Label htmlFor={key}>{label}</Label><Input id={key} type={key === 'whatsapp' ? 'tel' : 'text'} maxLength={key === 'whatsapp' ? 25 : 120} className="mt-1.5 h-11" {...register(key)} /><FieldError msg={formState.errors[key]?.message} /></div>)}
         <div>
           <Label htmlFor="email">E-mail</Label>
           <Input id="email" type="email" autoComplete="email" className="mt-1.5 h-11 rounded-xl" {...register("email")} />
@@ -89,7 +98,7 @@ function SignupPage() {
         </div>
         {error && <p className="rounded-xl bg-danger/10 p-3 text-sm text-danger" role="alert">{error}</p>}
         <Button type="submit" className="h-11 w-full rounded-xl" disabled={formState.isSubmitting}>
-          {formState.isSubmitting ? "Criando conta…" : "Criar conta"}
+          {formState.isSubmitting ? "Criando conta…" : "Testar Grátis por 7 Dias"}
         </Button>
         <p className="text-center text-xs text-muted-foreground">
           Ao criar a conta você aceita os <Link to="/termos" className="underline">Termos</Link> e a <Link to="/privacidade" className="underline">Política de Privacidade</Link>.

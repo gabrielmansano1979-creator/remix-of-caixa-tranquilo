@@ -155,3 +155,10 @@
 .float-c { --r: -2deg; animation: cc-float 8s ease-in-out infinite 2s; }
 .marquee { animation: cc-marquee 40s linear infinite; }
 @media (prefers-reduced-motion: reduce) { .float-a,.float-b,.float-c,.marquee { animation: none; } }
+
+:root { --hero-ink: oklch(0.99 0 0); --hero-overlay: oklch(0.18 0.03 185 / 0.84); }
+.plg-hero { color: var(--hero-ink); min-height: 480px; }
+.plg-hero-shade { background: var(--hero-overlay); }
+@keyframes cc-reveal { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.cash-reveal { animation: cc-reveal 450ms ease-out both; }
+@media (prefers-reduced-motion: reduce) { .cash-reveal { animation: none; } }

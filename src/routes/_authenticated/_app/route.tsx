@@ -4,7 +4,7 @@ import { Bell, CreditCard, ListChecks, LogOut, Settings, Wallet, AlertTriangle, 
 import { supabase } from "@/integrations/supabase/client";
 import { Logo, ThemeToggle } from "@/components/brand";
 import { accessQuery, profileQuery } from "@/lib/app-data";
-import { formatDate } from "@/lib/format";
+import { trialProgress } from "@/lib/plg";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
@@ -85,7 +85,7 @@ function AppShell() {
         {access && !access.can_write && (
           <div className="flex flex-wrap items-center gap-3 border-b bg-warning/10 px-4 py-3 text-sm md:px-8" role="status">
             <AlertTriangle className="h-4 w-4 text-warning" />
-            <span className="flex-1">Seu teste grátis terminou. Você está no modo somente leitura e os lembretes estão pausados.</span>
+            <span className="flex-1">Seu acesso de edição está pausado. Você está no modo somente leitura e os lembretes estão pausados.</span>
             <Button asChild size="sm" className="h-10 rounded-xl"><Link to="/assinatura">Fazer upgrade</Link></Button>
           </div>
         )}
@@ -97,9 +97,9 @@ function AppShell() {
           </div>
         )}
         {access?.status === "trialing" && access.trial_ends_at && (
-          <div className="border-b bg-accent/50 px-4 py-2 text-center text-xs text-accent-foreground md:px-8">
-            Faltam {Math.max(0, Math.ceil((Date.parse(access.trial_ends_at) - Date.now()) / 86400000))} dia(s) do seu teste grátis (até {formatDate(access.trial_ends_at)}).{" "}
-            <Link to="/planos" className="font-medium underline">Escolher plano</Link>
+          <div className="sticky top-16 z-10 flex flex-wrap items-center justify-center gap-2 border-b bg-accent px-4 py-3 text-center text-sm text-accent-foreground md:px-8">
+            <span>Você está no dia {trialProgress(access.trial_ends_at).day} de 7 do seu teste gratuito. {trialProgress(access.trial_ends_at).remaining} dia(s) restante(s).</span>
+            <Button asChild variant="ghost" size="sm" className="min-h-11"><Link to="/planos">Assinar com 20% Off</Link></Button>
           </div>
         )}
 
