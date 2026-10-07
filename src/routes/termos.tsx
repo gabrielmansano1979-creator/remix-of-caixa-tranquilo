@@ -25,7 +25,7 @@ export const Route = createFileRoute("/termos")({
       <h2>5. Responsabilidades</h2>
       <p>Você é responsável pela veracidade dos dados cadastrados. Não nos responsabilizamos por decisões tomadas com base nas projeções.</p>
       <h2>6. Contato</h2>
-      <p>[contato@seudominio.com.br]</p>
+      <p>criticalcash2026@gmail.com</p>
     </LegalPage>
   ),
 });

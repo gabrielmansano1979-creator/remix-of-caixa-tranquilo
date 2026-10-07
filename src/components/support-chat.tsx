@@ -48,6 +48,9 @@ export function SupportChat() {
               className="h-11 flex-1 rounded-xl border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" />
             <button type="submit" disabled={busy || !text.trim()} aria-label="Enviar" className="grid h-11 w-11 place-items-center rounded-xl bg-support text-support-foreground disabled:opacity-50"><Send className="h-4 w-4" /></button>
           </form>
+          <a href="mailto:criticalcash2026@gmail.com" className="border-t px-4 py-2.5 text-xs text-muted-foreground transition-colors hover:text-foreground">
+            Prefere e-mail? Envie para <span className="font-medium text-foreground">criticalcash2026@gmail.com</span>
+          </a>
         </div>
       )}
       <button onClick={() => setOpen((o) => !o)} aria-label={open ? "Fechar suporte" : "Abrir chat de suporte"}
