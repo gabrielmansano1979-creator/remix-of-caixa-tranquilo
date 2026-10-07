@@ -54,7 +54,7 @@ function LembretesPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Lembretes</h1>
-        <p className="text-sm text-muted-foreground">Sua régua de cobrança automática, enviada todo dia às 8h.</p>
+        <p className="text-sm text-muted-foreground">Sua régua de cobrança automática por E-mail e WhatsApp.</p>
       </div>
 
       <section className="rounded-2xl border bg-card p-5 shadow-[var(--shadow-soft)]">

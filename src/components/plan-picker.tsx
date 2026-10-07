@@ -52,9 +52,9 @@ export function PlanPicker() {
       <div className="flex justify-center">
         <div role="radiogroup" aria-label="Período de cobrança" className="inline-flex rounded-xl bg-muted p-1">
           {([["Mensal", false], ["Anual", true]] as const).map(([l, v]) => (
-            <button key={l} role="radio" aria-checked={yearly === v} onClick={() => setYearly(v)} className={`h-10 rounded-lg px-4 text-sm font-medium ${yearly === v ? "bg-card shadow-sm" : "text-muted-foreground"}`}>
+            <Button variant="ghost" key={l} role="radio" aria-checked={yearly === v} onClick={() => setYearly(v)} className={`h-10 rounded-lg px-4 text-sm font-medium ${yearly === v ? "bg-card shadow-sm" : "text-muted-foreground"}`}>
               {l}{v && <span className="ml-2 rounded-full bg-success/15 px-2 py-0.5 text-xs text-success">Anual · 20% off no 1º Pix</span>}
-            </button>
+            </Button>
           ))}
         </div>
       </div>

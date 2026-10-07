@@ -220,7 +220,7 @@ function Risks({ limit, canWrite }: { limit: number; canWrite: boolean }) {
                     <p className="mt-1 text-sm text-muted-foreground">{r.reason} Venc. {formatDate(r.due_date)}.</p>
                   </div>
                   <div className="flex gap-2">
-                    <Button size="sm" variant="outline" className="h-10 rounded-lg" disabled={!canWrite || !r.counterparty_whatsapp || charge.isPending} onClick={() => setConfirm(r)}><Send className="mr-1 h-4 w-4" />Cobrar agora</Button>
+                    <Button size="sm" variant="outline" className="h-10 rounded-lg" disabled={!canWrite || (!r.counterparty_whatsapp && !r.counterparty_email) || charge.isPending} onClick={() => setConfirm(r)}><Send className="mr-1 h-4 w-4" />Cobrar agora</Button>
                     <Button size="sm" variant="ghost" className="h-10 rounded-lg text-success" disabled={!canWrite} onClick={() => markPaid.mutate({ id: r.entry_id, paid: true })}><CheckCircle2 className="mr-1 h-4 w-4" />Pago</Button>
                   </div>
                 </li>
@@ -232,7 +232,7 @@ function Risks({ limit, canWrite }: { limit: number; canWrite: boolean }) {
         <AlertDialogContent className="rounded-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle>Enviar cobrança agora?</AlertDialogTitle>
-            <AlertDialogDescription>Uma mensagem de WhatsApp será enviada para {confirm?.counterparty_whatsapp} sobre “{confirm?.description}”. Limite de 1 envio manual por conta a cada 24h.</AlertDialogDescription>
+            <AlertDialogDescription>Uma cobrança será enviada para {confirm?.counterparty_whatsapp || confirm?.counterparty_email} sobre “{confirm?.description}”. Limite de 1 envio manual por conta a cada 24h.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="h-11 rounded-xl">Cancelar</AlertDialogCancel>
