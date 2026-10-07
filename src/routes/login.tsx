@@ -16,6 +16,8 @@ export const Route = createFileRoute("/login")({
       { name: "description", content: "Acesse sua conta do Critical Cash." },
       { property: "og:title", content: "Entrar — Critical Cash" },
       { property: "og:description", content: "Acesse sua conta do Critical Cash." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: LoginPage,

@@ -18,7 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 export const Route = createFileRoute("/_authenticated/_app/caixa")({
-  head: () => ({ meta: [{ title: "Caixa — Critical Cash" }, { name: "robots", content: "noindex" }] }),
+  head: () => ({ meta: [{ title: "Caixa — Critical Cash" }, { name: "description", content: "Confira a previsão do seu caixa para os próximos 30 dias." }, { property: "og:title", content: "Caixa — Critical Cash" }, { property: "og:description", content: "Confira a previsão do seu caixa para os próximos 30 dias." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }, { name: "robots", content: "noindex" }] }),
   component: CaixaPage,
 });
 
@@ -48,7 +48,8 @@ function CaixaPage() {
       </div>
     );
   }
-  const p = proj.data!;
+  const p = proj.data;
+  if (!p) return null;
   const hasEntries = (entries.data?.length ?? 0) > 0;
 
   return (
@@ -89,7 +90,7 @@ function Semaphore({ p }: { p: Projection }) {
     green: { icon: CheckCircle2, title: "Tudo certo: o caixa fecha", cls: "bg-success/10 text-success border-success/30", msg: `Nos próximos 30 dias o menor saldo é ${formatBRL(p.min_balance)}, em ${formatDate(p.min_date)}.` },
   }[p.status];
   return (
-    <section className={`flex items-start gap-4 rounded-2xl border p-5 md:p-6 ${cfg.cls}`} aria-live="polite">
+    <section className={`cash-reveal flex items-start gap-4 rounded-2xl border p-5 md:p-6 ${cfg.cls}`} aria-live="polite">
       <cfg.icon className="h-10 w-10 shrink-0" aria-hidden="true" />
       <div>
         <h2 className="text-xl font-semibold md:text-2xl">{cfg.title}</h2>
@@ -106,7 +107,8 @@ function BalanceCard({ current }: { current: number }) {
   const [v, setV] = useState(current);
   const save = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("profiles").update({ initial_balance_cents: v, balance_date: todaySP() }).eq("user_id", profile.data!.user_id);
+      if (!profile.data) throw new Error("Perfil indisponível");
+      const { error } = await supabase.from("profiles").update({ initial_balance_cents: v, balance_date: todaySP() }).eq("user_id", profile.data.user_id);
       if (error) throw error;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["projection"] }); qc.invalidateQueries({ queryKey: ["profile"] }); setEdit(false); toast.success("Saldo atualizado."); },
@@ -218,7 +220,7 @@ function Risks({ limit, canWrite }: { limit: number; canWrite: boolean }) {
                     <p className="mt-1 text-sm text-muted-foreground">{r.reason} Venc. {formatDate(r.due_date)}.</p>
                   </div>
                   <div className="flex gap-2">
-                    <Button size="sm" variant="outline" className="h-10 rounded-lg" disabled={!canWrite || !r.counterparty_whatsapp || charge.isPending} onClick={() => setConfirm(r)}><Send className="mr-1 h-4 w-4" />Cobrar agora</Button>
+                    <Button size="sm" variant="outline" className="h-10 rounded-lg" disabled={!canWrite || (!r.counterparty_whatsapp && !r.counterparty_email) || charge.isPending} onClick={() => setConfirm(r)}><Send className="mr-1 h-4 w-4" />Cobrar agora</Button>
                     <Button size="sm" variant="ghost" className="h-10 rounded-lg text-success" disabled={!canWrite} onClick={() => markPaid.mutate({ id: r.entry_id, paid: true })}><CheckCircle2 className="mr-1 h-4 w-4" />Pago</Button>
                   </div>
                 </li>
@@ -230,7 +232,7 @@ function Risks({ limit, canWrite }: { limit: number; canWrite: boolean }) {
         <AlertDialogContent className="rounded-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle>Enviar cobrança agora?</AlertDialogTitle>
-            <AlertDialogDescription>Uma mensagem de WhatsApp será enviada para {confirm?.counterparty_whatsapp} sobre “{confirm?.description}”. Limite de 1 envio manual por conta a cada 24h.</AlertDialogDescription>
+            <AlertDialogDescription>Uma cobrança será enviada para {confirm?.counterparty_whatsapp || confirm?.counterparty_email} sobre “{confirm?.description}”. Limite de 1 envio manual por conta a cada 24h.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="h-11 rounded-xl">Cancelar</AlertDialogCancel>

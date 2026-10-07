@@ -4,10 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
 import {
-  AlertTriangle, BellOff, Bell, CheckCircle2, Clock, FileUp, MoreVertical, Pencil, Plus, Search, Trash2, Inbox, RotateCcw,
+  AlertTriangle, BellOff, Bell, CheckCircle2, Clock, FileUp, MoreVertical, Pencil, Plus, Search, Trash2, Inbox, RotateCcw, Mail, MessageCircle,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { accessQuery, entriesQuery, isOverdue, parseDbError, todaySP, type Entry, type LimitKind } from "@/lib/app-data";
+import { accessQuery, profileQuery, entriesQuery, isOverdue, parseDbError, todaySP, type Entry, type LimitKind } from "@/lib/app-data";
+import { manualWhatsAppLink } from "@/lib/plg";
 import { formatBRL, formatDate } from "@/lib/format";
 import { USAGE_WARNING_RATIO } from "@/config/plans";
 import { StatusBadge, useMarkPaid } from "@/components/contas/shared";
@@ -25,7 +26,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 
 export const Route = createFileRoute("/_authenticated/_app/contas")({
   validateSearch: z.object({ novo: z.number().optional(), importar: z.number().optional() }),
-  head: () => ({ meta: [{ title: "Contas — Critical Cash" }, { name: "robots", content: "noindex" }] }),
+  head: () => ({ meta: [{ title: "Contas — Critical Cash" }, { name: "description", content: "Acompanhe suas contas, vencimentos e envios de cobrança." }, { property: "og:title", content: "Contas — Critical Cash" }, { property: "og:description", content: "Acompanhe suas contas, vencimentos e envios de cobrança." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }, { name: "robots", content: "noindex" }] }),
   component: ContasPage,
 });
 
@@ -37,6 +38,8 @@ function ContasPage() {
   const qc = useQueryClient();
   const { data, isLoading, isError, refetch } = useQuery(entriesQuery);
   const { data: access } = useQuery(accessQuery);
+  const { data: profile } = useQuery(profileQuery);
+  const deliveries = useQuery({queryKey:['entry-deliveries'],queryFn:async()=>{const {data,error}=await supabase.from('reminder_logs').select('entry_id,channel,status,error,sent_at').order('sent_at',{ascending:false}).limit(5000);if(error)throw error;return data;}});
   const [tab, setTab] = useState<"all" | "income" | "expense">("all");
   const [status, setStatus] = useState<Status>("all");
   const [q, setQ] = useState("");
@@ -156,10 +159,10 @@ function ContasPage() {
         ) : (
           <table className="w-full text-sm">
             <thead className="hidden text-left text-xs text-muted-foreground md:table-header-group">
-              <tr className="border-b"><th className="p-3 font-medium">Vencimento</th><th className="p-3 font-medium">Nome</th><th className="p-3 font-medium">Descrição</th><th className="p-3 text-right font-medium">Valor</th><th className="p-3 font-medium">Status</th><th className="w-24 p-3" /></tr>
+              <tr className="border-b"><th className="p-3 font-medium">Vencimento</th><th className="p-3 font-medium">Nome</th><th className="p-3 font-medium">Descrição</th><th className="p-3 text-right font-medium">Valor</th><th className="p-3 font-medium">Status</th><th className="p-3 font-medium">Status do envio</th><th className="w-24 p-3" /></tr>
             </thead>
             <tbody>
-              {rows.map((e) => (
+              {rows.map((e) => { const wa = manualWhatsAppLink(e,profile?.business_name ?? 'Seu negócio'); const latest = ['email','whatsapp'].map(c=>deliveries.data?.find(l=>l.entry_id===e.id && l.channel===c)).filter(l=>!!l); return (
                 <tr key={e.id} className="grid grid-cols-[1fr_auto] gap-x-3 border-b p-3 last:border-0 md:table-row md:p-0">
                   <td className="num text-xs text-muted-foreground md:p-3 md:text-sm md:text-foreground">{formatDate(e.due_date)}</td>
                   <td className="col-start-1 font-medium md:p-3">
@@ -181,6 +184,7 @@ function ContasPage() {
                       <DropdownMenuTrigger asChild><Button size="icon" variant="ghost" className="h-10 w-10" aria-label="Ações"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="rounded-xl">
                         <DropdownMenuItem onClick={() => setDetail(e)}>Ver detalhes</DropdownMenuItem>
+                         {e.type==='income' && e.status==='pending' && wa && <DropdownMenuItem asChild disabled={!canWrite}><a href={canWrite ? wa : undefined} target="_blank" rel="noopener noreferrer"><MessageCircle className="mr-2 h-4 w-4" />Cobrar pelo WhatsApp</a></DropdownMenuItem>}
                         <DropdownMenuItem onClick={guard(() => { setEditing(e); setFormOpen(true); })}><Pencil className="mr-2 h-4 w-4" />Editar</DropdownMenuItem>
                         {e.status === "paid" && <DropdownMenuItem onClick={guard(() => markPaid.mutate({ id: e.id, paid: false }))}><RotateCcw className="mr-2 h-4 w-4" />Reabrir</DropdownMenuItem>}
                         {e.type === "income" && (
@@ -194,7 +198,7 @@ function ContasPage() {
                     </DropdownMenu>
                   </td>
                 </tr>
-              ))}
+              ); })}
             </tbody>
           </table>
         )}
@@ -226,7 +230,8 @@ function EntryDetail({ entry, onClose }: { entry: Entry | null; onClose: () => v
     queryKey: ["logs", entry?.id],
     enabled: !!entry,
     queryFn: async () => {
-      const { data, error } = await supabase.from("reminder_logs").select("id, status, sent_to, sent_at, error, reminder_rules(label)").eq("entry_id", entry!.id).order("sent_at", { ascending: false });
+      if (!entry) return [];
+      const { data, error } = await supabase.from("reminder_logs").select("id, status, channel, sent_to, sent_at, error, reminder_rules!reminder_logs_stage_rule_id_fkey(label)").eq("entry_id", entry.id).order("sent_at", { ascending: false });
       if (error) throw error;
       return data;
     },

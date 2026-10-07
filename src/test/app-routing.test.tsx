@@ -2,10 +2,13 @@ import { QueryClient } from "@tanstack/react-query";
 import { createMemoryHistory, createRouter, RouterProvider } from "@tanstack/react-router";
 import { cleanup, render, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { ReactNode } from "react";
 
 import { routeTree } from "@/routeTree.gen";
 
 function renderAt(path: string) {
+  // SSR owns the document shell; a browser unit test mounts only its children.
+  Object.assign(routeTree.options, { shellComponent: ({ children }: { children: ReactNode }) => <>{children}</> });
   const queryClient = new QueryClient();
   const router = createRouter({
     routeTree,

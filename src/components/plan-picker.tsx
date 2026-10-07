@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { CheckCircle2, Loader2 } from "lucide-react";
-import { PLANS, type PlanId } from "@/config/plans";
+import { PLANS, FIRST_PIX_DISCOUNT, type PlanId } from "@/config/plans";
 import { formatBRL } from "@/lib/format";
 import { createCheckoutSession } from "@/lib/billing.functions";
 import { useEntitlements } from "@/hooks/use-entitlements";
@@ -23,7 +23,8 @@ export function PlanPicker() {
   const current = subscribed ? ent.access?.plan : null;
 
   const go = async (plan: PlanId) => {
-    const p = PLANS.find((x) => x.id === plan)!;
+    const p = PLANS.find((x) => x.id === plan);
+    if (!p) return;
     if (ent.usage && ent.usage.pending_entries > p.limits.pendingEntries) {
       return toast.error(`Você tem ${ent.usage.pending_entries} contas pendentes; o ${p.name} permite ${p.limits.pendingEntries}. Quite ou exclua algumas antes.`);
     }
@@ -51,9 +52,9 @@ export function PlanPicker() {
       <div className="flex justify-center">
         <div role="radiogroup" aria-label="Período de cobrança" className="inline-flex rounded-xl bg-muted p-1">
           {([["Mensal", false], ["Anual", true]] as const).map(([l, v]) => (
-            <button key={l} role="radio" aria-checked={yearly === v} onClick={() => setYearly(v)} className={`h-10 rounded-lg px-4 text-sm font-medium ${yearly === v ? "bg-card shadow-sm" : "text-muted-foreground"}`}>
-              {l}{v && <span className="ml-2 rounded-full bg-success/15 px-2 py-0.5 text-xs text-success">2 meses grátis</span>}
-            </button>
+            <Button variant="ghost" key={l} role="radio" aria-checked={yearly === v} onClick={() => setYearly(v)} className={`h-10 rounded-lg px-4 text-sm font-medium ${yearly === v ? "bg-card shadow-sm" : "text-muted-foreground"}`}>
+              {l}{v && <span className="ml-2 rounded-full bg-success/15 px-2 py-0.5 text-xs text-success">Anual · 20% off no 1º Pix</span>}
+            </Button>
           ))}
         </div>
       </div>

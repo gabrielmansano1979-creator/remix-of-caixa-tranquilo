@@ -16,6 +16,8 @@ export const Route = createFileRoute("/esqueci-senha")({
       { name: "description", content: "Receba um link para redefinir sua senha." },
       { property: "og:title", content: "Recuperar senha — Critical Cash" },
       { property: "og:description", content: "Receba um link para redefinir sua senha." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: ForgotPage,

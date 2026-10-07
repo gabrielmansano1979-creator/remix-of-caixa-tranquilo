@@ -50,7 +50,7 @@ export function parseCsv(text: string): { rows: CsvRow[]; headerError?: string }
   if (!lines.length) return { rows: [], headerError: "Arquivo vazio." };
   const sep = lines[0].split(";").length > lines[0].split(",").length ? ";" : ",";
   const head = splitLine(lines[0], sep).map((h) => h.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
-  const need = ["descricao", "valor", "vencimento", "tipo", "nome", "whatsapp"];
+  const need = ["descricao", "valor", "vencimento", "tipo", "nome"];
   const missing = need.filter((n) => !head.includes(n));
   if (missing.length) return { rows: [], headerError: `Colunas ausentes: ${missing.join(", ")}.` };
   const rows = lines.slice(1).map((l, i) => {
@@ -70,9 +70,8 @@ export function parseCsv(text: string): { rows: CsvRow[]; headerError?: string }
     const wa = toE164(raw.whatsapp ?? "");
     if (raw.whatsapp && !wa) errors.push("WhatsApp inválido");
     if (email && !EMAIL.test(email)) errors.push("E-mail inválido");
-    if (type === "income" && !wa) errors.push("WhatsApp obrigatório para entrada");
     const row: CsvRow = { line: i + 2, raw, errors };
-    if (!errors.length) row.value = { type: type!, description, amount_cents: amount!, due_date: date!, counterparty_name: raw.nome.slice(0, 120), counterparty_email: email, counterparty_whatsapp: wa ?? "" };
+    if (!errors.length && type && amount !== null && date) row.value = { type, description, amount_cents: amount, due_date: date, counterparty_name: raw.nome.slice(0, 120), counterparty_email: email, counterparty_whatsapp: wa ?? "" };
     return row;
   });
   return { rows };
