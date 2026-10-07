@@ -51,7 +51,7 @@ function LoginPage() {
     <AuthShell
       title="Entrar"
       subtitle="Bem-vindo de volta."
-      footer={<>Ainda não tem conta? <Link to="/cadastro" className="font-medium text-primary underline-offset-4 hover:underline">Comece grátis</Link></>}
+      footer={<>Ainda não tem conta? <Link to="/cadastro" className="font-medium text-primary underline-offset-4 hover:underline">Criar conta</Link></>}
     >
       <GoogleButton />
       <Divider />
