@@ -16,7 +16,7 @@ export function Logo({ to = "/" }: { to?: "/" | "/caixa" }) {
 
 export function ThemeToggle() {
   const [dark, setDark] = useState(false);
-  useEffect(() => setDark(document.documentElement.classList.contains("dark")), []);
+  useEffect(() => { setDark(document.documentElement.classList.contains("dark")); }, []);
   const toggle = () => {
     const next = !dark;
     setDark(next);
