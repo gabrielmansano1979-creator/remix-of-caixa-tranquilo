@@ -10,6 +10,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
+import { FeedbackPrompt } from "@/components/feedback-prompt";
 
 export const Route = createFileRoute("/_authenticated/_app")({
   beforeLoad: async ({ context }) => {
@@ -30,6 +31,7 @@ function AppShell() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const { data: access } = useQuery(accessQuery);
+  const { data: profile } = useQuery(profileQuery);
   const initials = (user.email ?? "?").slice(0, 2).toUpperCase();
 
   const signOut = async () => {
@@ -103,6 +105,7 @@ function AppShell() {
 
         <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-28 pt-6 md:px-8 md:pb-10">
           <Outlet />
+          <FeedbackPrompt createdAt={profile?.created_at} />
         </main>
       </div>
 
