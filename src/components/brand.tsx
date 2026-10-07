@@ -2,7 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { Moon, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import appIcon from "@/assets/app-icon.png.asset.json";
+import appIcon from "@/assets/app-icon-v2.png.asset.json";
 
 export function Logo({ to = "/" }: { to?: "/" | "/caixa" }) {
   return (
