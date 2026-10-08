@@ -2,6 +2,7 @@
 
 ## Envio HTTP de WhatsApp
 - [ ] Criar envio seguro por POST no servidor do app — aguarda escolha entre Z-API e Meta Cloud API e credenciais no cofre.
+- [ ] Priorizar alternativa gratuita de WhatsApp — verificar custos e distinguir envio manual de automação.
 
 ## Confirmação dos contatos do assinante
 - [ ] Conectar Twilio para WhatsApp — aguarda conclusão da conexão segura pelo usuário.
