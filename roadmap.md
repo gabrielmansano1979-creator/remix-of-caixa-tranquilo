@@ -1,7 +1,8 @@
 # Roadmap — Caixa Crítico
 
 ## Confirmação dos contatos do assinante
-- [ ] Confirmar e-mail e celular por códigos; WhatsApp via provedor/BSP terceirizado — aguarda escolha do provedor e conexão segura.
+- [ ] Conectar Twilio para WhatsApp — aguarda conclusão da conexão segura pelo usuário.
+- [ ] Confirmar e-mail e celular por códigos; WhatsApp via Twilio — aguarda conexão e configuração do serviço de confirmação.
 
 ## Reformulação PLG — Critical Cash
 - [x] Restaurar trial de 7 dias para novas contas e alinhar CTAs/preços/desconto Pix
