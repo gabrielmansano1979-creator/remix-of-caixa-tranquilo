@@ -1,5 +1,8 @@
 # Roadmap — Caixa Crítico
 
+## Envio HTTP de WhatsApp
+- [ ] Criar envio seguro por POST no servidor do app — aguarda escolha entre Z-API e Meta Cloud API e credenciais no cofre.
+
 ## Confirmação dos contatos do assinante
 - [ ] Conectar Twilio para WhatsApp — aguarda conclusão da conexão segura pelo usuário.
 - [ ] Confirmar e-mail e celular por códigos; WhatsApp via Twilio — aguarda conexão e configuração do serviço de confirmação.
