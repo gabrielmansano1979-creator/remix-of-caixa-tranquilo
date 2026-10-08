@@ -1,5 +1,8 @@
 # Roadmap — Caixa Crítico
 
+## Confirmação dos contatos do assinante
+- [ ] Confirmar e-mail e celular por códigos; WhatsApp via provedor/BSP terceirizado — aguarda escolha do provedor e conexão segura.
+
 ## Reformulação PLG — Critical Cash
 - [x] Restaurar trial de 7 dias para novas contas e alinhar CTAs/preços/desconto Pix
 - [x] Reformular página inicial e prévias multicanal
