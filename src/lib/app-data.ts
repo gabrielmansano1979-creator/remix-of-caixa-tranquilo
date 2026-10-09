@@ -4,7 +4,7 @@ import type { PlanId } from "@/config/plans";
 
 export interface Access {
   plan: PlanId;
-  status: "trialing" | "active" | "past_due" | "canceled" | "expired";
+  status: "trialing" | "active" | "past_due" | "canceled" | "expired" | "pending_pix";
   can_write: boolean;
   trial_ends_at: string | null;
   has_subscription?: boolean;

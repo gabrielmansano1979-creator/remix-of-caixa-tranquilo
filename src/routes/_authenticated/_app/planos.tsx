@@ -7,6 +7,9 @@ export const Route = createFileRoute("/_authenticated/_app/planos")({
     <div>
       <h1 className="text-center text-2xl font-semibold tracking-tight">Escolha seu plano</h1>
       <p className="mt-1 text-center text-sm text-muted-foreground">Cancele quando quiser. Sem fidelidade.</p>
+      <div className="mt-4 rounded-2xl border border-primary/25 bg-primary/5 px-4 py-3 text-center text-sm text-primary">
+        1ª assinatura via Pix com 20% de desconto e confirmação automática em segundos.
+      </div>
       <div className="mt-8"><PlanPicker /></div>
     </div>
   ),

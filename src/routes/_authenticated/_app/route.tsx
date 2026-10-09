@@ -96,6 +96,13 @@ function AppShell() {
             <Button asChild size="sm" className="h-10 rounded-xl"><Link to="/assinatura">Atualizar pagamento</Link></Button>
           </div>
         )}
+        {access?.status === "pending_pix" && (
+          <div className="flex flex-wrap items-center gap-3 border-b bg-warning/10 px-4 py-3 text-sm md:px-8" role="status">
+            <AlertTriangle className="h-4 w-4 text-warning" />
+            <span className="flex-1">Seu pagamento Pix foi gerado e está aguardando confirmação automática do Asaas para ativar sua assinatura.</span>
+            <Button asChild size="sm" className="h-10 rounded-xl"><Link to="/assinatura">Ver status do pagamento</Link></Button>
+          </div>
+        )}
         {access?.status === "trialing" && access.trial_ends_at && (
           <div className="sticky top-16 z-10 flex flex-wrap items-center justify-center gap-2 border-b bg-accent px-4 py-3 text-center text-sm text-accent-foreground md:px-8">
             <span>Você está no dia {trialProgress(access.trial_ends_at).day} de 7 do seu teste gratuito. {trialProgress(access.trial_ends_at).remaining} dia(s) restante(s).</span>

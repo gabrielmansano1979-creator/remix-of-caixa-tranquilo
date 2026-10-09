@@ -27,6 +27,7 @@ export const Route = createFileRoute("/_authenticated/_app/assinatura")({
 const STATUS = {
   trialing: { label: "Teste grátis", icon: Clock, cls: "text-primary" },
   active: { label: "Ativa", icon: CheckCircle2, cls: "text-success" },
+  pending_pix: { label: "Pix pendente de confirmação", icon: Clock, cls: "text-warning" },
   past_due: { label: "Pagamento pendente", icon: AlertTriangle, cls: "text-warning" },
   canceled: { label: "Cancelada (acesso até o fim do período)", icon: XCircle, cls: "text-warning" },
   expired: { label: "Expirada — somente leitura", icon: XCircle, cls: "text-danger" },
@@ -79,12 +80,16 @@ function AssinaturaPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold tracking-tight">Assinatura</h1>
+      <div className="rounded-2xl border border-success/30 bg-success/5 px-4 py-3 text-sm text-success">
+        Pagamentos via Pix com confirmação automática do Asaas. Primeiro pagamento com 20% de desconto em planos mensais e anuais.
+      </div>
       <section className="rounded-2xl border bg-card p-6 shadow-[var(--shadow-soft)]">
         <p className="text-sm text-muted-foreground">Plano {a.status === "trialing" ? "(nível do teste)" : "atual"}</p>
         <p className="mt-1 text-2xl font-semibold">{plan.name}{a.billing_interval ? <span className="text-base font-normal text-muted-foreground"> · {a.billing_interval === "year" ? "anual" : "mensal"}</span> : null}</p>
         <p className={`mt-2 flex items-center gap-1.5 text-sm font-medium ${st.cls}`}><st.icon className="h-4 w-4" />{st.label}</p>
         <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
           {a.status === "trialing" && a.trial_ends_at && <div><dt className="text-muted-foreground">Teste termina em</dt><dd className="num">{formatDate(a.trial_ends_at)}</dd></div>}
+          {a.status === "pending_pix" && <div><dt className="text-muted-foreground">Status</dt><dd className="num text-warning">Aguardando confirmação do Pix</dd></div>}
           {a.current_period_end && <div><dt className="text-muted-foreground">{a.cancel_at_period_end ? "Acesso até" : "Próxima cobrança"}</dt><dd className="num">{formatDate(a.current_period_end)}</dd></div>}
           {a.status === "past_due" && a.grace_ends_at && <div><dt className="text-muted-foreground">Atualize o pagamento até</dt><dd className="num text-warning">{formatDate(a.grace_ends_at)}</dd></div>}
         </dl>

@@ -1,11 +1,36 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+type AsaasEvent = {
+  id?: string;
+  event?: string;
+  type?: string;
+  payment?: string;
+  paymentId?: string;
+  status?: string;
+  data?: {
+    id?: string;
+    payment?: string;
+    paymentId?: string;
+    status?: string;
+    object?: {
+      id?: string;
+      payment?: string;
+      paymentId?: string;
+      status?: string;
+    };
+  };
+};
+
+const normalizeStatus = (value: unknown) => String(value ?? "").toUpperCase();
+const isPaidStatus = (status: string | undefined) => ["CONFIRMED", "RECEIVED", "PAID", "AUTHORIZED", "APPROVED", "SETTLED", "SUCCESS"].includes(normalizeStatus(status));
+const firstDefined = (...values: Array<unknown>) => values.find((value) => value !== undefined && value !== null && String(value).trim() !== "") ?? null;
+
 export const Route = createFileRoute("/api/public/asaas-webhook")({
   server: {
     handlers: {
       POST: async ({ request }) => {
         const body = await request.text();
-        let event: any;
+        let event: AsaasEvent;
         try {
           event = JSON.parse(body);
         } catch {
@@ -15,16 +40,30 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
         const { supabaseAdmin: db } = await import("@/integrations/supabase/client.server");
         const { sendSystemTo } = await import("@/lib/reminders.server");
 
-        // Idempotência
         if (event.id) {
-          const { error: dup } = await db.from("asaas_events").insert({ id: event.id, type: event.event ?? event.type });
+          const { error: dup } = await db.from("asaas_events").insert({ id: event.id, type: event.event ?? event.type ?? "unknown" });
           if (dup) return Response.json({ received: true, duplicate: true });
         }
 
-        const paymentId = event.payment ?? event.data?.payment;
-        const status = event.status ?? event.data?.status;
+        const paymentId = firstDefined(
+          event.payment,
+          event.paymentId,
+          event.data?.payment,
+          event.data?.paymentId,
+          event.data?.object?.payment,
+          event.data?.object?.paymentId,
+          event.data?.object?.id,
+          event.data?.id,
+        );
+        const status = normalizeStatus(firstDefined(
+          event.status,
+          event.data?.status,
+          event.data?.object?.status,
+          event.type,
+          event.event,
+        ));
 
-        if (paymentId && (status === "CONFIRMED" || status === "RECEIVED")) {
+        if (paymentId && isPaidStatus(status)) {
           const { data: sub } = await db
             .from("subscriptions")
             .select("user_id, plan")

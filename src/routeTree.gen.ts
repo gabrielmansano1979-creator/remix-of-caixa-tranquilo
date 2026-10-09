@@ -17,6 +17,9 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as PrivacidadeRouteImport } from './routes/privacidade'
 import { Route as RedefinirSenhaRouteImport } from './routes/redefinir-senha'
 import { Route as TermosRouteImport } from './routes/termos'
+import { Route as AdminLoginRouteImport } from './routes/admin/login'
+import { Route as AdminRepassesRouteImport } from './routes/admin/repasses'
+import { Route as DashboardParceiroRouteImport } from './routes/dashboard/parceiro'
 import { Route as AuthenticatedAppRouteRouteImport } from './routes/_authenticated/_app/route'
 import { Route as AuthenticatedOnboardingRouteImport } from './routes/_authenticated/onboarding'
 import { Route as AuthenticatedAppAssinaturaRouteImport } from './routes/_authenticated/_app/assinatura'
@@ -112,6 +115,21 @@ const AuthenticatedAppPlanosRoute = AuthenticatedAppPlanosRouteImport.update({
   path: '/planos',
   getParentRoute: () => AuthenticatedAppRouteRoute,
 } as any)
+const AdminLoginRoute = AdminLoginRouteImport.update({
+  id: '/admin/login',
+  path: '/admin/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRepassesRoute = AdminRepassesRouteImport.update({
+  id: '/admin/repasses',
+  path: '/admin/repasses',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardParceiroRoute = DashboardParceiroRouteImport.update({
+  id: '/dashboard/parceiro',
+  path: '/dashboard/parceiro',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicAsaasWebhookRoute = ApiPublicAsaasWebhookRouteImport.update({
   id: '/api/public/asaas-webhook',
   path: '/api/public/asaas-webhook',
@@ -147,6 +165,9 @@ export interface FileRoutesByFullPath {
   '/privacidade': typeof PrivacidadeRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
   '/termos': typeof TermosRoute
+  '/admin/login': typeof AdminLoginRoute
+  '/admin/repasses': typeof AdminRepassesRoute
+  '/dashboard/parceiro': typeof DashboardParceiroRoute
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/assinatura': typeof AuthenticatedAppAssinaturaRoute
   '/caixa': typeof AuthenticatedAppCaixaRoute
@@ -168,6 +189,9 @@ export interface FileRoutesByTo {
   '/privacidade': typeof PrivacidadeRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
   '/termos': typeof TermosRoute
+  '/admin/login': typeof AdminLoginRoute
+  '/admin/repasses': typeof AdminRepassesRoute
+  '/dashboard/parceiro': typeof DashboardParceiroRoute
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/assinatura': typeof AuthenticatedAppAssinaturaRoute
   '/caixa': typeof AuthenticatedAppCaixaRoute
@@ -191,6 +215,9 @@ export interface FileRoutesById {
   '/privacidade': typeof PrivacidadeRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
   '/termos': typeof TermosRoute
+  '/admin/login': typeof AdminLoginRoute
+  '/admin/repasses': typeof AdminRepassesRoute
+  '/dashboard/parceiro': typeof DashboardParceiroRoute
   '/_authenticated/_app': typeof AuthenticatedAppRouteRouteWithChildren
   '/_authenticated/onboarding': typeof AuthenticatedOnboardingRoute
   '/_authenticated/_app/assinatura': typeof AuthenticatedAppAssinaturaRoute
@@ -215,6 +242,9 @@ export interface FileRouteTypes {
     | '/privacidade'
     | '/redefinir-senha'
     | '/termos'
+    | '/admin/login'
+    | '/admin/repasses'
+    | '/dashboard/parceiro'
     | '/onboarding'
     | '/assinatura'
     | '/caixa'
@@ -236,6 +266,9 @@ export interface FileRouteTypes {
     | '/privacidade'
     | '/redefinir-senha'
     | '/termos'
+    | '/admin/login'
+    | '/admin/repasses'
+    | '/dashboard/parceiro'
     | '/onboarding'
     | '/assinatura'
     | '/caixa'
@@ -258,6 +291,9 @@ export interface FileRouteTypes {
     | '/privacidade'
     | '/redefinir-senha'
     | '/termos'
+    | '/admin/login'
+    | '/admin/repasses'
+    | '/dashboard/parceiro'
     | '/_authenticated/_app'
     | '/_authenticated/onboarding'
     | '/_authenticated/_app/assinatura'
@@ -282,6 +318,9 @@ export interface RootRouteChildren {
   PrivacidadeRoute: typeof PrivacidadeRoute
   RedefinirSenhaRoute: typeof RedefinirSenhaRoute
   TermosRoute: typeof TermosRoute
+  AdminLoginRoute: typeof AdminLoginRoute
+  AdminRepassesRoute: typeof AdminRepassesRoute
+  DashboardParceiroRoute: typeof DashboardParceiroRoute
   ApiPublicAsaasWebhookRoute: typeof ApiPublicAsaasWebhookRoute
   ApiPublicSendRemindersRoute: typeof ApiPublicSendRemindersRoute
   ApiPublicStripeWebhookRoute: typeof ApiPublicStripeWebhookRoute
@@ -345,6 +384,27 @@ declare module '@tanstack/react-router' {
       path: '/termos'
       fullPath: '/termos'
       preLoaderRoute: typeof TermosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/login': {
+      id: '/admin/login'
+      path: '/admin/login'
+      fullPath: '/admin/login'
+      preLoaderRoute: typeof AdminLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/repasses': {
+      id: '/admin/repasses'
+      path: '/admin/repasses'
+      fullPath: '/admin/repasses'
+      preLoaderRoute: typeof AdminRepassesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dashboard/parceiro': {
+      id: '/dashboard/parceiro'
+      path: '/dashboard/parceiro'
+      fullPath: '/dashboard/parceiro'
+      preLoaderRoute: typeof DashboardParceiroRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/_app': {
@@ -486,6 +546,9 @@ const rootRouteChildren: RootRouteChildren = {
   PrivacidadeRoute: PrivacidadeRoute,
   RedefinirSenhaRoute: RedefinirSenhaRoute,
   TermosRoute: TermosRoute,
+  AdminLoginRoute: AdminLoginRoute,
+  AdminRepassesRoute: AdminRepassesRoute,
+  DashboardParceiroRoute: DashboardParceiroRoute,
   ApiPublicAsaasWebhookRoute: ApiPublicAsaasWebhookRoute,
   ApiPublicSendRemindersRoute: ApiPublicSendRemindersRoute,
   ApiPublicStripeWebhookRoute: ApiPublicStripeWebhookRoute,

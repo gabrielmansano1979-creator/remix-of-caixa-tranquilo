@@ -19,7 +19,7 @@ export function PlanPicker() {
   const [busy, setBusy] = useState<PlanId | null>(null);
   const [doc, setDoc] = useState("");
   const [pixData, setPixData] = useState<{ qrCode?: string; copyPaste?: string; paymentId?: string } | null>(null);
-  const subscribed = ent.access?.has_subscription && ["active", "past_due", "canceled"].includes(ent.access.status);
+  const subscribed = ent.access?.has_subscription && ["active", "past_due", "canceled", "pending_pix"].includes(ent.access.status);
   const current = subscribed ? ent.access?.plan : null;
 
   const go = async (plan: PlanId) => {
@@ -53,10 +53,13 @@ export function PlanPicker() {
         <div role="radiogroup" aria-label="Período de cobrança" className="inline-flex rounded-xl bg-muted p-1">
           {([["Mensal", false], ["Anual", true]] as const).map(([l, v]) => (
             <Button variant="ghost" key={l} role="radio" aria-checked={yearly === v} onClick={() => setYearly(v)} className={`h-10 rounded-lg px-4 text-sm font-medium ${yearly === v ? "bg-card shadow-sm" : "text-muted-foreground"}`}>
-              {l}{v && <span className="ml-2 rounded-full bg-success/15 px-2 py-0.5 text-xs text-success">Anual · 20% off no 1º Pix</span>}
+              {l}{v && <span className="ml-2 rounded-full bg-success/15 px-2 py-0.5 text-xs text-success">Anual · 2 meses grátis</span>}
             </Button>
           ))}
         </div>
+      </div>
+      <div className="mt-4 text-center text-sm text-muted-foreground">
+        Primeiro pagamento via Pix com 20% de desconto e confirmação automática em poucos segundos.
       </div>
       <div className="mx-auto mt-6 max-w-xs">
         <label htmlFor="cpf-cnpj" className="text-sm font-medium">CPF ou CNPJ (exigido para o Pix)</label>

@@ -5,23 +5,26 @@ Previsão de caixa (15/30 dias) + cobrança automática por e-mail. TanStack Sta
 ## Secrets necessários (Lovable Cloud → Secrets)
 | Nome | Uso |
 |---|---|
-| `STRIPE_SECRET_KEY` | API do Stripe (sk_test_… / sk_live_…) |
-| `STRIPE_WEBHOOK_SECRET` | Assinatura do webhook (whsec_…) |
-| `STRIPE_PRICE_<PLANO>_<MONTH\|YEAR>` | Opcional: sobrescreve os IDs em `src/config/plans.ts` |
-| `STRIPE_PAYMENT_METHODS` | Opcional, ex.: `card,boleto` |
+| `ASAAS_API_KEY` | API privada do Asaas para Pix e cobrança automática |
 | `RESEND_API_KEY` | Envio de e-mails |
 | `RESEND_FROM_EMAIL` | Remetente verificado, ex.: `cobranca@seudominio.com.br` |
 | `HMAC_SECRET` | Assina links de descadastro |
 | `APP_URL` | URL pública, ex.: `https://app.seudominio.com.br` |
+| `LOVABLE_API_KEY` | Conector oficial de WhatsApp Business |
+| `WHATSAPP_API_KEY` | Chave do canal via conector |
+| `WHATSAPP_TEMPLATE_NAME` | Opcional: template aprovado da Meta |
+| `WHATSAPP_TEMPLATE_LANG` | Opcional: idioma do template, ex.: `pt_BR` |
 
-## Stripe (modo teste)
-1. Crie 3 produtos (Starter, Pro, Business), cada um com preço mensal e anual em BRL (29/290, 59/590, 119/1.190).
-2. Cole os `price_…` em `STRIPE_PRICE_IDS` (`src/config/plans.ts`) ou nos secrets.
-3. Webhook → `https://SEU_DOMINIO/api/public/stripe-webhook` com eventos: `checkout.session.completed`, `customer.subscription.created|updated|deleted`, `invoice.paid`, `invoice.payment_failed`. Copie o `whsec_…`.
-4. Customer Portal: ative troca de plano (com proração), atualização de cartão, faturas e cancelamento.
+## Fluxo de pagamento com Asaas
+1. Configure a chave API do Asaas em `ASAAS_API_KEY` (sandbox ou produção).
+2. Use o webhook público em `https://SEU_DOMINIO/api/public/asaas-webhook` para receber eventos de pagamento.
+3. No Asaas, ative o rastreio de pagamentos para confirmar a cobrança Pix em segundos.
+4. O checkout cria o cliente, gera o QR Code Pix e salva `asaas_payment_id` em `subscriptions` até a confirmação.
 
-## Resend
-Adicione e verifique seu domínio (SPF/DKIM) no Resend e defina `RESEND_FROM_EMAIL`.
+## E-mail e WhatsApp
+- E-mail: Resend + `RESEND_API_KEY` e `RESEND_FROM_EMAIL`
+- WhatsApp: conector `https://connector-gateway.lovable.dev/whatsapp` com `LOVABLE_API_KEY` e `WHATSAPP_API_KEY`
+- O cron diário entra em `POST /api/public/send-reminders` para disparar regras de lembrete por canal
 
 ## Agendamento diário (08:00 America/Sao_Paulo = 11:00 UTC)
 Rota: `POST /api/public/send-reminders` com `Authorization: Bearer <LOVABLE_CRON_SECRET>`. Envia a régua e os e-mails do sistema (boas-vindas, fim do teste).
