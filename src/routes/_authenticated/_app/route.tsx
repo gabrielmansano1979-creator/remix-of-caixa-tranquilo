@@ -41,26 +41,34 @@ function AppShell() {
     navigate({ to: "/login", replace: true });
   };
 
-  const linkCls = "flex h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground";
-  const activeCls = "!bg-accent !text-accent-foreground";
+  const linkCls = "group flex h-12 items-center gap-3 rounded-xl px-3.5 text-sm font-semibold text-muted-foreground transition-all duration-200 hover:bg-background/80 hover:text-foreground";
+  const activeCls = "!bg-background !text-primary shadow-[0_4px_14px_-10px_var(--foreground)] ring-1 ring-border/70";
 
   return (
-    <div className="min-h-screen bg-background md:flex">
-      <aside className="hidden w-60 shrink-0 flex-col border-r bg-sidebar p-4 md:flex">
-        <div className="px-2 py-2"><Logo to="/caixa" /></div>
-        <nav className="mt-6 flex flex-col gap-1" aria-label="Principal">
+    <div className="min-h-screen bg-background/70 md:flex">
+      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-sidebar-border/80 bg-sidebar/90 p-5 backdrop-blur-xl md:flex">
+        <div className="rounded-2xl border border-sidebar-border/70 bg-background/60 px-3 py-3 shadow-sm"><Logo to="/caixa" /></div>
+        <p className="mb-2 mt-9 px-3 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Gestão financeira</p>
+        <nav className="flex flex-col gap-1.5" aria-label="Principal">
           {NAV.map((n) => (
             <Link key={n.to} to={n.to} className={linkCls} activeProps={{ className: activeCls }}>
-              <n.icon className="h-5 w-5" />{n.label}
+              <n.icon className="h-[18px] w-[18px] transition-transform duration-200 group-hover:scale-105" />{n.label}
             </Link>
           ))}
         </nav>
+        <div className="mt-auto rounded-2xl border border-sidebar-border/70 bg-background/55 p-4">
+          <p className="text-xs font-semibold">Visão executiva</p>
+          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">Caixa, compromissos e cobranças em um só lugar.</p>
+        </div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b bg-background/85 px-4 backdrop-blur md:px-8">
+        <header className="sticky top-0 z-20 flex h-[4.5rem] items-center justify-between border-b border-border/70 bg-background/75 px-4 backdrop-blur-xl md:px-8">
           <div className="md:hidden"><Logo to="/caixa" /></div>
-          <div className="hidden md:block" />
+          <div className="hidden items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground md:flex">
+            <span className="h-1.5 w-1.5 rounded-full bg-success shadow-[0_0_0_4px_color-mix(in_oklch,var(--color-success)_14%,transparent)]" />
+            Ambiente seguro
+          </div>
           <div className="flex items-center gap-1">
             <ThemeToggle />
             <DropdownMenu>
@@ -109,15 +117,15 @@ function AppShell() {
           </div>
         )}
 
-        <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-28 pt-6 md:px-8 md:pb-10">
+        <main className="mx-auto w-full max-w-[1440px] flex-1 px-4 pb-28 pt-7 md:px-9 md:pb-12 md:pt-9 xl:px-12">
           <Outlet />
           <FeedbackPrompt createdAt={profile?.created_at} />
         </main>
       </div>
 
-      <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-3 border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden" aria-label="Principal">
+      <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-3 border-t border-border/80 bg-background/90 pb-[env(safe-area-inset-bottom)] shadow-[0_-10px_32px_-24px_var(--foreground)] backdrop-blur-xl md:hidden" aria-label="Principal">
         {NAV.map((n) => (
-          <Link key={n.to} to={n.to} className="flex h-16 flex-col items-center justify-center gap-1 text-xs font-medium text-muted-foreground" activeProps={{ className: "!text-primary" }}>
+          <Link key={n.to} to={n.to} className="flex h-16 flex-col items-center justify-center gap-1 text-xs font-semibold text-muted-foreground transition-colors" activeProps={{ className: "!text-primary" }}>
             <n.icon className="h-5 w-5" />{n.label}
           </Link>
         ))}

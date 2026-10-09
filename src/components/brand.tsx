@@ -1,20 +1,15 @@
 import { Link } from "@tanstack/react-router";
-import { Moon, Sun } from "lucide-react";
+import { Moon, Sun, Wallet } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import appIcon from "@/assets/app-icon-v2.png.asset.json";
 
 export function Logo({ to = "/" }: { to?: "/" | "/caixa" }) {
   return (
     <Link to={to} className="flex items-center gap-2 font-semibold tracking-tight">
-      <img
-        src={appIcon.url}
-        alt=""
-        width={512}
-        height={512}
-        className="h-11 w-11 shrink-0 object-contain"
-      />
-      <span>Critical Cash</span>
+      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-primary/15 bg-primary text-primary-foreground shadow-[0_8px_18px_-12px_var(--color-primary)]">
+        <Wallet className="h-5 w-5" aria-hidden="true" />
+      </span>
+      <span className="text-[15px] font-bold tracking-tight">Critical Cash</span>
     </Link>
   );
 }

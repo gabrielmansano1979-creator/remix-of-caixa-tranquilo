@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
 import {
-  AlertTriangle, CheckCircle2, Clock, FileUp, MoreVertical, Pencil, Plus, Search, Trash2, Inbox, RotateCcw, MessageCircle,
+  AlertTriangle, CheckCircle2, Clock, FileUp, MoreVertical, Pencil, Plus, Search, Trash2, Inbox, RotateCcw, MessageCircle, ArrowDownToLine, ArrowUpFromLine,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { accessQuery, profileQuery, entriesQuery, isOverdue, parseDbError, todaySP, type Entry, type LimitKind } from "@/lib/app-data";
@@ -83,18 +83,19 @@ function ContasPage() {
   });
 
   return (
-    <div>
+    <div className="space-y-1">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Contas</h1>
-          <p className="text-sm text-muted-foreground">O que você tem a receber e a pagar.</p>
+          <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-primary">Movimentações</p>
+          <h1 className="mt-2 text-3xl font-bold tracking-tight md:text-4xl">Contas</h1>
+          <p className="mt-2 text-sm text-muted-foreground md:text-base">Uma visão clara do que entra e sai do seu caixa.</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" className="h-11 rounded-xl" onClick={guard(() => { setWhatsAppEntry(null); setWhatsAppOpen(true); })}>
+          <Button variant="outline" className="h-11 rounded-xl border-success/25 text-success hover:bg-success/10 hover:text-success" onClick={guard(() => { setWhatsAppEntry(null); setWhatsAppOpen(true); })}>
             <MessageCircle className="mr-2 h-4 w-4" />Enviar WhatsApp
           </Button>
           <Button variant="outline" className="h-11 rounded-xl" onClick={guard(() => setCsvOpen(true))}><FileUp className="mr-2 h-4 w-4" />Importar CSV</Button>
-          <Button className="h-11 rounded-xl" onClick={guard(() => { setEditing(null); setFormOpen(true); })}><Plus className="mr-2 h-4 w-4" />Nova conta</Button>
+          <Button className="h-11 rounded-xl px-5" onClick={guard(() => { setEditing(null); setFormOpen(true); })}><Plus className="mr-2 h-4 w-4" />Nova conta</Button>
         </div>
       </div>
 
@@ -105,7 +106,7 @@ function ContasPage() {
         </div>
       )}
 
-      <div className="mt-6 flex flex-col gap-3 md:flex-row md:items-center">
+      <div className="mt-8 flex flex-col gap-4 rounded-2xl border border-border/70 bg-card/65 p-4 shadow-sm backdrop-blur md:flex-row md:items-center md:p-5">
         <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
           <TabsList className="h-11 rounded-xl">
             <TabsTrigger value="all" className="h-9 rounded-lg">Todas</TabsTrigger>
@@ -130,9 +131,9 @@ function ContasPage() {
         </div>
       </div>
 
-      <div className="mt-4 rounded-2xl border bg-card shadow-[var(--shadow-soft)]">
+      <div className="mt-5 overflow-hidden rounded-2xl border border-border/75 bg-card/85 shadow-[var(--shadow-soft)] backdrop-blur-xl">
         {isLoading ? (
-          <div className="space-y-2 p-4">{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-12 rounded-lg" />)}</div>
+          <div className="space-y-3 p-6">{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-14 rounded-xl" />)}</div>
         ) : isError ? (
           <div className="flex flex-col items-center p-10 text-center">
             <AlertTriangle className="h-8 w-8 text-danger" />
@@ -152,23 +153,24 @@ function ContasPage() {
         ) : !rows.length ? (
           <p className="p-10 text-center text-sm text-muted-foreground">Nenhuma conta encontrada com esses filtros.</p>
         ) : (
-          <table className="w-full text-sm">
-            <thead className="hidden text-left text-xs text-muted-foreground md:table-header-group">
-              <tr className="border-b"><th className="p-3 font-medium">Vencimento</th><th className="p-3 font-medium">Nome</th><th className="p-3 font-medium">Descrição</th><th className="p-3 text-right font-medium">Valor</th><th className="p-3 font-medium">Status</th><th className="w-24 p-3" /></tr>
+          <table className="w-full text-sm md:[&_td]:py-4">
+            <thead className="hidden bg-muted/45 text-left text-[11px] uppercase tracking-wider text-muted-foreground md:table-header-group">
+              <tr className="border-b border-border/70"><th className="px-5 py-4 font-semibold">Vencimento</th><th className="px-5 py-4 font-semibold">Nome</th><th className="px-5 py-4 font-semibold">Descrição</th><th className="px-5 py-4 text-right font-semibold">Valor</th><th className="px-5 py-4 font-semibold">Status</th><th className="w-24 p-3" /></tr>
             </thead>
             <tbody>
               {rows.map((e) => (
-                <tr key={e.id} className="grid grid-cols-[1fr_auto] gap-x-3 border-b p-3 last:border-0 md:table-row md:p-0">
-                  <td className="num text-xs text-muted-foreground md:p-3 md:text-sm md:text-foreground">{formatDate(e.due_date)}</td>
-                  <td className="col-start-1 font-medium md:p-3">
-                    <button className="text-left hover:underline" onClick={() => setDetail(e)}>{e.counterparty_name || "—"}</button>
+                <tr key={e.id} className="grid grid-cols-[1fr_auto] gap-x-3 border-b border-border/60 p-4 transition-colors last:border-0 hover:bg-accent/25 md:table-row md:p-0">
+                  <td className="num text-xs text-muted-foreground md:px-5 md:text-sm md:text-foreground">{formatDate(e.due_date)}</td>
+                  <td className="col-start-1 font-semibold md:px-5">
+                    <button className="text-left transition-colors hover:text-primary hover:underline" onClick={() => setDetail(e)}>{e.counterparty_name || "—"}</button>
                   </td>
-                  <td className="col-start-1 text-muted-foreground md:p-3">{e.description}</td>
-                  <td className={`num col-start-2 row-span-2 row-start-1 self-center text-right font-semibold md:p-3 ${e.type === "income" ? "text-success" : "text-danger"}`}>
+                  <td className="col-start-1 text-muted-foreground md:px-5">{e.description}</td>
+                  <td className={`num col-start-2 row-span-2 row-start-1 self-center text-right text-base font-bold tracking-tight md:px-5 ${e.type === "income" ? "text-success" : "text-foreground"}`}>
+                    {e.type === "income" ? <ArrowDownToLine className="mr-1 inline h-3.5 w-3.5" /> : <ArrowUpFromLine className="mr-1 inline h-3.5 w-3.5" />}
                     {e.type === "income" ? "+" : "−"}{formatBRL(e.amount_cents)}
                   </td>
-                  <td className="col-start-1 md:p-3"><StatusBadge e={e} /></td>
-                  <td className="col-start-2 row-start-3 flex items-center justify-end gap-1 md:p-3">
+                  <td className="col-start-1 md:px-5"><StatusBadge e={e} /></td>
+                  <td className="col-start-2 row-start-3 flex items-center justify-end gap-1 md:px-5">
                     {e.status === "pending" && (
                       <Button size="sm" variant="ghost" className="h-10 rounded-lg text-success" onClick={guard(() => markPaid.mutate({ id: e.id, paid: true }))} aria-label="Marcar como pago">
                         <CheckCircle2 className="h-4 w-4 md:mr-1" /><span className="hidden lg:inline">Pago</span>

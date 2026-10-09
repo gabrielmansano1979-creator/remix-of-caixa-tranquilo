@@ -1,9 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { toast } from "sonner";
 import { CartesianGrid, Line, LineChart, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import {
-  AlertOctagon, AlertTriangle, CheckCircle2, Circle, Inbox, MessageCircle, Pencil, RotateCcw, ShieldAlert, ShieldCheck, ShieldQuestion, TrendingDown, TrendingUp,
+  AlertOctagon, AlertTriangle, CalendarDays, CheckCircle2, Circle, Inbox, MessageCircle, Pencil, RotateCcw, ShieldAlert, ShieldCheck, ShieldQuestion, TrendingDown, TrendingUp, Wallet,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { accessQuery, entriesQuery, parseDbError, profileQuery, todaySP } from "@/lib/app-data";
@@ -50,8 +51,17 @@ function CaixaPage() {
   const hasEntries = (entries.data?.length ?? 0) > 0;
 
   return (
-    <div className="space-y-6">
-      <h1 className="sr-only">Caixa</h1>
+    <div className="space-y-8">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-primary">Painel financeiro</p>
+          <h1 className="mt-2 text-3xl font-bold tracking-tight md:text-4xl">Visão do caixa</h1>
+          <p className="mt-2 text-sm text-muted-foreground md:text-base">Antecipe movimentos e mantenha o controle dos próximos 30 dias.</p>
+        </div>
+        <span className="mb-1 inline-flex items-center gap-2 rounded-full border border-success/20 bg-success/5 px-3 py-2 text-xs font-semibold text-success">
+          <span className="h-1.5 w-1.5 rounded-full bg-success" /> Dados atualizados
+        </span>
+      </div>
       <Activation hasEntries={hasEntries} />
       {!hasEntries ? (
         <div className="flex flex-col items-center rounded-2xl border bg-card p-10 text-center shadow-[var(--shadow-soft)]">
@@ -67,7 +77,7 @@ function CaixaPage() {
       ) : (
         <>
           <Semaphore p={p} />
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-5 md:grid-cols-3">
             <BalanceCard current={p.current} />
             <ProjCard label="Saldo projetado em 15 dias" value={p.series[15]?.balance ?? p.current} current={p.current} />
             <ProjCard label="Saldo projetado em 30 dias" value={p.series[30]?.balance ?? p.current} current={p.current} />
@@ -87,8 +97,10 @@ function Semaphore({ p }: { p: Projection }) {
     green: { icon: CheckCircle2, title: "Tudo certo: o caixa fecha", cls: "bg-success/10 text-success border-success/30", msg: `Nos próximos 30 dias o menor saldo é ${formatBRL(p.min_balance)}, em ${formatDate(p.min_date)}.` },
   }[p.status];
   return (
-    <section className={`cash-reveal flex items-start gap-4 rounded-2xl border p-5 md:p-6 ${cfg.cls}`} aria-live="polite">
-      <cfg.icon className="h-10 w-10 shrink-0" aria-hidden="true" />
+    <section className={`cash-reveal flex items-start gap-4 rounded-2xl border p-6 shadow-[var(--shadow-soft)] md:p-7 ${cfg.cls}`} aria-live="polite">
+      <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-background/60 shadow-sm">
+        <cfg.icon className="h-6 w-6" aria-hidden="true" />
+      </span>
       <div>
         <h2 className="text-xl font-semibold md:text-2xl">{cfg.title}</h2>
         <p className="mt-1 text-foreground">{cfg.msg}</p>
@@ -112,10 +124,13 @@ function BalanceCard({ current }: { current: number }) {
     onError: (e) => toast.error(parseDbError(e).message),
   });
   return (
-    <div className="rounded-2xl border bg-card p-5 shadow-[var(--shadow-soft)]">
+    <div className="premium-surface rounded-2xl p-6 md:p-7">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">Saldo atual</p>
-        {!edit && <Button variant="ghost" size="sm" className="h-10" onClick={() => { setV(current); setEdit(true); }}><Pencil className="mr-1 h-3.5 w-3.5" />Editar</Button>}
+        <div className="flex items-center gap-3">
+          <span className="grid h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary"><Wallet className="h-5 w-5" /></span>
+          <div><p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Saldo atual</p><p className="mt-0.5 text-xs text-muted-foreground">Posição de caixa</p></div>
+        </div>
+        {!edit && <Button variant="ghost" size="sm" className="h-10 rounded-xl" onClick={() => { setV(current); setEdit(true); }}><Pencil className="mr-1 h-3.5 w-3.5" />Editar</Button>}
       </div>
       {edit ? (
         <form className="mt-1" onSubmit={(e) => { e.preventDefault(); save.mutate(); }}>
@@ -128,7 +143,7 @@ function BalanceCard({ current }: { current: number }) {
         </form>
       ) : (
         <>
-          <p className={`num mt-1 text-[2rem] font-bold leading-tight ${current < 0 ? "text-danger" : ""}`}>{formatBRL(current)}</p>
+          <p className={`num mt-5 text-[2.25rem] font-bold leading-tight tracking-tight ${current < 0 ? "text-danger" : ""}`}>{formatBRL(current)}</p>
           {profile.data?.balance_date && <p className="text-xs text-muted-foreground">Atualizado em {formatDate(profile.data.balance_date)}</p>}
         </>
       )}
@@ -140,9 +155,12 @@ function ProjCard({ label, value, current }: { label: string; value: number; cur
   const diff = value - current;
   const up = diff >= 0;
   return (
-    <div className="rounded-2xl border bg-card p-5 shadow-[var(--shadow-soft)]">
-      <p className="text-sm text-muted-foreground">{label}</p>
-      <p className={`num mt-1 text-[2rem] font-bold leading-tight ${value < 0 ? "text-danger" : ""}`}>{formatBRL(value)}</p>
+    <div className="premium-surface rounded-2xl p-6 md:p-7">
+      <div className="flex items-center gap-3">
+        <span className={`grid h-10 w-10 place-items-center rounded-xl ${up ? "bg-success/10 text-success" : "bg-warning/10 text-warning"}`}><CalendarDays className="h-5 w-5" /></span>
+        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
+      </div>
+      <p className={`num mt-5 text-[2.25rem] font-bold leading-tight tracking-tight ${value < 0 ? "text-danger" : ""}`}>{formatBRL(value)}</p>
       <p className={`mt-1 flex items-center gap-1 text-sm ${up ? "text-success" : "text-danger"}`}>
         {up ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
         <span className="num">{up ? "+" : "−"}{formatBRL(Math.abs(diff))}</span> <span className="text-muted-foreground">vs. hoje</span>
@@ -157,8 +175,11 @@ function Chart({ p }: { p: Projection }) {
   const max = Math.max(0, ...data.map((d) => d.v));
   const fmt = (n: number) => new Intl.NumberFormat("pt-BR", { notation: "compact", style: "currency", currency: "BRL" }).format(n);
   return (
-    <section className="rounded-2xl border bg-card p-5 shadow-[var(--shadow-soft)]">
-      <h2 className="font-semibold">Saldo projetado — próximos 30 dias</h2>
+    <section className="premium-surface rounded-2xl p-6 md:p-7">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div><p className="text-[11px] font-bold uppercase tracking-[0.18em] text-primary">Projeção</p><h2 className="mt-1 text-lg font-semibold tracking-tight">Saldo nos próximos 30 dias</h2></div>
+        <span className="rounded-full border border-border/80 bg-background/70 px-3 py-1.5 text-xs font-medium text-muted-foreground">Atualização diária</span>
+      </div>
       <div className="mt-4 h-64" role="img" aria-label={`Gráfico do saldo projetado. Menor saldo ${formatBRL(p.min_balance)} em ${formatDate(p.min_date)}.`}>
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
@@ -203,17 +224,17 @@ function Risks({ limit, canWrite }: { limit: number; canWrite: boolean }) {
     low: { icon: ShieldCheck, label: "Baixo", cls: "bg-success/10 text-success" },
   };
   return (
-    <section className="rounded-2xl border bg-card p-5 shadow-[var(--shadow-soft)]">
-      <h2 className="font-semibold">Maiores riscos de inadimplência</h2>
+    <section className="premium-surface rounded-2xl p-6 md:p-7">
+      <div className="flex items-center justify-between gap-3"><div><p className="text-[11px] font-bold uppercase tracking-[0.18em] text-primary">Acompanhamento</p><h2 className="mt-1 text-lg font-semibold tracking-tight">Contas que exigem atenção</h2></div><ShieldAlert className="h-5 w-5 text-warning" /></div>
       {risks.isLoading ? <div className="mt-4 space-y-2"><Skeleton className="h-16 rounded-xl" /><Skeleton className="h-16 rounded-xl" /></div>
         : risks.isError ? <div className="mt-4 text-sm text-danger">Erro ao carregar riscos. <button className="underline" onClick={() => risks.refetch()}>Tentar novamente</button></div>
         : !risks.data?.length ? <p className="mt-4 text-sm text-muted-foreground">Nenhuma conta a receber pendente nos próximos 30 dias.</p>
         : (
-          <ul className="mt-4 divide-y">
+          <ul className="mt-5 divide-y divide-border/70">
             {risks.data.map((r) => {
               const b = badge[r.level];
               return (
-                <li key={r.entry_id} className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center">
+                <li key={r.entry_id} className="flex flex-col gap-4 py-5 sm:flex-row sm:items-center">
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${b.cls}`}><b.icon className="h-3.5 w-3.5" />{b.label}</span>

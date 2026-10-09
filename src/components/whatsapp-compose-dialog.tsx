@@ -96,7 +96,7 @@ export function WhatsAppComposeDialog({ entries, open, onOpenChange, initialEntr
                   role="option"
                   aria-selected={selectedId === entry.id}
                   onClick={() => selectEntry(entry.id)}
-                  className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${selectedId === entry.id ? "bg-accent text-accent-foreground" : "hover:bg-muted"}`}
+                  className={`w-full rounded-xl px-3.5 py-3 text-left text-sm transition-all duration-200 ${selectedId === entry.id ? "bg-accent text-accent-foreground ring-1 ring-primary/15" : "hover:bg-muted/75"}`}
                 >
                   <span className="block font-medium">{entry.counterparty_name || "Cliente sem nome"}</span>
                   <span className="block text-xs text-muted-foreground">{entry.description} · {formatBRL(entry.amount_cents)} · vence {formatDate(entry.due_date)}</span>
@@ -115,14 +115,14 @@ export function WhatsAppComposeDialog({ entries, open, onOpenChange, initialEntr
               id="whatsapp-template"
               value={template}
               onChange={(event) => selectTemplate(event.target.value as WhatsAppTemplate)}
-              className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm"
+              className="h-11 w-full rounded-xl border border-input/80 bg-background/75 px-3 text-sm shadow-sm outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/20"
             >
               {TEMPLATES.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
             </select>
           </div>
 
           {selectedEntry && (
-            <div className="rounded-xl border bg-muted/40 p-3 text-sm">
+            <div className="rounded-2xl border border-primary/10 bg-accent/35 p-4 text-sm">
               <p className="font-medium">{selectedEntry.counterparty_name || "Cliente sem nome"} · {selectedEntry.counterparty_whatsapp}</p>
               <p className="mt-1 text-muted-foreground">{selectedEntry.description} · {formatBRL(selectedEntry.amount_cents)} · vence {formatDate(selectedEntry.due_date)}</p>
               {template === "friendly" && !selectedEntry.pix_url && <p className="mt-1 text-xs text-warning">Esta conta não tem link de pagamento; o modelo indicará “não informado”.</p>}
@@ -147,7 +147,7 @@ export function WhatsAppComposeDialog({ entries, open, onOpenChange, initialEntr
 
         <DialogFooter>
           <Button variant="outline" className="h-11 rounded-xl" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button className="h-11 rounded-xl" disabled={!selectedEntry || !message.trim()} onClick={send}>
+          <Button className="h-11 rounded-xl bg-success px-5 text-success-foreground shadow-[0_10px_24px_-14px_var(--color-success)] hover:bg-success/90" disabled={!selectedEntry || !message.trim()} onClick={send}>
             <MessageCircle className="mr-2 h-4 w-4" />Enviar via WhatsApp
           </Button>
         </DialogFooter>

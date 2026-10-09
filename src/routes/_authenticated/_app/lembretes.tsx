@@ -95,7 +95,7 @@ function RuleCard({ rule, canDays, canTexts, empresa }: { rule: Rule; canDays: b
   };
 
   return (
-    <li className="rounded-2xl border bg-card p-5 shadow-[var(--shadow-soft)]">
+    <li className="premium-surface rounded-2xl p-6 md:p-7">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="font-semibold">{rule.label}</p>
