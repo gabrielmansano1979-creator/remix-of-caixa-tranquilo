@@ -1,0 +1,100 @@
+[
+  {
+    "capability": "code",
+    "source": "TanStack Start archive",
+    "outcome": "apply changed files",
+    "status": "in_progress",
+    "next_action": "Import compatible changes"
+  },
+  {
+    "capability": "schema",
+    "source": "partner_reporting.sql",
+    "outcome": "adapt incompatible profiles id and secure permissions",
+    "status": "in_progress",
+    "next_action": "Create separate role and partner tables"
+  },
+  {
+    "capability": "records",
+    "source": "archive",
+    "outcome": "preserve current Cloud records",
+    "status": "preserved",
+    "next_action": "No record exports supplied"
+  },
+  {
+    "capability": "auth identities",
+    "source": "current Cloud auth",
+    "outcome": "preserve",
+    "status": "preserved",
+    "next_action": "Keep current login"
+  },
+  {
+    "capability": "authorization",
+    "source": "archive localStorage admin bypass",
+    "outcome": "replace with server role checks",
+    "status": "in_progress",
+    "next_action": "Secure RLS and server actions"
+  },
+  {
+    "capability": "uploaded file bytes",
+    "source": "archive assets identical",
+    "outcome": "preserve",
+    "status": "preserved",
+    "next_action": "No asset changes"
+  },
+  {
+    "capability": "external providers",
+    "source": "Asaas Resend WhatsApp Stripe",
+    "outcome": "preserve",
+    "status": "pending",
+    "next_action": "Live verification requires existing provider configuration"
+  },
+  {
+    "capability": "public endpoints",
+    "source": "Asaas webhook",
+    "outcome": "verify payment against provider",
+    "status": "in_progress",
+    "next_action": "Import normalization safely"
+  },
+  {
+    "capability": "callbacks",
+    "source": "existing routes",
+    "outcome": "preserve",
+    "status": "preserved",
+    "next_action": "No callback URL changes"
+  },
+  {
+    "capability": "schedules",
+    "source": "existing daily reminders",
+    "outcome": "preserve",
+    "status": "pending",
+    "next_action": "Schedule not verified"
+  },
+  {
+    "capability": "secrets",
+    "source": "archive .env",
+    "outcome": "exclude and retain secure config",
+    "status": "preserved",
+    "next_action": "Do not import secrets"
+  },
+  {
+    "capability": "cutover",
+    "source": "current project",
+    "outcome": "preview only",
+    "status": "pending",
+    "next_action": "Publish when requested"
+  },
+  {
+    "capability": "verification",
+    "source": "tests browser",
+    "outcome": "verify",
+    "status": "in_progress",
+    "next_action": "Run relevant tests and routes"
+  },
+  {
+    "capability": "accounting reports",
+    "source": "unused reporting.ts fallback rows",
+    "outcome": "exclude fabricated records and invalid PDF",
+    "status": "blocked",
+    "next_action": "No real reporting interface in source"
+  }
+]

@@ -27,3 +27,8 @@
 - [x] Pagamentos migrados para Asaas (substitui pendência de Stripe)
 - [ ] Domínio de e-mail e serviço de envio — aguarda configuração
 - [ ] APP_URL e agendamento diário — não verificados neste turno
+
+## Aplicar repositório enviado
+- [ ] Importar diferenças compatíveis do ZIP, sem credenciais ou arquivos gerados
+- [ ] Substituir administração simulada por permissões no servidor e parceiros persistidos
+- [ ] Validar telas, pagamentos e testes da importação
