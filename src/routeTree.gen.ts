@@ -17,11 +17,11 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as PrivacidadeRouteImport } from './routes/privacidade'
 import { Route as RedefinirSenhaRouteImport } from './routes/redefinir-senha'
 import { Route as TermosRouteImport } from './routes/termos'
+import { Route as AuthenticatedAppRouteRouteImport } from './routes/_authenticated/_app/route'
+import { Route as AuthenticatedOnboardingRouteImport } from './routes/_authenticated/onboarding'
 import { Route as AdminLoginRouteImport } from './routes/admin/login'
 import { Route as AdminRepassesRouteImport } from './routes/admin/repasses'
 import { Route as DashboardParceiroRouteImport } from './routes/dashboard/parceiro'
-import { Route as AuthenticatedAppRouteRouteImport } from './routes/_authenticated/_app/route'
-import { Route as AuthenticatedOnboardingRouteImport } from './routes/_authenticated/onboarding'
 import { Route as AuthenticatedAppAssinaturaRouteImport } from './routes/_authenticated/_app/assinatura'
 import { Route as AuthenticatedAppCaixaRouteImport } from './routes/_authenticated/_app/caixa'
 import { Route as AuthenticatedAppConfiguracoesRouteImport } from './routes/_authenticated/_app/configuracoes'
@@ -82,6 +82,21 @@ const AuthenticatedOnboardingRoute = AuthenticatedOnboardingRouteImport.update({
   path: '/onboarding',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AdminLoginRoute = AdminLoginRouteImport.update({
+  id: '/admin/login',
+  path: '/admin/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRepassesRoute = AdminRepassesRouteImport.update({
+  id: '/admin/repasses',
+  path: '/admin/repasses',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardParceiroRoute = DashboardParceiroRouteImport.update({
+  id: '/dashboard/parceiro',
+  path: '/dashboard/parceiro',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedAppAssinaturaRoute =
   AuthenticatedAppAssinaturaRouteImport.update({
     id: '/assinatura',
@@ -114,21 +129,6 @@ const AuthenticatedAppPlanosRoute = AuthenticatedAppPlanosRouteImport.update({
   id: '/planos',
   path: '/planos',
   getParentRoute: () => AuthenticatedAppRouteRoute,
-} as any)
-const AdminLoginRoute = AdminLoginRouteImport.update({
-  id: '/admin/login',
-  path: '/admin/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminRepassesRoute = AdminRepassesRouteImport.update({
-  id: '/admin/repasses',
-  path: '/admin/repasses',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DashboardParceiroRoute = DashboardParceiroRouteImport.update({
-  id: '/dashboard/parceiro',
-  path: '/dashboard/parceiro',
-  getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicAsaasWebhookRoute = ApiPublicAsaasWebhookRouteImport.update({
   id: '/api/public/asaas-webhook',
@@ -165,10 +165,10 @@ export interface FileRoutesByFullPath {
   '/privacidade': typeof PrivacidadeRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
   '/termos': typeof TermosRoute
+  '/onboarding': typeof AuthenticatedOnboardingRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/repasses': typeof AdminRepassesRoute
   '/dashboard/parceiro': typeof DashboardParceiroRoute
-  '/onboarding': typeof AuthenticatedOnboardingRoute
   '/assinatura': typeof AuthenticatedAppAssinaturaRoute
   '/caixa': typeof AuthenticatedAppCaixaRoute
   '/configuracoes': typeof AuthenticatedAppConfiguracoesRoute
@@ -189,10 +189,10 @@ export interface FileRoutesByTo {
   '/privacidade': typeof PrivacidadeRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
   '/termos': typeof TermosRoute
+  '/onboarding': typeof AuthenticatedOnboardingRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/repasses': typeof AdminRepassesRoute
   '/dashboard/parceiro': typeof DashboardParceiroRoute
-  '/onboarding': typeof AuthenticatedOnboardingRoute
   '/assinatura': typeof AuthenticatedAppAssinaturaRoute
   '/caixa': typeof AuthenticatedAppCaixaRoute
   '/configuracoes': typeof AuthenticatedAppConfiguracoesRoute
@@ -215,11 +215,11 @@ export interface FileRoutesById {
   '/privacidade': typeof PrivacidadeRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
   '/termos': typeof TermosRoute
+  '/_authenticated/_app': typeof AuthenticatedAppRouteRouteWithChildren
+  '/_authenticated/onboarding': typeof AuthenticatedOnboardingRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/repasses': typeof AdminRepassesRoute
   '/dashboard/parceiro': typeof DashboardParceiroRoute
-  '/_authenticated/_app': typeof AuthenticatedAppRouteRouteWithChildren
-  '/_authenticated/onboarding': typeof AuthenticatedOnboardingRoute
   '/_authenticated/_app/assinatura': typeof AuthenticatedAppAssinaturaRoute
   '/_authenticated/_app/caixa': typeof AuthenticatedAppCaixaRoute
   '/_authenticated/_app/configuracoes': typeof AuthenticatedAppConfiguracoesRoute
@@ -242,10 +242,10 @@ export interface FileRouteTypes {
     | '/privacidade'
     | '/redefinir-senha'
     | '/termos'
+    | '/onboarding'
     | '/admin/login'
     | '/admin/repasses'
     | '/dashboard/parceiro'
-    | '/onboarding'
     | '/assinatura'
     | '/caixa'
     | '/configuracoes'
@@ -266,10 +266,10 @@ export interface FileRouteTypes {
     | '/privacidade'
     | '/redefinir-senha'
     | '/termos'
+    | '/onboarding'
     | '/admin/login'
     | '/admin/repasses'
     | '/dashboard/parceiro'
-    | '/onboarding'
     | '/assinatura'
     | '/caixa'
     | '/configuracoes'
@@ -291,11 +291,11 @@ export interface FileRouteTypes {
     | '/privacidade'
     | '/redefinir-senha'
     | '/termos'
+    | '/_authenticated/_app'
+    | '/_authenticated/onboarding'
     | '/admin/login'
     | '/admin/repasses'
     | '/dashboard/parceiro'
-    | '/_authenticated/_app'
-    | '/_authenticated/onboarding'
     | '/_authenticated/_app/assinatura'
     | '/_authenticated/_app/caixa'
     | '/_authenticated/_app/configuracoes'
@@ -386,6 +386,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TermosRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/_app': {
+      id: '/_authenticated/_app'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedAppRouteRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/onboarding': {
+      id: '/_authenticated/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof AuthenticatedOnboardingRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/admin/login': {
       id: '/admin/login'
       path: '/admin/login'
@@ -406,20 +420,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/dashboard/parceiro'
       preLoaderRoute: typeof DashboardParceiroRouteImport
       parentRoute: typeof rootRouteImport
-    }
-    '/_authenticated/_app': {
-      id: '/_authenticated/_app'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof AuthenticatedAppRouteRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/onboarding': {
-      id: '/_authenticated/onboarding'
-      path: '/onboarding'
-      fullPath: '/onboarding'
-      preLoaderRoute: typeof AuthenticatedOnboardingRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/_app/assinatura': {
       id: '/_authenticated/_app/assinatura'
