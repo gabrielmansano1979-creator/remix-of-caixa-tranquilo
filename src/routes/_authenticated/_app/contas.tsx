@@ -8,12 +8,12 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { accessQuery, profileQuery, entriesQuery, isOverdue, parseDbError, todaySP, type Entry, type LimitKind } from "@/lib/app-data";
-import { manualWhatsAppLink } from "@/lib/plg";
 import { formatBRL, formatDate } from "@/lib/format";
 import { USAGE_WARNING_RATIO } from "@/config/plans";
 import { StatusBadge, useMarkPaid } from "@/components/contas/shared";
 import { EntryFormDialog } from "@/components/contas/entry-form";
 import { CsvImportDialog } from "@/components/contas/csv-import";
+import { WhatsAppComposeDialog } from "@/components/whatsapp-compose-dialog";
 import { UpgradeDialog } from "@/components/upgrade-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,6 +48,8 @@ function ContasPage() {
   const [csvOpen, setCsvOpen] = useState(false);
   const [del, setDel] = useState<Entry | null>(null);
   const [detail, setDetail] = useState<Entry | null>(null);
+  const [whatsAppOpen, setWhatsAppOpen] = useState(false);
+  const [whatsAppEntry, setWhatsAppEntry] = useState<Entry | null>(null);
   const [limit, setLimit] = useState<string | null>(null);
   const markPaid = useMarkPaid();
   const canWrite = access?.can_write ?? true;
@@ -98,6 +100,9 @@ function ContasPage() {
           <p className="text-sm text-muted-foreground">O que você tem a receber e a pagar.</p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" className="h-11 rounded-xl" onClick={guard(() => { setWhatsAppEntry(null); setWhatsAppOpen(true); })}>
+            <MessageCircle className="mr-2 h-4 w-4" />Enviar WhatsApp
+          </Button>
           <Button variant="outline" className="h-11 rounded-xl" onClick={guard(() => setCsvOpen(true))}><FileUp className="mr-2 h-4 w-4" />Importar CSV</Button>
           <Button className="h-11 rounded-xl" onClick={guard(() => { setEditing(null); setFormOpen(true); })}><Plus className="mr-2 h-4 w-4" />Nova conta</Button>
         </div>
@@ -162,7 +167,7 @@ function ContasPage() {
               <tr className="border-b"><th className="p-3 font-medium">Vencimento</th><th className="p-3 font-medium">Nome</th><th className="p-3 font-medium">Descrição</th><th className="p-3 text-right font-medium">Valor</th><th className="p-3 font-medium">Status</th><th className="p-3 font-medium">Status do envio</th><th className="w-24 p-3" /></tr>
             </thead>
             <tbody>
-              {rows.map((e) => { const wa = manualWhatsAppLink(e,profile?.business_name ?? 'Seu negócio'); const latest = ['email','whatsapp'].map(c=>deliveries.data?.find(l=>l.entry_id===e.id && l.channel===c)).filter(l=>!!l); return (
+              {rows.map((e) => { const latest = ['email','whatsapp'].map(c=>deliveries.data?.find(l=>l.entry_id===e.id && l.channel===c)).filter(l=>!!l); return (
                 <tr key={e.id} className="grid grid-cols-[1fr_auto] gap-x-3 border-b p-3 last:border-0 md:table-row md:p-0">
                   <td className="num text-xs text-muted-foreground md:p-3 md:text-sm md:text-foreground">{formatDate(e.due_date)}</td>
                   <td className="col-start-1 font-medium md:p-3">
@@ -184,7 +189,7 @@ function ContasPage() {
                       <DropdownMenuTrigger asChild><Button size="icon" variant="ghost" className="h-10 w-10" aria-label="Ações"><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="rounded-xl">
                         <DropdownMenuItem onClick={() => setDetail(e)}>Ver detalhes</DropdownMenuItem>
-                         {e.type==='income' && e.status==='pending' && wa && <DropdownMenuItem asChild disabled={!canWrite}><a href={canWrite ? wa : undefined} target="_blank" rel="noopener noreferrer"><MessageCircle className="mr-2 h-4 w-4" />Cobrar pelo WhatsApp</a></DropdownMenuItem>}
+                        {e.type === "income" && e.status === "pending" && e.counterparty_whatsapp && <DropdownMenuItem disabled={!canWrite} onClick={guard(() => { setWhatsAppEntry(e); setWhatsAppOpen(true); })}><MessageCircle className="mr-2 h-4 w-4" />Cobrar pelo WhatsApp</DropdownMenuItem>}
                         <DropdownMenuItem onClick={guard(() => { setEditing(e); setFormOpen(true); })}><Pencil className="mr-2 h-4 w-4" />Editar</DropdownMenuItem>
                         {e.status === "paid" && <DropdownMenuItem onClick={guard(() => markPaid.mutate({ id: e.id, paid: false }))}><RotateCcw className="mr-2 h-4 w-4" />Reabrir</DropdownMenuItem>}
                         {e.type === "income" && (
@@ -206,6 +211,7 @@ function ContasPage() {
 
       <EntryFormDialog open={formOpen} onOpenChange={setFormOpen} entry={editing} onLimit={onLimit} />
       <CsvImportDialog open={csvOpen} onOpenChange={setCsvOpen} onLimit={onLimit} />
+      <WhatsAppComposeDialog entries={data ?? []} open={whatsAppOpen} onOpenChange={setWhatsAppOpen} initialEntry={whatsAppEntry} />
       <UpgradeDialog open={!!limit} onOpenChange={(o) => !o && setLimit(null)} message={limit ?? ""} />
       <EntryDetail entry={detail} onClose={() => setDetail(null)} />
 

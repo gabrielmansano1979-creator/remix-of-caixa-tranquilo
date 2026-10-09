@@ -1,5 +1,6 @@
 // Server-only: Resend, templates HTML e tokens HMAC de descadastro.
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { Resend } from "resend";
 
 export const esc = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
@@ -66,14 +67,18 @@ export async function sendResend(p: { from: string; to: string; replyTo?: string
   const key = process.env.RESEND_API_KEY;
   if (!key) return { ok: false as const, error: "RESEND_API_KEY não configurada" };
   try {
-    const r = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ from: p.from, to: [p.to], reply_to: p.replyTo, subject: p.subject, html: p.html, text: p.text, headers: p.headers }),
+    const resend = new Resend(key);
+    const { data, error } = await resend.emails.send({
+      from: p.from,
+      to: [p.to],
+      replyTo: p.replyTo,
+      subject: p.subject,
+      html: p.html,
+      text: p.text,
+      headers: p.headers,
     });
-    const j = (await r.json().catch(() => ({}))) as { id?: string; message?: string };
-    if (!r.ok) return { ok: false as const, error: (j.message ?? `HTTP ${r.status}`).slice(0, 300) };
-    return { ok: true as const, id: j.id ?? null };
+    if (error) return { ok: false as const, error: error.message.slice(0, 300) };
+    return { ok: true as const, id: data?.id ?? null };
   } catch (e) {
     return { ok: false as const, error: String(e).slice(0, 300) };
   }
