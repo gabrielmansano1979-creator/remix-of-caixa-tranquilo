@@ -50,7 +50,7 @@ function BusinessForm({ profile }: { profile: Tables<"profiles"> }) {
   const qc = useQueryClient();
   const { register, handleSubmit, control, formState } = useForm<z.infer<typeof bizSchema>>({
     resolver: zodResolver(bizSchema),
-    defaultValues: { business_name: profile.business_name ?? "", reply_to_email: profile.reply_to_email ?? "", initial_balance_cents: profile.initial_balance_cents, cushion_cents: profile.cushion_cents },
+    defaultValues: { business_name: profile.business_name ?? "", initial_balance_cents: profile.initial_balance_cents, cushion_cents: profile.cushion_cents },
   });
   const onSubmit = handleSubmit(async (v) => {
     const balChanged = v.initial_balance_cents !== profile.initial_balance_cents;

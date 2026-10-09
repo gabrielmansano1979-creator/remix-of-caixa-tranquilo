@@ -1,6 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 type Sub = { id: string; customer: string; status: string; cancel_at_period_end: boolean; current_period_end?: number; metadata?: { user_id?: string }; items: { data: { price: { id: string }; current_period_end?: number }[] } };
+type StripeEventObject = Partial<Sub> & {
+  subscription?: string | null;
+  client_reference_id?: string | null;
+  parent?: { subscription_details?: { subscription?: string | null } };
+};
 
 const mapStatus = (s: string) =>
   s === "active" || s === "trialing" ? "active" : s === "past_due" || s === "unpaid" || s === "incomplete" ? "past_due" : s === "canceled" ? "canceled" : "expired";
@@ -14,9 +19,8 @@ export const Route = createFileRoute("/api/public/stripe-webhook")({
         const body = await request.text();
         const { verifyStripeSignature, stripe, planFromPrice } = await import("@/lib/stripe.server");
         if (!verifyStripeSignature(body, request.headers.get("stripe-signature") ?? "", secret)) return new Response("invalid signature", { status: 400 });
-        const event = JSON.parse(body) as { id: string; type: string; data: { object: any } };
+        const event = JSON.parse(body) as { id: string; type: string; data: { object: StripeEventObject } };
         const { supabaseAdmin: db } = await import("@/integrations/supabase/client.server");
-        const { sendSystemTo } = await import("@/lib/reminders.server");
 
         // Idempotência: ignora eventos já processados.
         const { error: dup } = await db.from("stripe_events").insert({ id: event.id, type: event.type });
@@ -50,7 +54,7 @@ export const Route = createFileRoute("/api/public/stripe-webhook")({
                 if (o.client_reference_id) await db.from("subscriptions").upsert({ user_id: o.client_reference_id, stripe_customer_id: o.customer, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
                 const sub = await stripe<Sub>("GET", `subscriptions/${o.subscription}`);
                 const uid = await upsertSub(sub);
-                if (uid) { await sendSystemTo(db, uid, "subscription_confirmed"); await db.from("audit_logs").insert({ user_id: uid, action: "subscription_start", meta: { plan: sub.items.data[0]?.price.id } }); }
+                if (uid) await db.from("audit_logs").insert({ user_id: uid, action: "subscription_start", meta: { plan: sub.items.data[0]?.price.id } });
               }
               break;
             }
@@ -64,8 +68,7 @@ export const Route = createFileRoute("/api/public/stripe-webhook")({
               const subId = o.subscription ?? o.parent?.subscription_details?.subscription;
               if (subId) {
                 const sub = await stripe<Sub>("GET", `subscriptions/${subId}`);
-                const uid = await upsertSub(sub);
-                if (uid && event.type === "invoice.payment_failed") await sendSystemTo(db, uid, "payment_failed");
+                await upsertSub(sub);
               }
               break;
             }

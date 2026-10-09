@@ -20,7 +20,7 @@ export const Route = createFileRoute("/_authenticated/_app/caixa")({
 });
 
 type Projection = { today: string; current: number; series: { date: string; balance: number }[]; min_balance: number; min_date: string; cushion: number; status: "green" | "yellow" | "red" };
-type Risk = { entry_id: string; description: string; counterparty_name: string | null; counterparty_email: string | null; counterparty_whatsapp: string | null; amount_cents: number; due_date: string; level: "high" | "medium" | "low"; reason: string };
+type Risk = { entry_id: string; description: string; counterparty_name: string | null; counterparty_whatsapp: string | null; amount_cents: number; due_date: string; level: "high" | "medium" | "low"; reason: string };
 
 const projectionQuery = { queryKey: ["projection"], queryFn: async () => {
   const { data, error } = await supabase.rpc("cash_projection", { _days: 30 });

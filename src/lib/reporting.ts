@@ -1,3 +1,5 @@
+import { toE164 } from "@/lib/phone";
+
 export type ReportPeriod = "mensal" | "anual";
 export type ReportFormat = "pdf" | "excel" | "csv";
 export type ReportChannel = "download" | "whatsapp";
@@ -94,8 +96,8 @@ export function generateAccountingReport(options: ExportOptions) {
   downloadBlob(new Blob([content], { type: "application/pdf;charset=utf-8;" }), `${filenameBase}.txt`);
 
   if (options.channel === "whatsapp") {
-    const phone = String(options.accountantWhatsapp || "").replace(/\D/g, "");
-    if (!/^\d{10,15}$/.test(phone)) return false;
+    const phone = toE164(options.accountantWhatsapp);
+    if (!phone) return false;
     const message = [
       `Olá, ${options.accountantName || "contador"}!`,
       `Segue o resumo financeiro de ${safeCompany} referente a ${summary.label}:`,
@@ -105,7 +107,7 @@ export function generateAccountingReport(options: ExportOptions) {
       "",
       "O relatório completo foi baixado no dispositivo. Anexe o arquivo nesta conversa, se necessário.",
     ].join("\n");
-    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
+    window.open(`https://wa.me/${phone.replace(/\D/g, "")}?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
   }
 
   return true;

@@ -9,7 +9,6 @@ export interface PlanConfig {
   priceYearCents: number;
   limits: {
     pendingEntries: number;
-    emailsPerMonth: number;
     csvRows: number;
     topRisks: number;
     editRuleDays: boolean;
@@ -30,15 +29,15 @@ export const PLANS: PlanConfig[] = [
     name: "Starter",
     priceMonthCents: 2900,
     priceYearCents: 29000,
-    limits: { pendingEntries: 100, emailsPerMonth: 150, csvRows: 100, topRisks: 3, editRuleDays: false, editRuleTexts: false },
+    limits: { pendingEntries: 100, csvRows: 100, topRisks: 3, editRuleDays: false, editRuleTexts: false },
     features: [
       "Até 100 contas pendentes",
-      "150 e-mails de cobrança/mês",
+      "Cobranças manuais pelo WhatsApp",
       "Importação CSV (até 100 linhas)",
       "Régua padrão com 4 etapas",
       "Projeção de 15 e 30 dias",
       "Top 3 maiores riscos",
-      "Suporte por e-mail",
+      "Suporte padrão",
     ],
   },
   {
@@ -47,11 +46,10 @@ export const PLANS: PlanConfig[] = [
     popular: true,
     priceMonthCents: 5900,
     priceYearCents: 59000,
-    limits: { pendingEntries: 500, emailsPerMonth: 800, csvRows: 500, topRisks: 5, editRuleDays: true, editRuleTexts: false },
+    limits: { pendingEntries: 500, csvRows: 500, topRisks: 5, editRuleDays: true, editRuleTexts: false },
     features: [
       "Até 500 contas pendentes",
-      "800 e-mails de cobrança/mês",
-      "Lembretes por E-mail e WhatsApp",
+      "Cobranças manuais pelo WhatsApp",
       "Importação CSV (até 500 linhas)",
       "Edite dias e ative/desative etapas",
       "Projeção de 15 e 30 dias",
@@ -64,13 +62,12 @@ export const PLANS: PlanConfig[] = [
     name: "Business",
     priceMonthCents: 11900,
     priceYearCents: 119000,
-    limits: { pendingEntries: 2000, emailsPerMonth: 4000, csvRows: 2000, topRisks: 10, editRuleDays: true, editRuleTexts: true },
+    limits: { pendingEntries: 2000, csvRows: 2000, topRisks: 10, editRuleDays: true, editRuleTexts: true },
     features: [
       "Até 2.000 contas pendentes",
-      "4.000 e-mails de cobrança/mês",
-      "Lembretes por E-mail e WhatsApp",
+      "Cobranças manuais pelo WhatsApp",
       "Importação CSV (até 2.000 linhas)",
-      "Edite textos e remetente com seu nome",
+      "Edite mensagens e etapas da régua",
       "Projeção de 15 e 30 dias",
       "Top 10 maiores riscos",
       "Suporte prioritário",

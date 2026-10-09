@@ -36,18 +36,15 @@ function LembretesPage() {
     if (error) throw error;
     return data as Rule[];
   } });
-  const logs = useQuery({ queryKey: ["recent-logs"], queryFn: async () => {
-    const { data, error } = await supabase.from("reminder_logs").select("id, status, sent_to, sent_at, manual, channel, entries(description)").eq("channel", "whatsapp").or("error.is.null,error.neq.pending").order("sent_at", { ascending: false }).limit(15);
-    if (error) throw error;
-    return data;
-  } });
   const profile = useQuery({ queryKey: ["profile-lite"], queryFn: async () => (await supabase.from("profiles").select("business_name").maybeSingle()).data });
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Lembretes</h1>
-        <p className="text-sm text-muted-foreground">Prepare mensagens e envie cobranças diretamente pelo WhatsApp.</p>
+        <p className="text-sm text-muted-foreground">Organize os modelos da régua. Cada cobrança é revisada e enviada manualmente pelo WhatsApp.</p>
       </div>
+      <Button asChild className="h-11 rounded-xl"><Link to="/contas"><MessageCircle className="mr-2 h-4 w-4" />Escolher conta e enviar via WhatsApp</Link></Button>
 
       {!ent.limits?.edit_rule_days && (
         <p className="flex items-center gap-2 rounded-xl bg-muted p-3 text-sm text-muted-foreground"><Lock className="h-4 w-4" />No plano Starter a régua é fixa. <Link to="/planos" className="font-medium text-primary underline">Faça upgrade</Link> para editar dias e etapas.</p>
@@ -64,26 +61,6 @@ function LembretesPage() {
           </ul>
         )}
 
-      <section className="rounded-2xl border bg-card p-5 shadow-[var(--shadow-soft)]">
-        <h2 className="font-semibold">Últimas cobranças pelo WhatsApp</h2>
-        {logs.isLoading ? <Skeleton className="mt-3 h-20 rounded-xl" />
-          : logs.isError ? <ErrorBox onRetry={() => logs.refetch()} />
-          : !logs.data?.length ? <div className="mt-4 flex flex-col items-center py-6 text-center text-sm text-muted-foreground"><MessageCircle className="h-8 w-8" /><p className="mt-2">Nenhuma cobrança registrada ainda.</p></div>
-          : (
-            <ul className="mt-3 divide-y text-sm">
-              {logs.data.map((l) => (
-                <li key={l.id} className="flex items-center justify-between gap-3 py-2.5">
-                  <div className="min-w-0">
-                    <p className="truncate font-medium">{(l.entries as { description?: string } | null)?.description ?? "—"}{l.manual ? " · manual" : ""}</p>
-                    <p className="truncate text-xs text-muted-foreground">WhatsApp · {l.sent_to} · {new Date(l.sent_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}</p>
-                  </div>
-                  {l.status === "sent" ? <span className="flex shrink-0 items-center gap-1 text-success"><CheckCircle2 className="h-4 w-4" />Enviado</span>
-                    : <span className="flex shrink-0 items-center gap-1 text-danger"><AlertTriangle className="h-4 w-4" />{l.status === "bounced" ? "Devolvido" : "Falhou"}</span>}
-                </li>
-              ))}
-            </ul>
-          )}
-      </section>
     </div>
   );
 }
@@ -129,8 +106,8 @@ function RuleCard({ rule, canDays, canTexts, empresa }: { rule: Rule; canDays: b
           <Switch id={`act-${rule.id}`} checked={rule.active} disabled={!canDays || save.isPending} onCheckedChange={(v) => save.mutate({ active: v })} />
         </div>
       </div>
-       <div className="mt-3 flex flex-wrap gap-2"><ReminderPreview modal company={empresa} subject={subject} body={body} />
-      <div className="mt-3 flex flex-wrap gap-2"><ReminderPreview modal company={empresa} body={body} />
+      <div className="mt-3 flex flex-wrap gap-2">
+        <ReminderPreview modal company={empresa} body={body} />
         <Button size="sm" variant="ghost" className="h-10" onClick={() => setOpen(!open)}>{open ? "Fechar" : canDays ? "Editar" : "Ver lembrete"}</Button>
       </div>
       {open && (

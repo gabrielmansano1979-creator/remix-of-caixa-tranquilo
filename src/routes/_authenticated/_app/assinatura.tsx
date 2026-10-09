@@ -57,14 +57,19 @@ function AssinaturaPage() {
 
   const openPortal = async () => {
     setBusy(true);
-    try { const r = await portal(); r.url ? (window.location.href = r.url) : toast.error(r.error ?? "Erro"); } catch { toast.error("Sem conexão."); }
+    try {
+      const r = await portal();
+      if (r.url) window.location.href = r.url;
+      else toast.error(r.error ?? "Erro");
+    } catch { toast.error("Sem conexão."); }
     setBusy(false);
   };
   const doCancel = async () => {
     setBusy(true);
     try {
       const r = await cancel({ data: { reason: [reason, note].filter(Boolean).join(" — ").slice(0, 500) } });
-      r.ok ? toast.success(r.message) : toast.error(r.message);
+      if (r.ok) toast.success(r.message);
+      else toast.error(r.message);
       if (r.ok) { track("subscription_cancel", { reason }); setCancelOpen(false); qc.invalidateQueries({ queryKey: ["access"] }); }
     } catch { toast.error("Sem conexão."); }
     setBusy(false);
@@ -105,7 +110,6 @@ function AssinaturaPage() {
         {ent.usage ? (
           <>
             <Usage label="Contas pendentes" used={ent.usage.pending_entries} lim={a.limits.pending_entries} />
-            <Usage label="E-mails de cobrança este mês" used={ent.usage.emails_month} lim={a.limits.emails_per_month} />
           </>
         ) : <Skeleton className="h-16 rounded-xl" />}
       </section>

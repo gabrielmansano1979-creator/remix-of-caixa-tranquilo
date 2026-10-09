@@ -12,7 +12,7 @@ export interface Access {
   current_period_end?: string | null;
   cancel_at_period_end?: boolean;
   billing_interval?: "month" | "year" | null;
-  limits: { pending_entries: number; emails_per_month: number; csv_rows: number; top_risks: number; edit_rule_days: boolean; edit_rule_texts: boolean };
+  limits: { pending_entries: number; csv_rows: number; top_risks: number; edit_rule_days: boolean; edit_rule_texts: boolean };
 }
 
 export const accessQuery = queryOptions({
@@ -39,7 +39,7 @@ export const usageQuery = queryOptions({
   queryFn: async () => {
     const { data, error } = await supabase.rpc("my_usage");
     if (error) throw error;
-    return data as unknown as { pending_entries: number; emails_month: number };
+    return data as unknown as { pending_entries: number };
   },
 });
 

@@ -23,7 +23,7 @@ describe("PLG rules", () => {
     expect(link).toContain("%26");
     expect(manualWhatsAppLink({ ...e, counterparty_whatsapp: "invalid" }, "Studio")).toBeNull();
   });
-  it("keeps multichannel in the paid Pro offer", () => {
-    expect(getPlan("pro").features).toContain("Lembretes por E-mail e WhatsApp");
+  it("keeps manual WhatsApp collection in the paid Pro offer", () => {
+    expect(getPlan("pro").features).toContain("Cobranças manuais pelo WhatsApp");
   });
 });

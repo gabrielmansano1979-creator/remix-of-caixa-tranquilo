@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
 import {
-  AlertTriangle, BellOff, Bell, CheckCircle2, Clock, FileUp, MoreVertical, Pencil, Plus, Search, Trash2, Inbox, RotateCcw, Mail, MessageCircle,
+  AlertTriangle, CheckCircle2, Clock, FileUp, MoreVertical, Pencil, Plus, Search, Trash2, Inbox, RotateCcw, MessageCircle,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { accessQuery, profileQuery, entriesQuery, isOverdue, parseDbError, todaySP, type Entry, type LimitKind } from "@/lib/app-data";
@@ -39,7 +39,6 @@ function ContasPage() {
   const { data, isLoading, isError, refetch } = useQuery(entriesQuery);
   const { data: access } = useQuery(accessQuery);
   const { data: profile } = useQuery(profileQuery);
-  const deliveries = useQuery({queryKey:['entry-deliveries'],queryFn:async()=>{const {data,error}=await supabase.from('reminder_logs').select('entry_id,channel,status,error,sent_at').order('sent_at',{ascending:false}).limit(5000);if(error)throw error;return data;}});
   const [tab, setTab] = useState<"all" | "income" | "expense">("all");
   const [status, setStatus] = useState<Status>("all");
   const [q, setQ] = useState("");
@@ -73,15 +72,6 @@ function ContasPage() {
       (status === "all" || (status === "overdue" ? isOverdue(e) : status === "pending" ? e.status === "pending" && !isOverdue(e) : e.status === "paid")) &&
       (!term || (e.counterparty_name ?? "").toLowerCase().includes(term) || e.description.toLowerCase().includes(term)));
   }, [data, tab, status, q]);
-
-  const mute = useMutation({
-    mutationFn: async (e: Entry) => {
-      const { error } = await supabase.from("entries").update({ reminders_muted: !e.reminders_muted }).eq("id", e.id);
-      if (error) throw error;
-    },
-    onSuccess: (_d, e) => { qc.invalidateQueries({ queryKey: ["entries"] }); toast.success(e.reminders_muted ? "Lembretes reativados." : "Lembretes pausados para esta conta."); },
-    onError: (e) => toast.error(parseDbError(e).message),
-  });
 
   const remove = useMutation({
     mutationFn: async (id: string) => {
@@ -164,15 +154,14 @@ function ContasPage() {
         ) : (
           <table className="w-full text-sm">
             <thead className="hidden text-left text-xs text-muted-foreground md:table-header-group">
-              <tr className="border-b"><th className="p-3 font-medium">Vencimento</th><th className="p-3 font-medium">Nome</th><th className="p-3 font-medium">Descrição</th><th className="p-3 text-right font-medium">Valor</th><th className="p-3 font-medium">Status</th><th className="p-3 font-medium">Status do envio</th><th className="w-24 p-3" /></tr>
+              <tr className="border-b"><th className="p-3 font-medium">Vencimento</th><th className="p-3 font-medium">Nome</th><th className="p-3 font-medium">Descrição</th><th className="p-3 text-right font-medium">Valor</th><th className="p-3 font-medium">Status</th><th className="w-24 p-3" /></tr>
             </thead>
             <tbody>
-              {rows.map((e) => { const latest = ['email','whatsapp'].map(c=>deliveries.data?.find(l=>l.entry_id===e.id && l.channel===c)).filter(l=>!!l); return (
+              {rows.map((e) => (
                 <tr key={e.id} className="grid grid-cols-[1fr_auto] gap-x-3 border-b p-3 last:border-0 md:table-row md:p-0">
                   <td className="num text-xs text-muted-foreground md:p-3 md:text-sm md:text-foreground">{formatDate(e.due_date)}</td>
                   <td className="col-start-1 font-medium md:p-3">
                     <button className="text-left hover:underline" onClick={() => setDetail(e)}>{e.counterparty_name || "—"}</button>
-                    {e.reminders_muted && <BellOff className="ml-1 inline h-3.5 w-3.5 text-muted-foreground" aria-label="Lembretes pausados" />}
                   </td>
                   <td className="col-start-1 text-muted-foreground md:p-3">{e.description}</td>
                   <td className={`num col-start-2 row-span-2 row-start-1 self-center text-right font-semibold md:p-3 ${e.type === "income" ? "text-success" : "text-danger"}`}>
@@ -192,18 +181,13 @@ function ContasPage() {
                         {e.type === "income" && e.status === "pending" && e.counterparty_whatsapp && <DropdownMenuItem disabled={!canWrite} onClick={guard(() => { setWhatsAppEntry(e); setWhatsAppOpen(true); })}><MessageCircle className="mr-2 h-4 w-4" />Cobrar pelo WhatsApp</DropdownMenuItem>}
                         <DropdownMenuItem onClick={guard(() => { setEditing(e); setFormOpen(true); })}><Pencil className="mr-2 h-4 w-4" />Editar</DropdownMenuItem>
                         {e.status === "paid" && <DropdownMenuItem onClick={guard(() => markPaid.mutate({ id: e.id, paid: false }))}><RotateCcw className="mr-2 h-4 w-4" />Reabrir</DropdownMenuItem>}
-                        {e.type === "income" && (
-                          <DropdownMenuItem onClick={guard(() => mute.mutate(e))}>
-                            {e.reminders_muted ? <><Bell className="mr-2 h-4 w-4" />Reativar lembretes</> : <><BellOff className="mr-2 h-4 w-4" />Pausar lembretes</>}
-                          </DropdownMenuItem>
-                        )}
                         <DropdownMenuSeparator />
                         <DropdownMenuItem className="text-danger" onClick={guard(() => setDel(e))}><Trash2 className="mr-2 h-4 w-4" />Excluir</DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </td>
                 </tr>
-              ); })}
+              ))}
             </tbody>
           </table>
         )}

@@ -12,11 +12,9 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "test": "vitest run",
-    "test:watch": "vitest",
-    "test:email": "node scripts/send-test-email.mjs"
+    "test:watch": "vitest"
   },
   "dependencies": {
-    "@emailjs/browser": "^5.0.2",
     "@hookform/resolvers": "^5.2.2",
     "@lovable.dev/cloud-auth-js": "^1.1.2",
     "@lovable.dev/webhooks-js": "^0.0.3",
@@ -67,7 +65,6 @@
     "react-hook-form": "^7.71.2",
     "react-resizable-panels": "^4.6.5",
     "recharts": "^2.15.4",
-    "resend": "^6.32.1",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.5.0",
     "tailwindcss": "^4.2.1",

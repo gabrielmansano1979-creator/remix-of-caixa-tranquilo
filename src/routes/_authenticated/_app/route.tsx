@@ -1,6 +1,6 @@
 import { createFileRoute, Link, Outlet, redirect, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bell, CreditCard, ListChecks, LogOut, Settings, Wallet, AlertTriangle, LifeBuoy } from "lucide-react";
+import { Bell, CreditCard, ListChecks, LogOut, Settings, Wallet, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Logo, ThemeToggle } from "@/components/brand";
 import { accessQuery, profileQuery } from "@/lib/app-data";
@@ -74,7 +74,6 @@ function AppShell() {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild><Link to="/configuracoes"><Settings className="mr-2 h-4 w-4" />Configurações</Link></DropdownMenuItem>
                 <DropdownMenuItem asChild><Link to="/assinatura"><CreditCard className="mr-2 h-4 w-4" />Assinatura</Link></DropdownMenuItem>
-                <DropdownMenuItem asChild><a href="mailto:criticalcash2026@gmail.com"><LifeBuoy className="mr-2 h-4 w-4" />Suporte — criticalcash2026@gmail.com</a></DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={signOut}><LogOut className="mr-2 h-4 w-4" />Sair</DropdownMenuItem>
               </DropdownMenuContent>

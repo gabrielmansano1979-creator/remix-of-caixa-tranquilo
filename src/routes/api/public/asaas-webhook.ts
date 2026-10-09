@@ -38,7 +38,6 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
         }
 
         const { supabaseAdmin: db } = await import("@/integrations/supabase/client.server");
-        const { sendSystemTo } = await import("@/lib/reminders.server");
 
         if (event.id) {
           const { error: dup } = await db.from("asaas_events").insert({ id: event.id, type: event.event ?? event.type ?? "unknown" });
@@ -77,7 +76,6 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
               updated_at: new Date().toISOString()
             }).eq("asaas_payment_id", paymentId);
 
-            await sendSystemTo(db, sub.user_id, "subscription_confirmed");
             await db.from("audit_logs").insert({
               user_id: sub.user_id,
               action: "subscription_start",

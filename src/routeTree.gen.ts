@@ -29,10 +29,7 @@ import { Route as AuthenticatedAppContasRouteImport } from './routes/_authentica
 import { Route as AuthenticatedAppLembretesRouteImport } from './routes/_authenticated/_app/lembretes'
 import { Route as AuthenticatedAppPlanosRouteImport } from './routes/_authenticated/_app/planos'
 import { Route as ApiPublicAsaasWebhookRouteImport } from './routes/api/public/asaas-webhook'
-import { Route as ApiPublicSendRemindersRouteImport } from './routes/api/public/send-reminders'
 import { Route as ApiPublicStripeWebhookRouteImport } from './routes/api/public/stripe-webhook'
-import { Route as ApiPublicUnsubscribeRouteImport } from './routes/api/public/unsubscribe'
-import { Route as ApiPublicWhatsappWebhookRouteImport } from './routes/api/public/whatsapp/webhook'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -135,27 +132,11 @@ const ApiPublicAsaasWebhookRoute = ApiPublicAsaasWebhookRouteImport.update({
   path: '/api/public/asaas-webhook',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiPublicSendRemindersRoute = ApiPublicSendRemindersRouteImport.update({
-  id: '/api/public/send-reminders',
-  path: '/api/public/send-reminders',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ApiPublicStripeWebhookRoute = ApiPublicStripeWebhookRouteImport.update({
   id: '/api/public/stripe-webhook',
   path: '/api/public/stripe-webhook',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiPublicUnsubscribeRoute = ApiPublicUnsubscribeRouteImport.update({
-  id: '/api/public/unsubscribe',
-  path: '/api/public/unsubscribe',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicWhatsappWebhookRoute =
-  ApiPublicWhatsappWebhookRouteImport.update({
-    id: '/api/public/whatsapp/webhook',
-    path: '/api/public/whatsapp/webhook',
-    getParentRoute: () => rootRouteImport,
-  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -176,10 +157,7 @@ export interface FileRoutesByFullPath {
   '/lembretes': typeof AuthenticatedAppLembretesRoute
   '/planos': typeof AuthenticatedAppPlanosRoute
   '/api/public/asaas-webhook': typeof ApiPublicAsaasWebhookRoute
-  '/api/public/send-reminders': typeof ApiPublicSendRemindersRoute
   '/api/public/stripe-webhook': typeof ApiPublicStripeWebhookRoute
-  '/api/public/unsubscribe': typeof ApiPublicUnsubscribeRoute
-  '/api/public/whatsapp/webhook': typeof ApiPublicWhatsappWebhookRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -200,10 +178,7 @@ export interface FileRoutesByTo {
   '/lembretes': typeof AuthenticatedAppLembretesRoute
   '/planos': typeof AuthenticatedAppPlanosRoute
   '/api/public/asaas-webhook': typeof ApiPublicAsaasWebhookRoute
-  '/api/public/send-reminders': typeof ApiPublicSendRemindersRoute
   '/api/public/stripe-webhook': typeof ApiPublicStripeWebhookRoute
-  '/api/public/unsubscribe': typeof ApiPublicUnsubscribeRoute
-  '/api/public/whatsapp/webhook': typeof ApiPublicWhatsappWebhookRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -227,10 +202,7 @@ export interface FileRoutesById {
   '/_authenticated/_app/lembretes': typeof AuthenticatedAppLembretesRoute
   '/_authenticated/_app/planos': typeof AuthenticatedAppPlanosRoute
   '/api/public/asaas-webhook': typeof ApiPublicAsaasWebhookRoute
-  '/api/public/send-reminders': typeof ApiPublicSendRemindersRoute
   '/api/public/stripe-webhook': typeof ApiPublicStripeWebhookRoute
-  '/api/public/unsubscribe': typeof ApiPublicUnsubscribeRoute
-  '/api/public/whatsapp/webhook': typeof ApiPublicWhatsappWebhookRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -253,10 +225,7 @@ export interface FileRouteTypes {
     | '/lembretes'
     | '/planos'
     | '/api/public/asaas-webhook'
-    | '/api/public/send-reminders'
     | '/api/public/stripe-webhook'
-    | '/api/public/unsubscribe'
-    | '/api/public/whatsapp/webhook'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -277,10 +246,7 @@ export interface FileRouteTypes {
     | '/lembretes'
     | '/planos'
     | '/api/public/asaas-webhook'
-    | '/api/public/send-reminders'
     | '/api/public/stripe-webhook'
-    | '/api/public/unsubscribe'
-    | '/api/public/whatsapp/webhook'
   id:
     | '__root__'
     | '/'
@@ -303,10 +269,7 @@ export interface FileRouteTypes {
     | '/_authenticated/_app/lembretes'
     | '/_authenticated/_app/planos'
     | '/api/public/asaas-webhook'
-    | '/api/public/send-reminders'
     | '/api/public/stripe-webhook'
-    | '/api/public/unsubscribe'
-    | '/api/public/whatsapp/webhook'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -322,10 +285,7 @@ export interface RootRouteChildren {
   AdminRepassesRoute: typeof AdminRepassesRoute
   DashboardParceiroRoute: typeof DashboardParceiroRoute
   ApiPublicAsaasWebhookRoute: typeof ApiPublicAsaasWebhookRoute
-  ApiPublicSendRemindersRoute: typeof ApiPublicSendRemindersRoute
   ApiPublicStripeWebhookRoute: typeof ApiPublicStripeWebhookRoute
-  ApiPublicUnsubscribeRoute: typeof ApiPublicUnsubscribeRoute
-  ApiPublicWhatsappWebhookRoute: typeof ApiPublicWhatsappWebhookRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -470,32 +430,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicAsaasWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/send-reminders': {
-      id: '/api/public/send-reminders'
-      path: '/api/public/send-reminders'
-      fullPath: '/api/public/send-reminders'
-      preLoaderRoute: typeof ApiPublicSendRemindersRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/public/stripe-webhook': {
       id: '/api/public/stripe-webhook'
       path: '/api/public/stripe-webhook'
       fullPath: '/api/public/stripe-webhook'
       preLoaderRoute: typeof ApiPublicStripeWebhookRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/unsubscribe': {
-      id: '/api/public/unsubscribe'
-      path: '/api/public/unsubscribe'
-      fullPath: '/api/public/unsubscribe'
-      preLoaderRoute: typeof ApiPublicUnsubscribeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/whatsapp/webhook': {
-      id: '/api/public/whatsapp/webhook'
-      path: '/api/public/whatsapp/webhook'
-      fullPath: '/api/public/whatsapp/webhook'
-      preLoaderRoute: typeof ApiPublicWhatsappWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -550,10 +489,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRepassesRoute: AdminRepassesRoute,
   DashboardParceiroRoute: DashboardParceiroRoute,
   ApiPublicAsaasWebhookRoute: ApiPublicAsaasWebhookRoute,
-  ApiPublicSendRemindersRoute: ApiPublicSendRemindersRoute,
   ApiPublicStripeWebhookRoute: ApiPublicStripeWebhookRoute,
-  ApiPublicUnsubscribeRoute: ApiPublicUnsubscribeRoute,
-  ApiPublicWhatsappWebhookRoute: ApiPublicWhatsappWebhookRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

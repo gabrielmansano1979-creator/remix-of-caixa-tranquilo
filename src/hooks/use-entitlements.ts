@@ -17,7 +17,6 @@ export function useEntitlements() {
     plan: a?.plan,
     limits: a?.limits,
     pendingNearLimit: !!a && !!u && ratio(u.pending_entries, a.limits.pending_entries) >= USAGE_WARNING_RATIO,
-    emailsNearLimit: !!a && !!u && ratio(u.emails_month, a.limits.emails_per_month) >= USAGE_WARNING_RATIO,
     trialDaysLeft: a?.status === "trialing" && a.trial_ends_at ? Math.max(0, Math.ceil((Date.parse(a.trial_ends_at) - Date.now()) / 86400000)) : null,
   };
 }
