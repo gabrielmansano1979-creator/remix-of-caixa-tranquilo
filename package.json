@@ -12,7 +12,8 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:email": "node scripts/send-test-email.mjs"
   },
   "dependencies": {
     "@emailjs/browser": "^5.0.2",

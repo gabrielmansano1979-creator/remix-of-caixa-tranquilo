@@ -1,6 +1,6 @@
 export type ReportPeriod = "mensal" | "anual";
 export type ReportFormat = "pdf" | "excel" | "csv";
-export type ReportChannel = "download" | "email" | "whatsapp";
+export type ReportChannel = "download" | "whatsapp";
 
 export type ExportOptions = {
   period: ReportPeriod;
@@ -8,7 +8,6 @@ export type ExportOptions = {
   channel: ReportChannel;
   companyName: string;
   accountantName: string;
-  accountantEmail: string;
   accountantWhatsapp: string;
   year?: number;
   month?: number;
@@ -94,18 +93,19 @@ export function generateAccountingReport(options: ExportOptions) {
 
   downloadBlob(new Blob([content], { type: "application/pdf;charset=utf-8;" }), `${filenameBase}.txt`);
 
-  if (options.channel === "email") {
-    const subject = encodeURIComponent(`Relatório financeiro ${summary.label}`);
-    const body = encodeURIComponent(
-      `Olá ${options.accountantName || "contador"}! Segue o relatório financeiro da empresa ${safeCompany} referente a ${summary.label}. Acesse/baixe o documento em anexo aqui: ${window.location.origin}/dashboard/relatorios.`
-    );
-    window.location.href = `mailto:${options.accountantEmail || "contabilidade@empresa.com"}?subject=${subject}&body=${body}`;
-  }
-
   if (options.channel === "whatsapp") {
-    const message = `Olá, ${options.accountantName || "Contador"}! Segue o relatório financeiro da empresa ${safeCompany} referente a ${summary.label}. Acesse/baixe o documento em anexo aqui: ${window.location.origin}/dashboard/relatorios`;
-    const text = encodeURIComponent(message);
-    window.open(`https://wa.me/${String(options.accountantWhatsapp || "5511999999999").replace(/\D/g, "")}?text=${text}`, "_blank");
+    const phone = String(options.accountantWhatsapp || "").replace(/\D/g, "");
+    if (!/^\d{10,15}$/.test(phone)) return false;
+    const message = [
+      `Olá, ${options.accountantName || "contador"}!`,
+      `Segue o resumo financeiro de ${safeCompany} referente a ${summary.label}:`,
+      `Receitas: ${formatCurrency(summary.totalReceita)}`,
+      `Despesas: ${formatCurrency(summary.totalDespesa)}`,
+      `${summary.lucro >= 0 ? "Lucro líquido" : "Prejuízo"}: ${formatCurrency(Math.abs(summary.lucro))}`,
+      "",
+      "O relatório completo foi baixado no dispositivo. Anexe o arquivo nesta conversa, se necessário.",
+    ].join("\n");
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
   }
 
   return true;

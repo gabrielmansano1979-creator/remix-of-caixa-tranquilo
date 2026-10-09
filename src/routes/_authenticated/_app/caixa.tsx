@@ -1,21 +1,18 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { CartesianGrid, Line, LineChart, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import {
-  AlertOctagon, AlertTriangle, CheckCircle2, Circle, Inbox, Pencil, RotateCcw, Send, ShieldAlert, ShieldCheck, ShieldQuestion, TrendingDown, TrendingUp,
+  AlertOctagon, AlertTriangle, CheckCircle2, Circle, Inbox, MessageCircle, Pencil, RotateCcw, ShieldAlert, ShieldCheck, ShieldQuestion, TrendingDown, TrendingUp,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { accessQuery, entriesQuery, parseDbError, profileQuery, todaySP } from "@/lib/app-data";
 import { formatBRL, formatDate } from "@/lib/format";
-import { sendNow } from "@/lib/reminders.functions";
+import { createWhatsAppUrl } from "@/lib/whatsapp-message";
 import { useMarkPaid } from "@/components/contas/shared";
 import { MoneyInput } from "@/components/money-input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 export const Route = createFileRoute("/_authenticated/_app/caixa")({
   head: () => ({ meta: [{ title: "Caixa — Critical Cash" }, { name: "description", content: "Confira a previsão do seu caixa para os próximos 30 dias." }, { property: "og:title", content: "Caixa — Critical Cash" }, { property: "og:description", content: "Confira a previsão do seu caixa para os próximos 30 dias." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }, { name: "robots", content: "noindex" }] }),
@@ -186,14 +183,20 @@ function Risks({ limit, canWrite }: { limit: number; canWrite: boolean }) {
     return data as Risk[];
   } });
   const markPaid = useMarkPaid();
-  const send = useServerFn(sendNow);
-  const qc = useQueryClient();
-  const [confirm, setConfirm] = useState<Risk | null>(null);
-  const charge = useMutation({
-    mutationFn: (r: Risk) => send({ data: { entryId: r.entry_id } }),
-    onSuccess: (r) => { r.ok ? toast.success(r.message) : toast.error(r.message); qc.invalidateQueries({ queryKey: ["usage"] }); },
-    onError: () => toast.error("Sem conexão. Tente novamente."),
-  });
+  const openWhatsApp = (risk: Risk) => {
+    const url = createWhatsAppUrl({
+      counterparty_name: risk.counterparty_name,
+      counterparty_whatsapp: risk.counterparty_whatsapp,
+      amount_cents: risk.amount_cents,
+      due_date: risk.due_date,
+      description: risk.description,
+    }, `Olá, ${risk.counterparty_name || "cliente"}! Passando para lembrar que ${risk.description}, no valor de ${formatBRL(risk.amount_cents)}, vence em ${formatDate(risk.due_date)}. ${risk.reason} Se já realizou o pagamento, desconsidere esta mensagem.`);
+    if (!url) {
+      toast.error("Cadastre um número de WhatsApp válido para esta conta.");
+      return;
+    }
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
   const badge = {
     high: { icon: ShieldAlert, label: "Alto", cls: "bg-danger/10 text-danger" },
     medium: { icon: ShieldQuestion, label: "Médio", cls: "bg-warning/10 text-warning" },
@@ -220,7 +223,7 @@ function Risks({ limit, canWrite }: { limit: number; canWrite: boolean }) {
                     <p className="mt-1 text-sm text-muted-foreground">{r.reason} Venc. {formatDate(r.due_date)}.</p>
                   </div>
                   <div className="flex gap-2">
-                    <Button size="sm" variant="outline" className="h-10 rounded-lg" disabled={!canWrite || (!r.counterparty_whatsapp && !r.counterparty_email) || charge.isPending} onClick={() => setConfirm(r)}><Send className="mr-1 h-4 w-4" />Cobrar agora</Button>
+                    <Button size="sm" variant="outline" className="h-10 rounded-lg" disabled={!canWrite || !r.counterparty_whatsapp} onClick={() => openWhatsApp(r)}><MessageCircle className="mr-1 h-4 w-4" />Enviar via WhatsApp</Button>
                     <Button size="sm" variant="ghost" className="h-10 rounded-lg text-success" disabled={!canWrite} onClick={() => markPaid.mutate({ id: r.entry_id, paid: true })}><CheckCircle2 className="mr-1 h-4 w-4" />Pago</Button>
                   </div>
                 </li>
@@ -228,41 +231,25 @@ function Risks({ limit, canWrite }: { limit: number; canWrite: boolean }) {
             })}
           </ul>
         )}
-      <AlertDialog open={!!confirm} onOpenChange={(o) => !o && setConfirm(null)}>
-        <AlertDialogContent className="rounded-2xl">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Enviar cobrança agora?</AlertDialogTitle>
-            <AlertDialogDescription>Uma cobrança será enviada para {confirm?.counterparty_whatsapp || confirm?.counterparty_email} sobre “{confirm?.description}”. Limite de 1 envio manual por conta a cada 24h.</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="h-11 rounded-xl">Cancelar</AlertDialogCancel>
-            <AlertDialogAction className="h-11 rounded-xl" onClick={() => confirm && charge.mutate(confirm)}>Enviar</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </section>
   );
 }
 
 function Activation({ hasEntries }: { hasEntries: boolean }) {
   const q = useQuery({ queryKey: ["activation"], queryFn: async () => {
-    const [{ count: rules }, { count: tests }] = await Promise.all([
-      supabase.from("reminder_rules").select("id", { count: "exact", head: true }).eq("active", true),
-      supabase.from("audit_logs").select("id", { count: "exact", head: true }).eq("action", "test_email"),
-    ]);
-    return { rules: (rules ?? 0) > 0, test: (tests ?? 0) > 0 };
+    const { count: rules } = await supabase.from("reminder_rules").select("id", { count: "exact", head: true }).eq("active", true);
+    return { rules: (rules ?? 0) > 0 };
   } });
   if (!q.data) return null;
   const steps = [
     { done: hasEntries, label: "Cadastre sua primeira conta", to: "/contas" as const },
-    { done: q.data.rules, label: "Ative a régua de cobrança", to: "/lembretes" as const },
-    { done: q.data.test, label: "Envie um e-mail de teste", to: "/lembretes" as const },
+    { done: q.data.rules, label: "Prepare suas mensagens de cobrança", to: "/lembretes" as const },
   ];
   if (steps.every((s) => s.done)) return null;
   return (
     <section className="rounded-2xl border bg-card p-5">
       <h2 className="text-sm font-semibold">Primeiros passos · {steps.filter((s) => s.done).length}/3</h2>
-      <ol className="mt-3 grid gap-2 sm:grid-cols-3">
+      <ol className="mt-3 grid gap-2 sm:grid-cols-2">
         {steps.map((s, i) => (
           <li key={s.label}>
             <Link to={s.to} className="flex min-h-11 items-center gap-2 rounded-xl border px-3 py-2 text-sm hover:bg-accent">

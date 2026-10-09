@@ -16,7 +16,6 @@ import { FieldError, PasswordStrength, passwordScore, translateAuthError } from 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
@@ -28,7 +27,6 @@ export const Route = createFileRoute("/_authenticated/_app/configuracoes")({
 const card = "rounded-2xl border bg-card p-6 shadow-[var(--shadow-soft)]";
 const bizSchema = z.object({
   business_name: z.string().trim().min(2, "Informe o nome do negócio.").max(120),
-  reply_to_email: z.string().trim().email("E-mail inválido.").max(255),
   initial_balance_cents: z.number().int(),
   cushion_cents: z.number().int().min(0),
 });
@@ -41,7 +39,7 @@ function ConfigPage() {
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold tracking-tight">Configurações</h1>
       <BusinessForm profile={profile} />
-      <Notifications profile={profile} />
+      <Notifications />
       <PasswordForm />
       <DataSection />
     </div>
@@ -66,7 +64,6 @@ function BusinessForm({ profile }: { profile: Tables<"profiles"> }) {
       <h2 className="font-semibold">Perfil e negócio</h2>
       <div className="grid gap-4 sm:grid-cols-2">
         <div><Label htmlFor="bn">Nome do negócio</Label><Input id="bn" className="mt-1.5 h-11 rounded-xl" {...register("business_name")} /><FieldError msg={formState.errors.business_name?.message} /></div>
-        <div><Label htmlFor="rt">E-mail de resposta</Label><Input id="rt" type="email" className="mt-1.5 h-11 rounded-xl" {...register("reply_to_email")} /><FieldError msg={formState.errors.reply_to_email?.message} /></div>
         <div><Label htmlFor="ib">Saldo atual</Label><Controller control={control} name="initial_balance_cents" render={({ field }) => <MoneyInput id="ib" value={field.value} onChange={field.onChange} allowNegative />} /></div>
         <div>
           <Label htmlFor="cu">Reserva mínima (colchão)</Label>
@@ -80,24 +77,11 @@ function BusinessForm({ profile }: { profile: Tables<"profiles"> }) {
   );
 }
 
-function Notifications({ profile }: { profile: { user_id: string; reminders_enabled: boolean; notify_product_emails?: boolean } }) {
-  const qc = useQueryClient();
-  const set = async (patch: { reminders_enabled?: boolean; notify_product_emails?: boolean }) => {
-    const { error } = await supabase.from("profiles").update(patch).eq("user_id", profile.user_id);
-    if (error) return toast.error(parseDbError(error).message);
-    qc.invalidateQueries({ queryKey: ["profile"] }); toast.success("Preferência salva.");
-  };
+function Notifications() {
   return (
     <section className={`${card} space-y-4`}>
-      <h2 className="font-semibold">Notificações</h2>
-      <div className="flex items-center justify-between gap-4">
-        <Label htmlFor="re" className="font-normal">Enviar lembretes automáticos aos meus clientes</Label>
-        <Switch id="re" checked={profile.reminders_enabled} onCheckedChange={(v) => set({ reminders_enabled: v })} />
-      </div>
-      <div className="flex items-center justify-between gap-4">
-        <Label htmlFor="pe" className="font-normal">Receber e-mails sobre minha conta (fim do teste, dicas)</Label>
-        <Switch id="pe" checked={profile.notify_product_emails ?? true} onCheckedChange={(v) => set({ notify_product_emails: v })} />
-      </div>
+      <h2 className="font-semibold">Envio de cobranças</h2>
+      <p className="text-sm text-muted-foreground">As mensagens são preparadas para envio manual pelo WhatsApp. Você revisa o conteúdo e confirma o envio no WhatsApp Web ou aplicativo.</p>
     </section>
   );
 }
