@@ -20,16 +20,25 @@ export function Logo({ to = "/" }: { to?: "/" | "/caixa" }) {
 }
 
 export function ThemeToggle() {
-  const [dark, setDark] = useState(false);
-  useEffect(() => { setDark(document.documentElement.classList.contains("dark")); }, []);
+  const [dark, setDark] = useState(true);
+  useEffect(() => {
+    setDark(document.documentElement.classList.contains("dark"));
+  }, []);
   const toggle = () => {
     const next = !dark;
     setDark(next);
     document.documentElement.classList.toggle("dark", next);
+    document.documentElement.classList.toggle("light", !next);
     localStorage.setItem("theme", next ? "dark" : "light");
   };
   return (
-    <Button variant="ghost" size="icon" className="h-11 w-11" onClick={toggle} aria-label={dark ? "Usar tema claro" : "Usar tema escuro"}>
+    <Button
+      variant="ghost"
+      size="icon"
+      className="h-11 w-11"
+      onClick={toggle}
+      aria-label={dark ? "Usar tema claro" : "Usar tema escuro"}
+    >
       {dark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
     </Button>
   );

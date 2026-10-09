@@ -22,9 +22,14 @@ function NotFoundComponent() {
       <div className="max-w-md text-center">
         <h1 className="text-7xl font-bold text-foreground">404</h1>
         <h2 className="mt-4 text-xl font-semibold text-foreground">Página não encontrada</h2>
-        <p className="mt-2 text-sm text-muted-foreground">A página que você procura não existe ou foi movida.</p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          A página que você procura não existe ou foi movida.
+        </p>
         <div className="mt-6">
-          <Link to="/" className="inline-flex h-11 items-center justify-center rounded-xl bg-primary px-5 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+          <Link
+            to="/"
+            className="inline-flex h-11 items-center justify-center rounded-xl bg-primary px-5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          >
             Voltar ao início
           </Link>
         </div>
@@ -43,8 +48,12 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
-        <h1 className="text-xl font-semibold tracking-tight text-foreground">Não foi possível carregar a página</h1>
-        <p className="mt-2 text-sm text-muted-foreground">Algo deu errado do nosso lado. Tente novamente.</p>
+        <h1 className="text-xl font-semibold tracking-tight text-foreground">
+          Não foi possível carregar a página
+        </h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Algo deu errado do nosso lado. Tente novamente.
+        </p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
             onClick={() => {
@@ -55,7 +64,10 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
           >
             Tentar novamente
           </button>
-          <a href="/" className="inline-flex h-11 items-center justify-center rounded-xl border border-input bg-background px-5 text-sm font-medium hover:bg-accent">
+          <a
+            href="/"
+            className="inline-flex h-11 items-center justify-center rounded-xl border border-input bg-background px-5 text-sm font-medium hover:bg-accent"
+          >
             Início
           </a>
         </div>
@@ -64,7 +76,7 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
   );
 }
 
-const themeScript = `try{if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark')}catch(e){}`;
+const themeScript = `try{const theme=localStorage.getItem('theme');document.documentElement.classList.toggle('light',theme==='light');document.documentElement.classList.toggle('dark',theme!=='light')}catch(e){document.documentElement.classList.add('dark')}`;
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => ({
@@ -72,7 +84,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "Critical Cash — Gestão financeira executiva" },
-      { name: "description", content: "Acompanhe seu caixa, antecipe riscos e prepare cobranças para envio pelo WhatsApp." },
+      {
+        name: "description",
+        content:
+          "Acompanhe seu caixa, antecipe riscos e prepare cobranças para envio pelo WhatsApp.",
+      },
       { property: "og:site_name", content: "Critical Cash" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -83,7 +99,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "icon", href: "/favicon.png", type: "image/png" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap",
+      },
     ],
     scripts: [{ children: themeScript }],
   }),
