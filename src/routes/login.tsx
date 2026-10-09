@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -31,7 +31,6 @@ const schema = z.object({
 });
 
 function LoginPage() {
-  const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const { register, handleSubmit, formState } = useForm<z.infer<typeof schema>>({
@@ -40,94 +39,72 @@ function LoginPage() {
 
   useEffect(() => {
     let active = true;
-    let redirectingUserId: string | null = null;
-    let redirectTimer: ReturnType<typeof setTimeout> | undefined;
 
-    const redirectToApp = async (userId: string) => {
-      if (!active || redirectingUserId === userId) return;
-      redirectingUserId = userId;
-
-      let destination: "/admin" | "/caixa" = "/caixa";
+    const handleAuth = async () => {
       try {
-        const { data: roleData, error: roleError } = await supabase
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", userId)
-          .eq("role", "admin")
-          .maybeSingle();
+        // 1. Processar e registrar manualmente o token contido no hash OAuth da URL
+        if (window.location.hash.includes("access_token=")) {
+          const params = new URLSearchParams(window.location.hash.substring(1));
+          const accessToken = params.get("access_token");
+          const refreshToken = params.get("refresh_token");
 
-        if (roleError) {
-          console.error("Falha ao consultar o perfil de acesso:", roleError);
-        }
-
-        let isAdmin = roleData?.role === "admin";
-        if (!isAdmin) {
-          const { data, error: accessError } = await supabase.rpc("has_role", {
-            _role: "admin",
-            _user_id: userId,
-          });
-          if (accessError) {
-            console.error("Falha ao confirmar o perfil administrativo:", accessError);
-          } else {
-            isAdmin = data;
+          if (accessToken) {
+            await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken || "",
+            });
           }
         }
 
-        if (isAdmin) destination = "/admin";
-      } catch (error) {
-        console.error("Falha ao determinar a área após autenticação:", error);
-      }
+        // 2. Verificar a sessão ativa
+        const { data: { session } } = await supabase.auth.getSession();
 
-      if (!active) return;
+        if (session && active) {
+          const userId = session.user.id;
+          let destination: "/admin" | "/caixa" = "/caixa";
 
-      try {
-        if (destination === "/admin") await navigate({ to: "/admin", replace: true });
-        else await navigate({ to: "/caixa", replace: true });
-        if (active && window.location.pathname.startsWith("/login")) {
+          // Verificar se é admin
+          const { data: roleData } = await supabase
+            .from("user_roles")
+            .select("role")
+            .eq("user_id", userId)
+            .eq("role", "admin")
+            .maybeSingle();
+
+          let isAdmin = roleData?.role === "admin";
+
+          if (!isAdmin) {
+            const { data } = await supabase.rpc("has_role", {
+              _role: "admin",
+              _user_id: userId,
+            });
+            if (data) isAdmin = true;
+          }
+
+          if (isAdmin) destination = "/admin";
+
+          // 3. Forçar o redirecionamento e limpar a hash da URL
           window.location.replace(destination);
         }
-      } catch (error) {
-        console.error("Falha na navegação após autenticação:", error);
-        if (active) window.location.replace(destination);
+      } catch (err) {
+        console.error("Erro no processamento de autenticação:", err);
       }
     };
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session) return;
-      redirectTimer = setTimeout(() => {
-        void redirectToApp(session.user.id);
-      }, 0);
-    });
+    handleAuth();
 
-    const hasOAuthHash = window.location.hash.includes("access_token=");
-    void supabase.auth
-      .getSession()
-      .then(({ data, error }) => {
-        if (!active) return;
-        if (error) {
-          setError(translateAuthError(error.message));
-          return;
-        }
-        if (data.session) {
-          void redirectToApp(data.session.user.id);
-        } else if (hasOAuthHash) {
-          setError("Não foi possível confirmar o acesso do Google. Tente entrar novamente.");
-        }
-      })
-      .catch((error: unknown) => {
-        if (!active) return;
-        console.error("Falha ao recuperar a sessão:", error);
-        setError(translateAuthError(error instanceof Error ? error.message : ""));
-      });
+    // Ouvinte para reações de login/refresh de token
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session && (event === "SIGNED_IN" || event === "TOKEN_REFRESHED")) {
+        handleAuth();
+      }
+    });
 
     return () => {
       active = false;
-      if (redirectTimer) clearTimeout(redirectTimer);
       subscription.unsubscribe();
     };
-  }, [navigate]);
+  }, []);
 
   const onSubmit = handleSubmit(async (v) => {
     setError(null);

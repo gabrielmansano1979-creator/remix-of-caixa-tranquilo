@@ -2,7 +2,7 @@ import { createFileRoute, Link, Outlet, redirect, useNavigate } from "@tanstack/
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bell, CreditCard, ListChecks, LogOut, Settings, Wallet, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { Logo, ThemeToggle } from "@/components/brand";
+import { Logo } from "@/components/brand";
 import { accessQuery, profileQuery } from "@/lib/app-data";
 import { trialProgress } from "@/lib/plg";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -70,7 +70,6 @@ function AppShell() {
             Ambiente seguro
           </div>
           <div className="flex items-center gap-1">
-            <ThemeToggle />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="h-11 w-11 rounded-full p-0" aria-label="Menu da conta">

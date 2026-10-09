@@ -1,7 +1,4 @@
 import { Link } from "@tanstack/react-router";
-import { Moon, Sun } from "lucide-react";
-import { useEffect, useState } from "react";
-import { Button } from "@/components/ui/button";
 import appIcon from "@/assets/app-icon-v2.png.asset.json";
 
 export function Logo({ to = "/" }: { to?: "/" | "/caixa" }) {
@@ -16,30 +13,5 @@ export function Logo({ to = "/" }: { to?: "/" | "/caixa" }) {
       />
       <span className="text-[15px] font-bold tracking-tight">Critical Cash</span>
     </Link>
-  );
-}
-
-export function ThemeToggle() {
-  const [dark, setDark] = useState(true);
-  useEffect(() => {
-    setDark(document.documentElement.classList.contains("dark"));
-  }, []);
-  const toggle = () => {
-    const next = !dark;
-    setDark(next);
-    document.documentElement.classList.toggle("dark", next);
-    document.documentElement.classList.toggle("light", !next);
-    localStorage.setItem("theme", next ? "dark" : "light");
-  };
-  return (
-    <Button
-      variant="ghost"
-      size="icon"
-      className="h-11 w-11"
-      onClick={toggle}
-      aria-label={dark ? "Usar tema claro" : "Usar tema escuro"}
-    >
-      {dark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-    </Button>
   );
 }

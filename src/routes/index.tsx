@@ -9,7 +9,7 @@ import {
   Clock,
   TrendingUp,
 } from "lucide-react";
-import { Logo, ThemeToggle } from "@/components/brand";
+import { Logo } from "@/components/brand";
 import { Button } from "@/components/ui/button";
 import {
   Accordion,
@@ -75,7 +75,6 @@ function Landing() {
             >
               Planos
             </a>
-            <ThemeToggle />
             <Button asChild variant="ghost" className="min-h-11">
               <Link to="/login">Entrar</Link>
             </Button>
