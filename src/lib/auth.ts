@@ -1,12 +1,16 @@
-import { supabase } from './supabase';
+import { supabase } from "@/integrations/supabase/client";
 
-export async function cadastrarUsuario(email: string, password: string, dadosExtras: { full_name?: string; phone?: string } = {}) {
+export async function cadastrarUsuario(
+  email: string,
+  password: string,
+  dadosExtras: { full_name?: string; phone?: string } = {},
+) {
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
-      data: dadosExtras
-    }
+      data: dadosExtras,
+    },
   });
   if (error) throw error;
   return data;
@@ -15,7 +19,7 @@ export async function cadastrarUsuario(email: string, password: string, dadosExt
 export async function entrarUsuario(email: string, password: string) {
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
-    password
+    password,
   });
   if (error) throw error;
   return data;
@@ -27,6 +31,8 @@ export async function sairUsuario() {
 }
 
 export async function obterUsuarioAtual() {
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   return user;
 }

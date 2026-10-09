@@ -34,67 +34,165 @@ function LoginPage() {
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-  const { register, handleSubmit, formState } = useForm<z.infer<typeof schema>>({ resolver: zodResolver(schema) });
+  const { register, handleSubmit, formState } = useForm<z.infer<typeof schema>>({
+    resolver: zodResolver(schema),
+  });
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) navigate({ to: "/caixa", replace: true });
-    });
+    let active = true;
+    supabase.auth
+      .getSession()
+      .then(({ data, error }) => {
+        if (!active) return;
+        if (error) {
+          setError(translateAuthError(error.message));
+          return;
+        }
+        if (data.session) navigate({ to: "/caixa", replace: true });
+      })
+      .catch((error: unknown) => {
+        if (!active) return;
+        console.error("Falha ao recuperar a sessão:", error);
+        setError(translateAuthError(error instanceof Error ? error.message : ""));
+      });
     const { data } = supabase.auth.onAuthStateChange((_e, s) => {
-      if (s) navigate({ to: "/caixa", replace: true });
+      if (s) void navigate({ to: "/caixa", replace: true });
     });
-    return () => data.subscription.unsubscribe();
+    return () => {
+      active = false;
+      data.subscription.unsubscribe();
+    };
   }, [navigate]);
 
   const onSubmit = handleSubmit(async (v) => {
     setError(null);
-    const { error } = await supabase.auth.signInWithPassword(v);
-    if (error) setError(translateAuthError(error.message));
+    try {
+      const { error } = await supabase.auth.signInWithPassword(v);
+      if (error) setError(translateAuthError(error.message));
+    } catch (error) {
+      console.error("Falha ao entrar com e-mail e senha:", error);
+      setError(
+        translateAuthError(
+          error instanceof Error
+            ? error.message
+            : "Não foi possível conectar ao serviço de autenticação.",
+        ),
+      );
+    }
   });
 
   return (
     <main className="flex min-h-screen flex-col bg-background">
       <header className="flex items-center justify-between border-b px-5 py-4 sm:px-8">
-        <Button asChild variant="ghost" className="h-11 gap-2"><Link to="/"><ArrowLeft className="h-4 w-4" />Início</Link></Button>
-        <span className="flex items-center gap-2 text-xs text-muted-foreground"><LockKeyhole className="h-4 w-4" />Acesso seguro</span>
+        <Button asChild variant="ghost" className="h-11 gap-2">
+          <Link to="/">
+            <ArrowLeft className="h-4 w-4" />
+            Início
+          </Link>
+        </Button>
+        <span className="flex items-center gap-2 text-xs text-muted-foreground">
+          <LockKeyhole className="h-4 w-4" />
+          Acesso seguro
+        </span>
       </header>
-      <section className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-6 py-10 sm:py-14" aria-labelledby="login-title">
+      <section
+        className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-6 py-10 sm:py-14"
+        aria-labelledby="login-title"
+      >
         <Link to="/" className="mb-7 flex flex-col items-center gap-3 text-xl font-semibold">
-          <img src={appIcon.url} alt="Logo do Critical Cash" width={512} height={512} className="h-20 w-20 object-contain" />
+          <img
+            src={appIcon.url}
+            alt="Logo do Critical Cash"
+            width={512}
+            height={512}
+            className="h-20 w-20 object-contain"
+          />
           <span>Critical Cash</span>
         </Link>
-        <h1 id="login-title" className="text-center text-2xl font-semibold">Bem-vindo de volta</h1>
-        <p className="mb-7 mt-2 text-center text-sm text-muted-foreground">Entre na sua conta para acompanhar seu caixa.</p>
-      <GoogleButton />
-      <Divider />
-      <form onSubmit={onSubmit} noValidate className="space-y-4">
-        <div>
-          <Label htmlFor="email">E-mail</Label>
-          <Input id="email" type="email" autoComplete="email" className="mt-1.5 h-11 rounded-xl" {...register("email")} />
-          <FieldError msg={formState.errors.email?.message} />
-        </div>
-        <div>
-          <div className="flex items-center justify-between">
-            <Label htmlFor="password">Senha</Label>
-            <Link to="/esqueci-senha" className="text-sm text-primary hover:underline">Esqueci a senha</Link>
+        <h1 id="login-title" className="text-center text-2xl font-semibold">
+          Bem-vindo de volta
+        </h1>
+        <p className="mb-7 mt-2 text-center text-sm text-muted-foreground">
+          Entre na sua conta para acompanhar seu caixa.
+        </p>
+        <GoogleButton />
+        <Divider />
+        <form onSubmit={onSubmit} noValidate className="space-y-4">
+          <div>
+            <Label htmlFor="email">E-mail</Label>
+            <Input
+              id="email"
+              type="email"
+              autoComplete="email"
+              className="mt-1.5 h-11 rounded-xl"
+              {...register("email")}
+            />
+            <FieldError msg={formState.errors.email?.message} />
           </div>
-          <div className="relative mt-1.5">
-            <Input id="password" type={showPassword ? "text" : "password"} autoComplete="current-password" className="h-11 rounded-xl pr-12" {...register("password")} />
-            <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-11 w-11" aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"} aria-pressed={showPassword} onClick={() => setShowPassword((value) => !value)}>
-              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </Button>
+          <div>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="password">Senha</Label>
+              <Link to="/esqueci-senha" className="text-sm text-primary hover:underline">
+                Esqueci a senha
+              </Link>
+            </div>
+            <div className="relative mt-1.5">
+              <Input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                autoComplete="current-password"
+                className="h-11 rounded-xl pr-12"
+                {...register("password")}
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-0 top-0 h-11 w-11"
+                aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                aria-pressed={showPassword}
+                onClick={() => setShowPassword((value) => !value)}
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </Button>
+            </div>
+            <FieldError msg={formState.errors.password?.message} />
           </div>
-          <FieldError msg={formState.errors.password?.message} />
-        </div>
-        {error && <p className="rounded-xl bg-danger/10 p-3 text-sm text-danger" role="alert">{error}</p>}
-        <Button type="submit" className="h-11 w-full rounded-xl" disabled={formState.isSubmitting}>
-          {formState.isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
-          {formState.isSubmitting ? "Entrando…" : "Entrar"}
-        </Button>
-      </form>
-        <p className="mt-7 text-center text-sm text-muted-foreground">Ainda não tem conta? <Link to="/cadastro" className="font-medium text-primary underline-offset-4 hover:underline">Criar conta</Link></p>
+          {error && (
+            <p className="rounded-xl bg-danger/10 p-3 text-sm text-danger" role="alert">
+              {error}
+            </p>
+          )}
+          <Button
+            type="submit"
+            className="h-11 w-full rounded-xl"
+            disabled={formState.isSubmitting}
+          >
+            {formState.isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+            {formState.isSubmitting ? "Entrando…" : "Entrar"}
+          </Button>
+        </form>
+        <p className="mt-7 text-center text-sm text-muted-foreground">
+          Ainda não tem conta?{" "}
+          <Link
+            to="/cadastro"
+            className="font-medium text-primary underline-offset-4 hover:underline"
+          >
+            Criar conta
+          </Link>
+        </p>
       </section>
-      <footer className="px-6 pb-6 text-center text-xs text-muted-foreground"><Link to="/privacidade" className="hover:underline">Privacidade</Link><span className="mx-3" aria-hidden="true">·</span><Link to="/termos" className="hover:underline">Termos de uso</Link></footer>
+      <footer className="px-6 pb-6 text-center text-xs text-muted-foreground">
+        <Link to="/privacidade" className="hover:underline">
+          Privacidade
+        </Link>
+        <span className="mx-3" aria-hidden="true">
+          ·
+        </span>
+        <Link to="/termos" className="hover:underline">
+          Termos de uso
+        </Link>
+      </footer>
     </main>
   );
 }

@@ -132,13 +132,28 @@ function RootComponent() {
 
   useEffect(() => {
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
+      if (
+        event !== "INITIAL_SESSION" &&
+        event !== "SIGNED_IN" &&
+        event !== "SIGNED_OUT" &&
+        event !== "TOKEN_REFRESHED" &&
+        event !== "USER_UPDATED" &&
+        event !== "PASSWORD_RECOVERY"
+      )
+        return;
       if (event === "SIGNED_IN" && session) {
         // Idempotente: cria profile (trial 7 dias), assinatura 'trialing' e régua padrão.
-        void supabase.rpc("ensure_user_setup");
+        void supabase
+          .rpc("ensure_user_setup")
+          .then(({ error }) => {
+            if (error) console.error("Falha ao preparar a conta autenticada:", error);
+          })
+          .catch((error: unknown) => {
+            console.error("Falha ao preparar a conta autenticada:", error);
+          });
       }
       router.invalidate();
-      if (event !== "SIGNED_OUT") queryClient.invalidateQueries();
+      void queryClient.invalidateQueries();
     });
     return () => data.subscription.unsubscribe();
   }, [router, queryClient]);
