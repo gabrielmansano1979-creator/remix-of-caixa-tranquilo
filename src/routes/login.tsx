@@ -40,7 +40,24 @@ function LoginPage() {
 
   useEffect(() => {
     let active = true;
-    supabase.auth
+    let redirecting = false;
+    const redirectToApp = () => {
+      if (!active || redirecting) return;
+      redirecting = true;
+      void navigate({ to: "/caixa", replace: true }).catch((error: unknown) => {
+        if (!active) return;
+        redirecting = false;
+        console.error("Falha ao redirecionar após autenticação:", error);
+        setError("Não foi possível abrir sua conta. Tente novamente.");
+      });
+    };
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) redirectToApp();
+    });
+
+    void supabase.auth
       .getSession()
       .then(({ data, error }) => {
         if (!active) return;
@@ -48,19 +65,17 @@ function LoginPage() {
           setError(translateAuthError(error.message));
           return;
         }
-        if (data.session) navigate({ to: "/caixa", replace: true });
+        if (data.session) redirectToApp();
       })
       .catch((error: unknown) => {
         if (!active) return;
         console.error("Falha ao recuperar a sessão:", error);
         setError(translateAuthError(error instanceof Error ? error.message : ""));
       });
-    const { data } = supabase.auth.onAuthStateChange((_e, s) => {
-      if (s) void navigate({ to: "/caixa", replace: true });
-    });
+
     return () => {
       active = false;
-      data.subscription.unsubscribe();
+      subscription.unsubscribe();
     };
   }, [navigate]);
 
