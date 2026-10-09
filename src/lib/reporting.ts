@@ -132,7 +132,7 @@ export function getPartnerAffiliateLinks(couponCode: string) {
   const ref = encodeURIComponent(couponCode);
   return {
     home: `${origin}/?ref=${ref}`,
-    checkout: `${origin}/planos?ref=${ref}`,
+    checkout: `${origin}/checkout?ref=${ref}`,
   };
 }
 
@@ -158,3 +158,5 @@ export function antiSelfReferralCheck(couponPartnerId: string | null, currentUse
   }
   return { allowed: true, reason: "Cupom válido para parceiro externo." };
 }
+
+export function makeAffiliateCouponSeed(seed?: string) { return seed || Math.random().toString(36).substring(2, 8).toUpperCase(); }

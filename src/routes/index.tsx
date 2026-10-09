@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { z } from "zod";
 import {
   ArrowRight,
   CheckCircle2,
@@ -26,6 +27,7 @@ const TITLE = "Critical Cash — 7 dias grátis para cuidar do seu caixa";
 const DESC =
   "Antecipe o caixa, acompanhe seus compromissos e prepare cobranças pelo WhatsApp. Teste por 7 dias sem cartão.";
 export const Route = createFileRoute("/")({
+  validateSearch: z.object({ ref: z.string().trim().max(80).optional() }),
   head: () => ({
     meta: [
       { title: TITLE },
@@ -54,6 +56,7 @@ export const Route = createFileRoute("/")({
 
 const CTA = "Testar grátis por 7 dias";
 function Landing() {
+  const { ref } = Route.useSearch();
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="sticky top-0 z-30 border-b border-white/[0.08] bg-zinc-950/80 backdrop-blur-xl">
@@ -80,7 +83,7 @@ function Landing() {
               asChild
               className="hidden min-h-11 rounded-xl shadow-[0_10px_30px_-8px_rgba(59,130,246,0.45)] transition-all duration-200 hover:-translate-y-0.5 lg:inline-flex"
             >
-              <Link to="/cadastro">{CTA}</Link>
+              <Link to="/cadastro" search={{ ref }}>{CTA}</Link>
             </Button>
           </nav>
         </div>
@@ -113,7 +116,7 @@ function Landing() {
                   size="lg"
                   className="min-h-12 rounded-xl px-6 shadow-[0_10px_30px_-8px_rgba(59,130,246,0.45)] transition-all duration-200 hover:-translate-y-0.5"
                 >
-                  <Link to="/cadastro">
+                  <Link to="/cadastro" search={{ ref }}>
                     {CTA}
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>
@@ -407,7 +410,7 @@ function Landing() {
               size="lg"
               className="mt-7 min-h-12 rounded-xl shadow-[0_10px_30px_-8px_rgba(59,130,246,0.45)] transition-all duration-200 hover:-translate-y-0.5"
             >
-              <Link to="/cadastro">
+              <Link to="/cadastro" search={{ ref }}>
                 {CTA}
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
@@ -522,7 +525,7 @@ function Pricing() {
                 variant={plan.popular ? "default" : "outline"}
                 className={`min-h-12 w-full whitespace-normal rounded-xl ${plan.popular ? "shadow-[0_10px_30px_-8px_rgba(59,130,246,0.4)]" : "border-white/15 bg-white/[0.03] text-slate-100 hover:bg-white/[0.08]"}`}
               >
-                <Link to="/cadastro">{CTA}</Link>
+                <Link to="/cadastro" search={{ ref }}>{CTA}</Link>
               </Button>
             </article>
           ))}

@@ -132,6 +132,31 @@ BEGIN
 END
 $function$;
 
+CREATE OR REPLACE FUNCTION public.my_partner_status()
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $function$
+DECLARE uid uuid := auth.uid(); result jsonb;
+BEGIN
+  IF uid IS NULL THEN RAISE EXCEPTION 'not authenticated'; END IF;
+  SELECT jsonb_build_object(
+    'status', COALESCE(pr.status, 'none'),
+    'full_name', pr.full_name,
+    'tax_id', pr.tax_id,
+    'crc_number', pr.crc_number,
+    'pix_type', pr.pix_type,
+    'pix_key', pr.pix_key,
+    'coupon', (SELECT jsonb_build_object('code', c.code, 'discount_percent', c.discount_percent, 'commission_percent', c.commission_percent)
+      FROM public.coupons c WHERE c.partner_id = uid AND c.is_active LIMIT 1)
+  ) INTO result
+  FROM (SELECT 1) source
+  LEFT JOIN public.partner_requests pr ON pr.user_id = uid;
+  RETURN result;
+END
+$function$;
+
 CREATE OR REPLACE FUNCTION public.grant_accountant_access(_coupon_code text)
 RETURNS void
 LANGUAGE plpgsql
@@ -275,6 +300,7 @@ $function$;
 
 REVOKE ALL ON FUNCTION public.submit_partner_request(text, text, text, text, text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.partner_dashboard() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.my_partner_status() FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.grant_accountant_access(text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.revoke_accountant_access() FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.my_accountant_access() FROM PUBLIC;
@@ -285,6 +311,7 @@ REVOKE ALL ON FUNCTION public.admin_partner_overview() FROM PUBLIC;
 
 GRANT EXECUTE ON FUNCTION public.submit_partner_request(text, text, text, text, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.partner_dashboard() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.my_partner_status() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.grant_accountant_access(text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.revoke_accountant_access() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.my_accountant_access() TO authenticated;

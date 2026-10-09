@@ -40,6 +40,7 @@ function ConfigPage() {
       <h1 className="text-2xl font-semibold tracking-tight">Configurações</h1>
       <BusinessForm profile={profile} />
       <Notifications />
+      <AccountantSharing />
       <PasswordForm />
       <DataSection />
     </div>
@@ -82,6 +83,66 @@ function Notifications() {
     <section className={`${card} space-y-4`}>
       <h2 className="font-semibold">Envio de cobranças</h2>
       <p className="text-sm text-muted-foreground">As mensagens são preparadas para envio manual pelo WhatsApp. Você revisa o conteúdo e confirma o envio no WhatsApp Web ou aplicativo.</p>
+    </section>
+  );
+}
+
+function AccountantSharing() {
+  const queryClient = useQueryClient();
+  const { data, isLoading } = useQuery({
+    queryKey: ["accountant-sharing"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("my_accountant_access");
+      if (error) throw error;
+      return data as { coupon_code?: string; partner_name?: string; granted_at?: string };
+    },
+  });
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
+  const grant = async () => {
+    if (!code.trim()) return toast.error("Informe o cupom do contador.");
+    setBusy(true);
+    try {
+      const { error } = await supabase.rpc("grant_accountant_access", { _coupon_code: code.trim() });
+      if (error) throw error;
+      setCode("");
+      await queryClient.invalidateQueries({ queryKey: ["accountant-sharing"] });
+      toast.success("Acesso concedido ao contador informado.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível conceder o acesso.");
+    } finally {
+      setBusy(false);
+    }
+  };
+  const revoke = async () => {
+    setBusy(true);
+    try {
+      const { error } = await supabase.rpc("revoke_accountant_access");
+      if (error) throw error;
+      await queryClient.invalidateQueries({ queryKey: ["accountant-sharing"] });
+      toast.success("Acesso do contador revogado.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível revogar o acesso.");
+    } finally {
+      setBusy(false);
+    }
+  };
+  const granted = !!data?.coupon_code;
+  return (
+    <section className={`${card} space-y-4`}>
+      <h2 className="font-semibold">Compartilhamento com contador</h2>
+      <p className="text-sm text-muted-foreground">Ao informar o cupom e conceder acesso, você autoriza o contador parceiro a consultar seus resumos de caixa e relatórios em modo somente leitura. Você pode revogar essa permissão quando quiser.</p>
+      {isLoading ? <p className="text-sm text-muted-foreground">Consultando autorização...</p> : granted ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-success/20 bg-success/5 p-4">
+          <p className="text-sm">Acesso ativo para <strong>{data.partner_name}</strong> (cupom {data.coupon_code}).</p>
+          <Button type="button" variant="outline" disabled={busy} onClick={revoke}>Revogar acesso</Button>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <Input aria-label="Cupom do contador" maxLength={80} value={code} onChange={(event) => setCode(event.target.value)} placeholder="Informe o cupom exclusivo do contador" />
+          <Button type="button" disabled={busy} onClick={grant}>Conceder acesso</Button>
+        </div>
+      )}
     </section>
   );
 }

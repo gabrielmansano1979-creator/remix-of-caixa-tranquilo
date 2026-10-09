@@ -20,6 +20,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/cadastro")({
+  validateSearch: z.object({ ref: z.string().trim().max(80).optional() }),
   head: () => ({
     meta: [
       { title: "Criar conta | Critical Cash" },
@@ -55,6 +56,7 @@ const schema = z
   });
 
 function SignupPage() {
+  const { ref } = Route.useSearch();
   const navigate = useNavigate();
   const [sentTo, setSentTo] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -75,6 +77,7 @@ function SignupPage() {
             full_name: v.full_name,
             business_name: v.business_name,
             notification_whatsapp: toE164(v.whatsapp),
+            ...(ref ? { affiliate_referral_code: ref.toUpperCase() } : {}),
           },
         },
       });

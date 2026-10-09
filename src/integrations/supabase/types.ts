@@ -652,6 +652,7 @@ export type Database = {
       grant_accountant_access: { Args: { _coupon_code: string }; Returns: undefined }
       my_accountant_access: { Args: never; Returns: Json }
       my_access: { Args: never; Returns: Json }
+      my_partner_status: { Args: never; Returns: Json }
       partner_dashboard: { Args: never; Returns: Json }
       revoke_accountant_access: { Args: never; Returns: undefined }
       submit_partner_request: {
