@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate, Link } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase'; // Ajuste se o seu cliente Supabase estiver em @/integrations/supabase/client
+import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -18,35 +18,56 @@ function LoginComponent() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    // Redireciona com base no email ou role do utilizador
-    const handleRedirect = (sessionUser: any) => {
-      const userEmail = sessionUser.email;
-      const userRole = sessionUser.user_metadata?.role;
+  // Função centralizada para redirecionar conforme o e-mail ou role
+  const redirectUser = (sessionUser: any) => {
+    if (!sessionUser) return;
+    const userEmail = sessionUser.email;
+    const userRole = sessionUser.user_metadata?.role;
 
-      // Se for o email do admin ou se tiver role admin no metadata
-      if (userEmail === 'criticalcash2026@gmail.com' || userRole === 'admin') {
-        navigate({ to: '/admin' });
-      } else {
-        navigate({ to: '/caixa' });
+    // E-mails autorizados para Admin ou com a Role Admin
+    const isAdmin =
+      userEmail === 'gabrielmansano1979@gmail.com' ||
+      userEmail === 'criticalcash2026@gmail.com' ||
+      userRole === 'admin';
+
+    if (isAdmin) {
+      navigate({ to: '/admin' });
+    } else {
+      navigate({ to: '/caixa' });
+    }
+  };
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const checkAuthAndRedirect = async () => {
+      // 1. Processa a Hash da URL se houver access_token presente
+      if (window.location.hash.includes('access_token')) {
+        const { data, error } = await supabase.auth.getSession();
+        if (data.session?.user && isMounted) {
+          redirectUser(data.session.user);
+          return;
+        }
+      }
+
+      // 2. Verifica se já existe sessão válida salva no localStorage
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user && isMounted) {
+        redirectUser(session.user);
       }
     };
 
-    // 1. Verifica se já existe uma sessão ativa
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        handleRedirect(session.user);
-      }
-    });
+    checkAuthAndRedirect();
 
-    // 2. Escuta alterações de autenticação (captura o callback OAuth com #access_token)
+    // 3. Ouve alterações no estado do Auth
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user) {
-        handleRedirect(session.user);
+      if (session?.user && isMounted) {
+        redirectUser(session.user);
       }
     });
 
     return () => {
+      isMounted = false;
       subscription.unsubscribe();
     };
   }, [navigate]);
@@ -65,14 +86,7 @@ function LoginComponent() {
 
       if (data.session?.user) {
         toast.success('Login realizado com sucesso!');
-        const userEmail = data.session.user.email;
-        const userRole = data.session.user.user_metadata?.role;
-
-        if (userEmail === 'criticalcash2026@gmail.com' || userRole === 'admin') {
-          navigate({ to: '/admin' });
-        } else {
-          navigate({ to: '/caixa' });
-        }
+        redirectUser(data.session.user);
       }
     } catch (err: any) {
       toast.error(err.message || 'Erro ao realizar login. Verifique as suas credenciais.');
