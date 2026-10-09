@@ -12,7 +12,7 @@ import { PixPaymentDialog } from "@/components/pix-payment-dialog";
 
 const ORDER: PlanId[] = ["starter", "pro", "business"];
 
-export function PlanPicker() {
+export function PlanPicker({ referralCode }: { referralCode?: string }) {
   const ent = useEntitlements();
   const checkout = useServerFn(createCheckoutSession);
   const [yearly, setYearly] = useState(ent.access?.billing_interval === "year");
@@ -33,7 +33,7 @@ export function PlanPicker() {
     setBusy(plan);
     track("upgrade_click", { plan, interval: yearly ? "year" : "month" });
     try {
-      const r = await checkout({ data: { plan, interval: yearly ? "year" : "month", cpfCnpj: digits } });
+      const r = await checkout({ data: { plan, interval: yearly ? "year" : "month", cpfCnpj: digits, referralCode } });
       if (r.error) {
         toast.error(r.error);
       } else if (r.qrCode) {

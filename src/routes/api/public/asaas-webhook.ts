@@ -65,22 +65,37 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
         if (paymentId && isPaidStatus(status)) {
           const { data: sub } = await db
             .from("subscriptions")
-            .select("user_id, plan")
+            .select("user_id, plan, affiliate_partner_id, affiliate_commission_percent, affiliate_payment_amount_cents")
             .eq("asaas_payment_id", paymentId)
             .maybeSingle();
 
           if (sub?.user_id) {
-            await db.from("subscriptions").update({
+            const { error: updateError } = await db.from("subscriptions").update({
               status: "active",
               paid_at: new Date().toISOString(),
               updated_at: new Date().toISOString()
             }).eq("asaas_payment_id", paymentId);
+            if (updateError) throw updateError;
 
-            await db.from("audit_logs").insert({
+            if (sub.affiliate_partner_id && sub.affiliate_commission_percent && sub.affiliate_payment_amount_cents) {
+              const { data: profile } = await db.from("profiles").select("business_name").eq("user_id", sub.user_id).maybeSingle();
+              const { error: commissionError } = await db.from("commissions").upsert({
+                partner_id: sub.affiliate_partner_id,
+                subscription_id: sub.user_id,
+                payment_id: String(paymentId),
+                client_name: profile?.business_name ?? "Cliente",
+                amount_cents: Math.floor(sub.affiliate_payment_amount_cents * sub.affiliate_commission_percent / 100),
+                status: "pending",
+              }, { onConflict: "payment_id", ignoreDuplicates: true });
+              if (commissionError) throw commissionError;
+            }
+
+            const { error: auditError } = await db.from("audit_logs").insert({
               user_id: sub.user_id,
               action: "subscription_start",
               meta: { plan: sub.plan, gateway: "asaas_pix" }
             });
+            if (auditError) throw auditError;
           }
         }
 

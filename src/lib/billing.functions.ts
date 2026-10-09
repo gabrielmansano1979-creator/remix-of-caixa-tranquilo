@@ -36,7 +36,12 @@ async function ensureCustomer(userId: string, email: string | undefined, fullNam
 
 export const createCheckoutSession = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ plan: z.enum(["starter", "pro", "business"]), interval: z.enum(["month", "year"]), cpfCnpj: z.string().transform((v) => v.replace(/\D/g, "")).refine((v) => v.length === 11 || v.length === 14, "CPF ou CNPJ inválido") }).parse(d))
+  .inputValidator((d: unknown) => z.object({
+    plan: z.enum(["starter", "pro", "business"]),
+    interval: z.enum(["month", "year"]),
+    cpfCnpj: z.string().transform((v) => v.replace(/\D/g, "")).refine((v) => v.length === 11 || v.length === 14, "CPF ou CNPJ inválido"),
+    referralCode: z.string().trim().max(80).optional(),
+  }).parse(d))
   .handler(async ({ data, context }): Promise<Out> => {
     try {
       const { supabase, userId, claims } = context;
@@ -51,28 +56,73 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
 
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
       const customerEmail = (claims as { email?: string }).email || `${userId}@criefy.local`;
-      const customerName = (claims as { user_metadata?: { full_name?: string } }).user_metadata?.full_name;
-
-      const customerId = await ensureCustomer(userId, customerEmail, customerName, data.cpfCnpj);
+      const metadata = (claims as { user_metadata?: { full_name?: string; affiliate_referral_code?: string } }).user_metadata;
+      const customerName = metadata?.full_name;
+      const referralCode = (data.referralCode || metadata?.affiliate_referral_code || "").trim().toUpperCase();
 
       const plan = getPlan(data.plan);
       const basePrice = data.interval === "year" ? plan.priceYearCents : plan.priceMonthCents;
-      const { data: prev } = await supabaseAdmin.from("subscriptions").select("paid_at").eq("user_id", userId).maybeSingle();
+      const { data: prev, error: prevError } = await supabaseAdmin.from("subscriptions").select("paid_at").eq("user_id", userId).maybeSingle();
+      if (prevError) throw prevError;
       const isFirst = !prev?.paid_at;
-      const priceCents = isFirst ? Math.round(basePrice * (1 - FIRST_PIX_DISCOUNT)) : basePrice;
+      let affiliate: { partnerId: string; code: string; commissionPercent: number; discountPercent: number } | null = null;
+
+      if (referralCode) {
+        const { data: coupon, error: couponError } = await supabaseAdmin
+          .from("coupons")
+          .select("code, partner_id, discount_percent, commission_percent")
+          .eq("code", referralCode)
+          .eq("is_active", true)
+          .maybeSingle();
+        if (couponError) throw couponError;
+        if (!coupon) return { error: "O cupom de indicação é inválido ou está inativo." };
+
+        const { data: partner, error: partnerError } = await supabaseAdmin
+          .from("partner_requests")
+          .select("user_id, email, tax_id, status")
+          .eq("user_id", coupon.partner_id)
+          .maybeSingle();
+        if (partnerError) throw partnerError;
+        if (!partner || partner.status !== "approved") return { error: "O cupom de indicação não está disponível." };
+
+        const buyerEmail = customerEmail.trim().toLowerCase();
+        const partnerEmail = (partner.email ?? "").trim().toLowerCase();
+        const buyerDoc = data.cpfCnpj.replace(/\D/g, "");
+        const partnerDoc = partner.tax_id.replace(/\D/g, "");
+        if (partner.user_id === userId || (partnerEmail && partnerEmail === buyerEmail) || (partnerDoc && partnerDoc === buyerDoc)) {
+          return { error: "Você não pode utilizar seu próprio cupom de indicação para assinar um plano." };
+        }
+        affiliate = {
+          partnerId: partner.user_id,
+          code: coupon.code,
+          commissionPercent: coupon.commission_percent,
+          discountPercent: coupon.discount_percent,
+        };
+      }
+
+      const discountPercent = affiliate?.discountPercent ?? (isFirst ? Math.round(FIRST_PIX_DISCOUNT * 100) : 0);
+      const priceCents = Math.round(basePrice * (1 - discountPercent / 100));
+      const customerId = await ensureCustomer(userId, customerEmail, customerName, data.cpfCnpj);
 
       const externalRef = `sub_${userId}_${Date.now()}`;
-      const charge = await asaas.createPixCharge(customerId, priceCents, externalRef, `Critical Cash ${plan.name} ${data.interval === "year" ? "anual" : "mensal"}${isFirst ? " (20% off 1ª assinatura)" : ""}`);
+      const discountLabel = affiliate ? ` (cupom ${affiliate.code}: ${discountPercent}% off)` : discountPercent ? ` (${discountPercent}% off 1ª assinatura)` : "";
+      const charge = await asaas.createPixCharge(customerId, priceCents, externalRef, `Critical Cash ${plan.name} ${data.interval === "year" ? "anual" : "mensal"}${discountLabel}`);
 
-      await supabaseAdmin.from("subscriptions").upsert({
+      const { error: subscriptionError } = await supabaseAdmin.from("subscriptions").upsert({
         user_id: userId,
         asaas_payment_id: charge.id,
         asaas_customer_id: customerId,
         status: "pending_pix",
         plan: data.plan,
         billing_interval: data.interval,
+        affiliate_partner_id: affiliate?.partnerId ?? null,
+        affiliate_coupon_code: affiliate?.code ?? null,
+        affiliate_commission_percent: affiliate?.commissionPercent ?? null,
+        affiliate_discount_percent: affiliate ? discountPercent : null,
+        affiliate_payment_amount_cents: affiliate ? priceCents : null,
         updated_at: new Date().toISOString()
       }, { onConflict: "user_id" });
+      if (subscriptionError) throw subscriptionError;
 
       return {
         qrCode: charge.pixQrCode,

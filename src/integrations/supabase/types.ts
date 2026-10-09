@@ -14,6 +14,24 @@ export type Database = {
   }
   public: {
     Tables: {
+      accountant_access: {
+        Row: {
+          client_user_id: string
+          granted_at: string
+          partner_id: string
+        }
+        Insert: {
+          client_user_id: string
+          granted_at?: string
+          partner_id: string
+        }
+        Update: {
+          client_user_id?: string
+          granted_at?: string
+          partner_id?: string
+        }
+        Relationships: []
+      }
       accountant_invites: {
         Row: {
           accountant_email: string
@@ -122,6 +140,7 @@ export type Database = {
           created_at: string
           id: string
           paid_at: string | null
+          payment_id: string | null
           partner_id: string
           receipt_url: string | null
           status: string
@@ -133,6 +152,7 @@ export type Database = {
           created_at?: string
           id?: string
           paid_at?: string | null
+          payment_id?: string | null
           partner_id: string
           receipt_url?: string | null
           status?: string
@@ -144,6 +164,7 @@ export type Database = {
           created_at?: string
           id?: string
           paid_at?: string | null
+          payment_id?: string | null
           partner_id?: string
           receipt_url?: string | null
           status?: string
@@ -252,6 +273,7 @@ export type Database = {
         Row: {
           crc_number: string
           created_at: string
+          email: string | null
           full_name: string
           pix_key: string
           pix_type: string
@@ -262,6 +284,7 @@ export type Database = {
         Insert: {
           crc_number: string
           created_at?: string
+          email?: string | null
           full_name: string
           pix_key: string
           pix_type: string
@@ -272,6 +295,7 @@ export type Database = {
         Update: {
           crc_number?: string
           created_at?: string
+          email?: string | null
           full_name?: string
           pix_key?: string
           pix_type?: string
@@ -475,6 +499,11 @@ export type Database = {
       }
       subscriptions: {
         Row: {
+          affiliate_commission_percent: number | null
+          affiliate_coupon_code: string | null
+          affiliate_discount_percent: number | null
+          affiliate_partner_id: string | null
+          affiliate_payment_amount_cents: number | null
           asaas_customer_id: string | null
           asaas_payment_id: string | null
           billing_interval:
@@ -491,6 +520,11 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          affiliate_commission_percent?: number | null
+          affiliate_coupon_code?: string | null
+          affiliate_discount_percent?: number | null
+          affiliate_partner_id?: string | null
+          affiliate_payment_amount_cents?: number | null
           asaas_customer_id?: string | null
           asaas_payment_id?: string | null
           billing_interval?:
@@ -507,6 +541,11 @@ export type Database = {
           user_id: string
         }
         Update: {
+          affiliate_commission_percent?: number | null
+          affiliate_coupon_code?: string | null
+          affiliate_discount_percent?: number | null
+          affiliate_partner_id?: string | null
+          affiliate_payment_amount_cents?: number | null
           asaas_customer_id?: string | null
           asaas_payment_id?: string | null
           billing_interval?:
@@ -595,6 +634,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_mark_commission_paid: { Args: { _commission_id: string }; Returns: undefined }
+      admin_partner_overview: { Args: never; Returns: Json }
+      admin_set_partner_status: { Args: { _partner_id: string; _status: string }; Returns: undefined }
+      admin_update_partner_rate: { Args: { _partner_id: string; _percent: number }; Returns: undefined }
       cash_projection: { Args: { _days?: number }; Returns: Json }
       ensure_user_setup: { Args: never; Returns: undefined }
       get_access: { Args: { _user_id: string }; Returns: Json }
@@ -606,7 +649,15 @@ export type Database = {
         Returns: boolean
       }
       import_entries: { Args: { _rows: Json }; Returns: number }
+      grant_accountant_access: { Args: { _coupon_code: string }; Returns: undefined }
+      my_accountant_access: { Args: never; Returns: Json }
       my_access: { Args: never; Returns: Json }
+      partner_dashboard: { Args: never; Returns: Json }
+      revoke_accountant_access: { Args: never; Returns: undefined }
+      submit_partner_request: {
+        Args: { _crc_number: string; _full_name: string; _pix_key: string; _pix_type: string; _tax_id: string }
+        Returns: undefined
+      }
       my_usage: { Args: never; Returns: Json }
       plan_limits: {
         Args: { _plan: Database["public"]["Enums"]["plan_tier"] }
