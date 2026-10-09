@@ -40,26 +40,68 @@ function LoginPage() {
 
   useEffect(() => {
     let active = true;
-    let redirecting = false;
+    let redirectingUserId: string | null = null;
     let redirectTimer: ReturnType<typeof setTimeout> | undefined;
-    const redirectToApp = () => {
-      if (!active || redirecting) return;
-      redirecting = true;
-      redirectTimer = setTimeout(() => {
-        void navigate({ to: "/caixa", replace: true }).catch((error: unknown) => {
-          if (!active) return;
-          redirecting = false;
-          console.error("Falha ao redirecionar após autenticação:", error);
-          setError("Não foi possível abrir sua conta. Tente novamente.");
-        });
-      }, 0);
+
+    const redirectToApp = async (userId: string) => {
+      if (!active || redirectingUserId === userId) return;
+      redirectingUserId = userId;
+
+      let destination: "/admin" | "/caixa" = "/caixa";
+      try {
+        const { data: roleData, error: roleError } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", userId)
+          .eq("role", "admin")
+          .maybeSingle();
+
+        if (roleError) {
+          console.error("Falha ao consultar o perfil de acesso:", roleError);
+        }
+
+        let isAdmin = roleData?.role === "admin";
+        if (!isAdmin) {
+          const { data, error: accessError } = await supabase.rpc("has_role", {
+            _role: "admin",
+            _user_id: userId,
+          });
+          if (accessError) {
+            console.error("Falha ao confirmar o perfil administrativo:", accessError);
+          } else {
+            isAdmin = data;
+          }
+        }
+
+        if (isAdmin) destination = "/admin";
+      } catch (error) {
+        console.error("Falha ao determinar a área após autenticação:", error);
+      }
+
+      if (!active) return;
+
+      try {
+        if (destination === "/admin") await navigate({ to: "/admin", replace: true });
+        else await navigate({ to: "/caixa", replace: true });
+        if (active && window.location.pathname.startsWith("/login")) {
+          window.location.replace(destination);
+        }
+      } catch (error) {
+        console.error("Falha na navegação após autenticação:", error);
+        if (active) window.location.replace(destination);
+      }
     };
+
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) redirectToApp();
+      if (!session) return;
+      redirectTimer = setTimeout(() => {
+        void redirectToApp(session.user.id);
+      }, 0);
     });
 
+    const hasOAuthHash = window.location.hash.includes("access_token=");
     void supabase.auth
       .getSession()
       .then(({ data, error }) => {
@@ -68,7 +110,11 @@ function LoginPage() {
           setError(translateAuthError(error.message));
           return;
         }
-        if (data.session) redirectToApp();
+        if (data.session) {
+          void redirectToApp(data.session.user.id);
+        } else if (hasOAuthHash) {
+          setError("Não foi possível confirmar o acesso do Google. Tente entrar novamente.");
+        }
       })
       .catch((error: unknown) => {
         if (!active) return;

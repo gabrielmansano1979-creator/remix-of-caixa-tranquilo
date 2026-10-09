@@ -131,6 +131,7 @@ function RootComponent() {
   const router = useRouter();
 
   useEffect(() => {
+    const pendingTasks = new Set<ReturnType<typeof setTimeout>>();
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
       if (
         event !== "INITIAL_SESSION" &&
@@ -141,11 +142,11 @@ function RootComponent() {
         event !== "PASSWORD_RECOVERY"
       )
         return;
-      if (event === "SIGNED_IN" && session) {
-        // Idempotente: cria profile (trial 7 dias), assinatura 'trialing' e régua padrão.
-        void supabase
-          .rpc("ensure_user_setup")
-          .then(
+      const task = setTimeout(() => {
+        pendingTasks.delete(task);
+        if (event === "SIGNED_IN" && session) {
+          // Idempotente: cria profile (trial 7 dias), assinatura 'trialing' e régua padrão.
+          void supabase.rpc("ensure_user_setup").then(
             ({ error }) => {
               if (error) console.error("Falha ao preparar a conta autenticada:", error);
             },
@@ -153,11 +154,16 @@ function RootComponent() {
               console.error("Falha ao preparar a conta autenticada:", error);
             },
           );
-      }
-      router.invalidate();
-      void queryClient.invalidateQueries();
+        }
+        router.invalidate();
+        void queryClient.invalidateQueries();
+      }, 0);
+      pendingTasks.add(task);
     });
-    return () => data.subscription.unsubscribe();
+    return () => {
+      pendingTasks.forEach(clearTimeout);
+      data.subscription.unsubscribe();
+    };
   }, [router, queryClient]);
 
   return (
