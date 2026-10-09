@@ -15,6 +15,13 @@
       "when": 1791395702297,
       "tag": "0001_plg_trial_and_multichannel",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791510467513,
+      "tag": "0002_secure_partner_program",
+      "breakpoints": true
     }
   ]
 }
