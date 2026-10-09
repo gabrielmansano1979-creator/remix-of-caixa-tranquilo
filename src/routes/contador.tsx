@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Clipboard, Download, LoaderCircle, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -32,7 +32,11 @@ type PartnerPageData = {
 type PartnerDashboard = {
   totals: { commission_cents: number; pending_cents: number; paid_cents: number; referred_clients: number; active_clients: number };
   commissions: Array<{ id: string; client_name: string | null; amount_cents: number; status: string; created_at: string; paid_at: string | null }>;
-  clients: Array<{ client_name: string | null; plan: string; status: string; entry_count: number; income_cents: number; expense_cents: number; shared_at: string }>;
+  clients: Array<{
+    client_name: string | null; plan: string; status: string; entry_count: number;
+    income_cents: number; expense_cents: number; shared_at: string;
+    entries: Array<{ description: string; type: "income" | "expense"; amount_cents: number; due_date: string; status: string; paid_at: string | null }>;
+  }>;
 };
 
 const empty = { full_name: "", tax_id: "", crc_number: "", pix_type: "cpf", pix_key: "" };
@@ -57,6 +61,17 @@ function AccountantPage() {
   });
   const state = query.data?.status;
   const dashboard = query.data?.dashboard;
+  useEffect(() => {
+    if (state && state.status !== "none") {
+      setForm({
+        full_name: state.full_name ?? "",
+        tax_id: state.tax_id ?? "",
+        crc_number: state.crc_number ?? "",
+        pix_type: state.pix_type ?? "cpf",
+        pix_key: state.pix_key ?? "",
+      });
+    }
+  }, [state]);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -118,15 +133,6 @@ function AccountantPage() {
   const links = getPartnerAffiliateLinks(state.coupon?.code ?? "");
   const history = dashboard?.commissions ?? [];
   const clientRows = dashboard?.clients ?? [];
-  const shareRows = clientRows.map((client) => ({
-    cliente: client.client_name ?? "Cliente",
-    plano: client.plan,
-    situacao: client.status,
-    lancamentos: client.entry_count,
-    receitas: money(client.income_cents),
-    despesas: money(client.expense_cents),
-    acesso_concedido: new Date(client.shared_at).toLocaleDateString("pt-BR"),
-  }));
   const commissionRows = history.map((item) => ({
     cliente: item.client_name ?? "Cliente",
     valor: money(item.amount_cents),
@@ -139,11 +145,18 @@ function AccountantPage() {
     fileName: "clientes-compartilhados",
     format,
     columns: [
-      { key: "cliente", label: "Cliente" }, { key: "plano", label: "Plano" }, { key: "situacao", label: "Situação" },
-      { key: "lancamentos", label: "Lançamentos" }, { key: "receitas", label: "Receitas" }, { key: "despesas", label: "Despesas" },
-      { key: "acesso_concedido", label: "Acesso concedido" },
+      { key: "cliente", label: "Cliente" }, { key: "descricao", label: "Descrição" }, { key: "tipo", label: "Tipo" },
+      { key: "valor", label: "Valor" }, { key: "vencimento", label: "Vencimento" }, { key: "status", label: "Status" },
     ],
-    rows: shareRows,
+    rows: clientRows.flatMap((client) => client.entries.map((entry) => ({
+      cliente: client.client_name ?? "Cliente",
+      descricao: entry.description,
+      tipo: entry.type === "income" ? "Entrada" : "Saída",
+      valor: money(entry.amount_cents),
+      vencimento: new Date(`${entry.due_date}T12:00:00`).toLocaleDateString("pt-BR"),
+      status: entry.status === "paid" ? "Pago" : "Pendente",
+    }))),
+    summary: [["Clientes autorizados", clientRows.length], ["Lançamentos incluídos", clientRows.reduce((count, client) => count + client.entry_count, 0)]],
   });
   const exportCommissions = (format: ReportFormat) => exportReport({
     title: "Extrato de comissões",
@@ -178,7 +191,15 @@ function AccountantPage() {
         <CardHeader className="flex-row items-center justify-between space-y-0"><CardTitle>Clientes com acesso compartilhado</CardTitle><ExportButtons onExport={exportClients} /></CardHeader>
         <CardContent>
           <p className="mb-4 flex items-center gap-2 text-sm text-muted-foreground"><ShieldCheck className="h-4 w-4 text-emerald-400" />Somente leitura. Os dados aparecem apenas após autorização expressa do cliente.</p>
-          <DataTable headers={["Cliente", "Plano", "Situação", "Lançamentos", "Receitas", "Despesas", "Acesso concedido"]} rows={shareRows.map((row) => Object.values(row))} empty="Nenhum cliente autorizou o compartilhamento ainda." />
+          <div className="overflow-x-auto"><table className="w-full min-w-[900px] text-left text-sm">
+            <thead><tr className="border-b text-xs text-muted-foreground">{["Cliente", "Plano", "Situação", "Lançamentos", "Receitas", "Despesas", "Acesso concedido", "Relatório"].map((header) => <th key={header} className="px-3 py-3 font-medium">{header}</th>)}</tr></thead>
+            <tbody>{clientRows.length ? clientRows.map((client, index) => <tr key={`${client.client_name}-${index}`} className="border-b last:border-0">
+              <td className="px-3 py-3 font-medium">{client.client_name ?? "Cliente"}</td><td className="px-3 py-3">{client.plan}</td><td className="px-3 py-3">{client.status}</td>
+              <td className="num px-3 py-3">{client.entry_count}</td><td className="num px-3 py-3">{money(client.income_cents)}</td><td className="num px-3 py-3">{money(client.expense_cents)}</td>
+              <td className="px-3 py-3">{new Date(client.shared_at).toLocaleDateString("pt-BR")}</td>
+              <td className="px-3 py-3"><details><summary className="cursor-pointer text-primary">Ver relatório</summary><div className="absolute z-10 mt-2 max-h-72 max-w-[min(90vw,42rem)] overflow-auto rounded-xl border bg-card p-3 shadow-xl"><DataTable headers={["Descrição", "Tipo", "Valor", "Vencimento", "Status"]} rows={client.entries.map((entry) => [entry.description, entry.type === "income" ? "Entrada" : "Saída", money(entry.amount_cents), new Date(`${entry.due_date}T12:00:00`).toLocaleDateString("pt-BR"), entry.status === "paid" ? "Pago" : "Pendente"])} empty="Nenhum lançamento disponível." /></div></details></td>
+            </tr>) : <tr><td colSpan={8} className="px-3 py-8 text-center text-muted-foreground">Nenhum cliente autorizou o compartilhamento ainda.</td></tr>}</tbody>
+          </table></div>
         </CardContent>
       </Card>
       <Card>

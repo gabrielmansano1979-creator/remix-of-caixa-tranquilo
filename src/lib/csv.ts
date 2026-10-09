@@ -76,3 +76,63 @@ export function parseCsv(text: string): { rows: CsvRow[]; headerError?: string }
   });
   return { rows };
 }
+
+export function parseStatementText(text: string): { rows: CsvRow[]; ignored: number } {
+  const lines = text.split(/\r?\n/).map((line) => line.replace(/\s+/g, " ").trim()).filter(Boolean);
+  const datePattern = /(?:^|\s)(\d{2}\/\d{2}\/\d{4}|\d{4}-\d{2}-\d{2})(?=\s|$)/;
+  const amountPattern = /(?:R\$\s*)?([+-]?(?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d{2})?)\s*(CR|C|DB|D)?\s*$/i;
+  const rows: CsvRow[] = [];
+  let ignored = 0;
+
+  for (const [index, line] of lines.entries()) {
+    const dateMatch = line.match(datePattern);
+    const amountMatch = line.match(amountPattern);
+    if (!dateMatch || !amountMatch) {
+      ignored++;
+      continue;
+    }
+
+    const date = parseDate(dateMatch[1]);
+    const cents = parseMoney(amountMatch[1].replace(/^[+-]/, ""));
+    if (!date || cents === null) {
+      ignored++;
+      continue;
+    }
+
+    const transactionText = line
+      .replace(dateMatch[0], " ")
+      .replace(amountMatch[0], " ")
+      .trim();
+    const direction = amountMatch[2]?.toUpperCase();
+    const negative = amountMatch[1].startsWith("-");
+    const type = negative || direction === "D" || direction === "DB"
+      ? "expense"
+      : direction === "C" || direction === "CR" || amountMatch[1].startsWith("+") || /\b(receb|cr[eé]dito|dep[oó]sito|entrada)\w*/i.test(transactionText)
+        ? "income"
+        : /\b(pag|d[eé]bito|compra|sa[ií]da|tarifa|retirada)\w*/i.test(transactionText)
+          ? "expense"
+          : null;
+    const errors = type ? [] : ["Não foi possível identificar se o lançamento é entrada ou saída."];
+    const description = transactionText.slice(0, 200);
+    if (!description) errors.push("Descrição não identificada no documento.");
+
+    const row: CsvRow = {
+      line: index + 1,
+      raw: { descricao: description, valor: amountMatch[1], vencimento: dateMatch[1], tipo: type === "income" ? "entrada" : type === "expense" ? "saida" : "não identificado", nome: "" },
+      errors,
+    };
+    if (!errors.length && type) {
+      row.value = {
+        type,
+        description,
+        amount_cents: cents,
+        due_date: date,
+        counterparty_name: "",
+        counterparty_email: "",
+        counterparty_whatsapp: "",
+      };
+    }
+    rows.push(row);
+  }
+  return { rows, ignored };
+}

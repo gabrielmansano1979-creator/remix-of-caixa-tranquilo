@@ -114,7 +114,14 @@ BEGIN
       SELECT jsonb_agg(jsonb_build_object(
         'client_name', p.business_name, 'plan', s.plan, 'status', s.status,
         'entry_count', COALESCE(x.entry_count, 0), 'income_cents', COALESCE(x.income_cents, 0),
-        'expense_cents', COALESCE(x.expense_cents, 0), 'shared_at', aa.granted_at
+        'expense_cents', COALESCE(x.expense_cents, 0), 'shared_at', aa.granted_at,
+        'entries', COALESCE((
+          SELECT jsonb_agg(jsonb_build_object(
+            'description', e.description, 'type', e.type, 'amount_cents', e.amount_cents,
+            'due_date', e.due_date, 'status', e.status, 'paid_at', e.paid_at
+          ) ORDER BY e.due_date)
+          FROM public.entries e WHERE e.user_id = aa.client_user_id
+        ), '[]'::jsonb)
       ) ORDER BY p.business_name)
       FROM public.accountant_access aa
       JOIN public.subscriptions s ON s.user_id = aa.client_user_id AND s.affiliate_partner_id = uid

@@ -94,7 +94,7 @@ function ContasPage() {
           <Button variant="outline" className="h-11 rounded-xl border-success/25 text-success hover:bg-success/10 hover:text-success" onClick={guard(() => { setWhatsAppEntry(null); setWhatsAppOpen(true); })}>
             <MessageCircle className="mr-2 h-4 w-4" />Enviar WhatsApp
           </Button>
-          <Button variant="outline" className="h-11 rounded-xl" onClick={guard(() => setCsvOpen(true))}><FileUp className="mr-2 h-4 w-4" />Importar CSV</Button>
+          <Button variant="outline" className="h-11 rounded-xl" onClick={guard(() => setCsvOpen(true))}><FileUp className="mr-2 h-4 w-4" />Importar arquivo</Button>
           <Button className="h-11 rounded-xl px-5" onClick={guard(() => { setEditing(null); setFormOpen(true); })}><Plus className="mr-2 h-4 w-4" />Nova conta</Button>
         </div>
       </div>

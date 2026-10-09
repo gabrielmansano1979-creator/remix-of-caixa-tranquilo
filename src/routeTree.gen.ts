@@ -12,6 +12,8 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as CadastroRouteImport } from './routes/cadastro'
+import { Route as CheckoutRouteImport } from './routes/checkout'
+import { Route as ContadorRouteImport } from './routes/contador'
 import { Route as EsqueciSenhaRouteImport } from './routes/esqueci-senha'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as PrivacidadeRouteImport } from './routes/privacidade'
@@ -19,6 +21,7 @@ import { Route as RedefinirSenhaRouteImport } from './routes/redefinir-senha'
 import { Route as TermosRouteImport } from './routes/termos'
 import { Route as AuthenticatedAppRouteRouteImport } from './routes/_authenticated/_app/route'
 import { Route as AuthenticatedOnboardingRouteImport } from './routes/_authenticated/onboarding'
+import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdminLoginRouteImport } from './routes/admin/login'
 import { Route as AdminRepassesRouteImport } from './routes/admin/repasses'
 import { Route as DashboardParceiroRouteImport } from './routes/dashboard/parceiro'
@@ -43,6 +46,16 @@ const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
 const CadastroRoute = CadastroRouteImport.update({
   id: '/cadastro',
   path: '/cadastro',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CheckoutRoute = CheckoutRouteImport.update({
+  id: '/checkout',
+  path: '/checkout',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContadorRoute = ContadorRouteImport.update({
+  id: '/contador',
+  path: '/contador',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EsqueciSenhaRoute = EsqueciSenhaRouteImport.update({
@@ -78,6 +91,11 @@ const AuthenticatedOnboardingRoute = AuthenticatedOnboardingRouteImport.update({
   id: '/onboarding',
   path: '/onboarding',
   getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/admin/',
+  path: '/admin/',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AdminLoginRoute = AdminLoginRouteImport.update({
   id: '/admin/login',
@@ -141,6 +159,8 @@ const ApiPublicStripeWebhookRoute = ApiPublicStripeWebhookRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/cadastro': typeof CadastroRoute
+  '/checkout': typeof CheckoutRoute
+  '/contador': typeof ContadorRoute
   '/esqueci-senha': typeof EsqueciSenhaRoute
   '/login': typeof LoginRoute
   '/privacidade': typeof PrivacidadeRoute
@@ -150,6 +170,7 @@ export interface FileRoutesByFullPath {
   '/admin/login': typeof AdminLoginRoute
   '/admin/repasses': typeof AdminRepassesRoute
   '/dashboard/parceiro': typeof DashboardParceiroRoute
+  '/admin/': typeof AdminIndexRoute
   '/assinatura': typeof AuthenticatedAppAssinaturaRoute
   '/caixa': typeof AuthenticatedAppCaixaRoute
   '/configuracoes': typeof AuthenticatedAppConfiguracoesRoute
@@ -162,6 +183,8 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/cadastro': typeof CadastroRoute
+  '/checkout': typeof CheckoutRoute
+  '/contador': typeof ContadorRoute
   '/esqueci-senha': typeof EsqueciSenhaRoute
   '/login': typeof LoginRoute
   '/privacidade': typeof PrivacidadeRoute
@@ -171,6 +194,7 @@ export interface FileRoutesByTo {
   '/admin/login': typeof AdminLoginRoute
   '/admin/repasses': typeof AdminRepassesRoute
   '/dashboard/parceiro': typeof DashboardParceiroRoute
+  '/admin': typeof AdminIndexRoute
   '/assinatura': typeof AuthenticatedAppAssinaturaRoute
   '/caixa': typeof AuthenticatedAppCaixaRoute
   '/configuracoes': typeof AuthenticatedAppConfiguracoesRoute
@@ -185,6 +209,8 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/cadastro': typeof CadastroRoute
+  '/checkout': typeof CheckoutRoute
+  '/contador': typeof ContadorRoute
   '/esqueci-senha': typeof EsqueciSenhaRoute
   '/login': typeof LoginRoute
   '/privacidade': typeof PrivacidadeRoute
@@ -195,6 +221,7 @@ export interface FileRoutesById {
   '/admin/login': typeof AdminLoginRoute
   '/admin/repasses': typeof AdminRepassesRoute
   '/dashboard/parceiro': typeof DashboardParceiroRoute
+  '/admin/': typeof AdminIndexRoute
   '/_authenticated/_app/assinatura': typeof AuthenticatedAppAssinaturaRoute
   '/_authenticated/_app/caixa': typeof AuthenticatedAppCaixaRoute
   '/_authenticated/_app/configuracoes': typeof AuthenticatedAppConfiguracoesRoute
@@ -209,6 +236,8 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/cadastro'
+    | '/checkout'
+    | '/contador'
     | '/esqueci-senha'
     | '/login'
     | '/privacidade'
@@ -218,6 +247,7 @@ export interface FileRouteTypes {
     | '/admin/login'
     | '/admin/repasses'
     | '/dashboard/parceiro'
+    | '/admin/'
     | '/assinatura'
     | '/caixa'
     | '/configuracoes'
@@ -230,6 +260,8 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/cadastro'
+    | '/checkout'
+    | '/contador'
     | '/esqueci-senha'
     | '/login'
     | '/privacidade'
@@ -239,6 +271,7 @@ export interface FileRouteTypes {
     | '/admin/login'
     | '/admin/repasses'
     | '/dashboard/parceiro'
+    | '/admin'
     | '/assinatura'
     | '/caixa'
     | '/configuracoes'
@@ -252,6 +285,8 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/cadastro'
+    | '/checkout'
+    | '/contador'
     | '/esqueci-senha'
     | '/login'
     | '/privacidade'
@@ -262,6 +297,7 @@ export interface FileRouteTypes {
     | '/admin/login'
     | '/admin/repasses'
     | '/dashboard/parceiro'
+    | '/admin/'
     | '/_authenticated/_app/assinatura'
     | '/_authenticated/_app/caixa'
     | '/_authenticated/_app/configuracoes'
@@ -276,6 +312,8 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   CadastroRoute: typeof CadastroRoute
+  CheckoutRoute: typeof CheckoutRoute
+  ContadorRoute: typeof ContadorRoute
   EsqueciSenhaRoute: typeof EsqueciSenhaRoute
   LoginRoute: typeof LoginRoute
   PrivacidadeRoute: typeof PrivacidadeRoute
@@ -284,6 +322,7 @@ export interface RootRouteChildren {
   AdminLoginRoute: typeof AdminLoginRoute
   AdminRepassesRoute: typeof AdminRepassesRoute
   DashboardParceiroRoute: typeof DashboardParceiroRoute
+  AdminIndexRoute: typeof AdminIndexRoute
   ApiPublicAsaasWebhookRoute: typeof ApiPublicAsaasWebhookRoute
   ApiPublicStripeWebhookRoute: typeof ApiPublicStripeWebhookRoute
 }
@@ -309,6 +348,20 @@ declare module '@tanstack/react-router' {
       path: '/cadastro'
       fullPath: '/cadastro'
       preLoaderRoute: typeof CadastroRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/checkout': {
+      id: '/checkout'
+      path: '/checkout'
+      fullPath: '/checkout'
+      preLoaderRoute: typeof CheckoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/contador': {
+      id: '/contador'
+      path: '/contador'
+      fullPath: '/contador'
+      preLoaderRoute: typeof ContadorRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/esqueci-senha': {
@@ -359,6 +412,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/onboarding'
       preLoaderRoute: typeof AuthenticatedOnboardingRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/admin/': {
+      id: '/admin/'
+      path: '/admin'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/admin/login': {
       id: '/admin/login'
@@ -480,6 +540,8 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   CadastroRoute: CadastroRoute,
+  CheckoutRoute: CheckoutRoute,
+  ContadorRoute: ContadorRoute,
   EsqueciSenhaRoute: EsqueciSenhaRoute,
   LoginRoute: LoginRoute,
   PrivacidadeRoute: PrivacidadeRoute,
@@ -488,6 +550,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminLoginRoute: AdminLoginRoute,
   AdminRepassesRoute: AdminRepassesRoute,
   DashboardParceiroRoute: DashboardParceiroRoute,
+  AdminIndexRoute: AdminIndexRoute,
   ApiPublicAsaasWebhookRoute: ApiPublicAsaasWebhookRoute,
   ApiPublicStripeWebhookRoute: ApiPublicStripeWebhookRoute,
 }
