@@ -81,6 +81,11 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       const customerEmail = (claims as { email?: string }).email || `${userId}@criefy.local`;
       const metadata = (claims as { user_metadata?: { full_name?: string; affiliate_referral_code?: string } }).user_metadata;
       const customerName = metadata?.full_name;
+      const { data: prev, error: prevError } = await supabaseAdmin.from("subscriptions")
+        .select("paid_at, affiliate_partner_id, affiliate_coupon_code, affiliate_commission_percent, affiliate_discount_percent")
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (prevError) throw prevError;
       const requestedReferralCode = (data.referralCode || metadata?.affiliate_referral_code || "").trim().toUpperCase();
       if (prev?.paid_at && prev.affiliate_partner_id && requestedReferralCode && requestedReferralCode !== prev.affiliate_coupon_code) {
         return { error: "A indicação desta assinatura já está vinculada e não pode ser substituída." };
@@ -89,21 +94,23 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
 
       const plan = getPlan(data.plan);
       const basePrice = data.interval === "year" ? plan.priceYearCents : plan.priceMonthCents;
-      const { data: prev, error: prevError } = await supabaseAdmin.from("subscriptions")
-        .select("paid_at, affiliate_partner_id, affiliate_coupon_code, affiliate_commission_percent, affiliate_discount_percent")
-        .eq("user_id", userId)
-        .maybeSingle();
-      if (prevError) throw prevError;
       const isFirst = !prev?.paid_at;
       let affiliate: { partnerId: string; code: string; commissionPercent: number; discountPercent: number } | null = null;
 
       if (referralCode) {
         if (prev?.affiliate_partner_id && prev.affiliate_coupon_code === referralCode && prev.affiliate_commission_percent && prev.affiliate_discount_percent) {
+          const { data: currentCoupon, error: currentCouponError } = await supabaseAdmin
+            .from("coupons")
+            .select("commission_percent, discount_percent")
+            .eq("code", referralCode)
+            .eq("is_active", true)
+            .maybeSingle();
+          if (currentCouponError) throw currentCouponError;
           affiliate = {
             partnerId: prev.affiliate_partner_id,
             code: referralCode,
-            commissionPercent: prev.affiliate_commission_percent,
-            discountPercent: prev.affiliate_discount_percent,
+            commissionPercent: currentCoupon?.commission_percent ?? prev.affiliate_commission_percent,
+            discountPercent: currentCoupon?.discount_percent ?? prev.affiliate_discount_percent,
           };
         } else {
           const { data: coupon, error: couponError } = await supabaseAdmin

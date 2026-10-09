@@ -145,12 +145,14 @@ function RootComponent() {
         // Idempotente: cria profile (trial 7 dias), assinatura 'trialing' e régua padrão.
         void supabase
           .rpc("ensure_user_setup")
-          .then(({ error }) => {
-            if (error) console.error("Falha ao preparar a conta autenticada:", error);
-          })
-          .catch((error: unknown) => {
-            console.error("Falha ao preparar a conta autenticada:", error);
-          });
+          .then(
+            ({ error }) => {
+              if (error) console.error("Falha ao preparar a conta autenticada:", error);
+            },
+            (error: unknown) => {
+              console.error("Falha ao preparar a conta autenticada:", error);
+            },
+          );
       }
       router.invalidate();
       void queryClient.invalidateQueries();

@@ -8,6 +8,9 @@ ALTER TABLE public.subscriptions
   ADD COLUMN IF NOT EXISTS affiliate_discount_percent integer,
   ADD COLUMN IF NOT EXISTS affiliate_payment_amount_cents bigint;
 
+CREATE INDEX IF NOT EXISTS subscriptions_affiliate_partner_idx
+  ON public.subscriptions(affiliate_partner_id);
+
 ALTER TABLE public.coupons
   DROP CONSTRAINT IF EXISTS coupons_commission_percent_check;
 
@@ -26,6 +29,9 @@ CREATE TABLE IF NOT EXISTS public.accountant_access (
   partner_id uuid NOT NULL REFERENCES public.partner_requests(user_id) ON DELETE CASCADE,
   granted_at timestamptz NOT NULL DEFAULT now()
 );
+
+CREATE INDEX IF NOT EXISTS accountant_access_partner_idx
+  ON public.accountant_access(partner_id, client_user_id);
 
 ALTER TABLE public.accountant_access ENABLE ROW LEVEL SECURITY;
 
@@ -229,9 +235,12 @@ BEGIN
   IF _status NOT IN ('pending_approval', 'approved', 'rejected') THEN RAISE EXCEPTION 'invalid status'; END IF;
   UPDATE public.partner_requests SET status = _status WHERE user_id = _partner_id;
   IF NOT FOUND THEN RAISE EXCEPTION 'partner not found'; END IF;
-  IF _status = 'approved' AND NOT EXISTS (SELECT 1 FROM public.coupons WHERE partner_id = _partner_id) THEN
-    INSERT INTO public.coupons(partner_id, code, discount_percent, commission_percent, is_active)
-    VALUES (_partner_id, 'CC-' || upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 10)), 10, 20, true);
+  IF _status = 'approved' THEN
+    UPDATE public.coupons SET is_active = true WHERE partner_id = _partner_id;
+    IF NOT FOUND THEN
+      INSERT INTO public.coupons(partner_id, code, discount_percent, commission_percent, is_active)
+      VALUES (_partner_id, 'CC-' || upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 10)), 10, 20, true);
+    END IF;
   END IF;
   IF _status <> 'approved' THEN
     UPDATE public.coupons SET is_active = false WHERE partner_id = _partner_id;

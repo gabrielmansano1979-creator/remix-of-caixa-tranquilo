@@ -3,15 +3,26 @@ import { parseStatementText } from "@/lib/csv";
 
 describe("parseStatementText", () => {
   it("converts explicit credit and debit statement lines into reviewed entries", () => {
-    const result = parseStatementText([
-      "15/10/2026 PIX RECEBIDO MARIA SILVA 150,00 C",
-      "2026-10-16 COMPRA MERCADO -89,90 D",
-    ].join("\n"));
+    const result = parseStatementText(
+      ["15/10/2026 PIX RECEBIDO MARIA SILVA 150,00 C", "2026-10-16 COMPRA MERCADO -89,90 D"].join(
+        "\n",
+      ),
+    );
 
     expect(result.ignored).toBe(0);
     expect(result.rows.map((row) => row.value)).toEqual([
-      expect.objectContaining({ type: "income", description: "PIX RECEBIDO MARIA SILVA", amount_cents: 15000, due_date: "2026-10-15" }),
-      expect.objectContaining({ type: "expense", description: "COMPRA MERCADO", amount_cents: 8990, due_date: "2026-10-16" }),
+      expect.objectContaining({
+        type: "income",
+        description: "PIX RECEBIDO MARIA SILVA",
+        amount_cents: 15000,
+        due_date: "2026-10-15",
+      }),
+      expect.objectContaining({
+        type: "expense",
+        description: "COMPRA MERCADO",
+        amount_cents: 8990,
+        due_date: "2026-10-16",
+      }),
     ]);
   });
 
@@ -20,7 +31,9 @@ describe("parseStatementText", () => {
 
     expect(result.rows).toHaveLength(1);
     expect(result.rows[0].value).toBeUndefined();
-    expect(result.rows[0].errors).toContain("Não foi possível identificar se o lançamento é entrada ou saída.");
+    expect(result.rows[0].errors).toContain(
+      "Não foi possível identificar se o lançamento é entrada ou saída.",
+    );
   });
 
   it("keeps ambiguous lines for review and counts non-transaction lines as ignored", () => {

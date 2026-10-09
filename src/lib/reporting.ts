@@ -29,7 +29,11 @@ export async function exportReport({
       columns.map((column) => column.label),
       ...rows.map((row) => columns.map((column) => row[column.key] ?? "")),
     ];
-    const csv = "\uFEFF" + values.map((line) => line.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(";")).join("\r\n");
+    const csv =
+      "\uFEFF" +
+      values
+        .map((line) => line.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(";"))
+        .join("\r\n");
     download(new Blob([csv], { type: "text/csv;charset=utf-8" }), `${fileName}.csv`);
     return;
   }
@@ -43,7 +47,12 @@ export async function exportReport({
     detailSheet.addRow(columns.map((column) => column.label));
     rows.forEach((row) => detailSheet.addRow(columns.map((column) => row[column.key] ?? "")));
     const buffer = await workbook.xlsx.writeBuffer();
-    download(new Blob([new Uint8Array(buffer)], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), `${fileName}.xlsx`);
+    download(
+      new Blob([new Uint8Array(buffer)], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      }),
+      `${fileName}.xlsx`,
+    );
     return;
   }
 
@@ -89,12 +98,18 @@ export type ExportOptions = {
 
 export async function generateAccountingReport(options: ExportOptions, rows: ReportRow[]) {
   const safeCompany = options.companyName || "Empresa";
-  const label = options.period === "mensal"
-    ? `Mês ${String(options.month ?? new Date().getMonth() + 1).padStart(2, "0")}/${options.year ?? new Date().getFullYear()}`
-    : `Ano ${options.year ?? new Date().getFullYear()}`;
-  const income = rows.filter((row) => row.type === "Receita").reduce((total, row) => total + Number(row.amount_cents ?? 0), 0);
-  const expense = rows.filter((row) => row.type === "Despesa").reduce((total, row) => total + Number(row.amount_cents ?? 0), 0);
-  const money = (cents: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100);
+  const label =
+    options.period === "mensal"
+      ? `Mês ${String(options.month ?? new Date().getMonth() + 1).padStart(2, "0")}/${options.year ?? new Date().getFullYear()}`
+      : `Ano ${options.year ?? new Date().getFullYear()}`;
+  const income = rows
+    .filter((row) => row.type === "Receita")
+    .reduce((total, row) => total + Number(row.amount_cents ?? 0), 0);
+  const expense = rows
+    .filter((row) => row.type === "Despesa")
+    .reduce((total, row) => total + Number(row.amount_cents ?? 0), 0);
+  const money = (cents: number) =>
+    new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100);
   const fileName = `relatorio-${safeCompany.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "-")}-${options.period}`;
 
   await exportReport({
@@ -109,7 +124,12 @@ export async function generateAccountingReport(options: ExportOptions, rows: Rep
       { key: "status", label: "Status" },
     ],
     rows: rows.map((row) => ({ ...row, amount: money(Number(row.amount_cents ?? 0)) })),
-    summary: [["Período", label], ["Receitas", money(income)], ["Despesas", money(expense)], [income >= expense ? "Saldo" : "Déficit", money(Math.abs(income - expense))]],
+    summary: [
+      ["Período", label],
+      ["Receitas", money(income)],
+      ["Despesas", money(expense)],
+      [income >= expense ? "Saldo" : "Déficit", money(Math.abs(income - expense))],
+    ],
   });
 
   if (options.channel === "whatsapp") {
@@ -124,7 +144,11 @@ export async function generateAccountingReport(options: ExportOptions, rows: Rep
       "",
       "O relatório completo foi baixado no dispositivo. Anexe o arquivo nesta conversa, se necessário.",
     ].join("\n");
-    window.open(`https://wa.me/${phone.replace(/\D/g, "")}?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
+    window.open(
+      `https://wa.me/${phone.replace(/\D/g, "")}?text=${encodeURIComponent(message)}`,
+      "_blank",
+      "noopener,noreferrer",
+    );
   }
   return true;
 }
@@ -153,12 +177,20 @@ export function formatPixKeyType(value: string) {
   return map[value] ?? value;
 }
 
-export function antiSelfReferralCheck(couponPartnerId: string | null, currentUserId: string | null) {
+export function antiSelfReferralCheck(
+  couponPartnerId: string | null,
+  currentUserId: string | null,
+) {
   if (!couponPartnerId || !currentUserId) return { allowed: true, reason: "" };
   if (couponPartnerId === currentUserId) {
-    return { allowed: false, reason: "Você não pode utilizar seu próprio cupom de indicação para assinar um plano." };
+    return {
+      allowed: false,
+      reason: "Você não pode utilizar seu próprio cupom de indicação para assinar um plano.",
+    };
   }
   return { allowed: true, reason: "Cupom válido para parceiro externo." };
 }
 
-export function makeAffiliateCouponSeed(seed?: string) { return seed || Math.random().toString(36).substring(2, 8).toUpperCase(); }
+export function makeAffiliateCouponSeed(seed?: string) {
+  return seed || Math.random().toString(36).substring(2, 8).toUpperCase();
+}

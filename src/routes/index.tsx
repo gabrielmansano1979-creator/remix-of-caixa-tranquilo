@@ -446,6 +446,7 @@ function Landing() {
   );
 }
 function Pricing() {
+  const { ref } = Route.useSearch();
   const [yearly, setYearly] = useState(false);
   return (
     <section
@@ -482,7 +483,7 @@ function Pricing() {
             ))}
           </div>
           <p className="text-sm text-emerald-300">
-            20% de desconto na primeira assinatura Pix · Anual: 2 meses grátis
+            {ref ? "Cupom de parceiro: 10% de desconto · Anual: 2 meses grátis" : "20% de desconto na primeira assinatura Pix · Anual: 2 meses grátis"}
           </p>
         </div>
         <div className="mt-10 grid gap-5 md:grid-cols-3">
@@ -504,11 +505,11 @@ function Pricing() {
                 <span className="text-slate-400">/{yearly ? "ano" : "mês"}</span>
               </p>
               <p className="mt-2 text-sm text-emerald-300">
-                Primeira assinatura Pix:{" "}
+                {ref ? "Com cupom de parceiro: " : "Primeira assinatura Pix: "}
                 {formatBRL(
                   Math.round(
                     (yearly ? plan.priceYearCents : plan.priceMonthCents) *
-                      (1 - FIRST_PIX_DISCOUNT),
+                      (1 - (ref ? 0.1 : FIRST_PIX_DISCOUNT)),
                   ),
                 )}
               </p>

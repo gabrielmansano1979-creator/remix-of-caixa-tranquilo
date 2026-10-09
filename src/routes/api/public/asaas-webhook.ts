@@ -39,10 +39,12 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
 
         const { supabaseAdmin: db } = await import("@/integrations/supabase/client.server");
 
-        if (event.id) {
-          const { error: dup } = await db.from("asaas_events").insert({ id: event.id, type: event.event ?? event.type ?? "unknown" });
-          if (dup) return Response.json({ received: true, duplicate: true });
-        }
+        try {
+          if (event.id) {
+            const { error: eventError } = await db.from("asaas_events").insert({ id: event.id, type: event.event ?? event.type ?? "unknown" });
+            if (eventError?.code === "23505") return Response.json({ received: true, duplicate: true });
+            if (eventError) throw eventError;
+          }
 
         const paymentId = firstDefined(
           event.payment,
@@ -54,6 +56,7 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
           event.data?.object?.id,
           event.data?.id,
         );
+        const paymentIdText = paymentId === null ? null : String(paymentId);
         const status = normalizeStatus(firstDefined(
           event.status,
           event.data?.status,
@@ -62,11 +65,11 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
           event.event,
         ));
 
-        if (paymentId && isPaidStatus(status)) {
+        if (paymentIdText && isPaidStatus(status)) {
           const { data: sub } = await db
             .from("subscriptions")
             .select("user_id, plan, affiliate_partner_id, affiliate_commission_percent, affiliate_payment_amount_cents")
-            .eq("asaas_payment_id", paymentId)
+            .eq("asaas_payment_id", paymentIdText)
             .maybeSingle();
 
           if (sub?.user_id) {
@@ -74,7 +77,7 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
               status: "active",
               paid_at: new Date().toISOString(),
               updated_at: new Date().toISOString()
-            }).eq("asaas_payment_id", paymentId);
+            }).eq("asaas_payment_id", paymentIdText);
             if (updateError) throw updateError;
 
             if (sub.affiliate_partner_id && sub.affiliate_commission_percent && sub.affiliate_payment_amount_cents) {
@@ -82,7 +85,7 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
               const { error: commissionError } = await db.from("commissions").upsert({
                 partner_id: sub.affiliate_partner_id,
                 subscription_id: sub.user_id,
-                payment_id: String(paymentId),
+                payment_id: paymentIdText,
                 client_name: profile?.business_name ?? "Cliente",
                 amount_cents: Math.floor(sub.affiliate_payment_amount_cents * sub.affiliate_commission_percent / 100),
                 status: "pending",
@@ -99,7 +102,15 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
           }
         }
 
-        return Response.json({ received: true });
+          return Response.json({ received: true });
+        } catch (error) {
+          console.error("Asaas webhook processing failed", event.id, error);
+          if (event.id) {
+            const { error: cleanupError } = await db.from("asaas_events").delete().eq("id", event.id);
+            if (cleanupError) console.error("Asaas webhook idempotency cleanup failed", event.id, cleanupError);
+          }
+          return new Response("webhook processing failed", { status: 500 });
+        }
       },
     },
   },

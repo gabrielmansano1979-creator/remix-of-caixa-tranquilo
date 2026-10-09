@@ -41,7 +41,10 @@ export function CsvImportDialog({ open, onOpenChange, onLimit }: { open: boolean
         const parsedSheets = workbook.worksheets.map((sheet) => {
           const rows: string[] = [];
           sheet.eachRow({ includeEmpty: false }, (row) => {
-            const values = row.values.slice(1).map(excelCellToString);
+            const values: string[] = [];
+            row.eachCell({ includeEmpty: true }, (cell, columnNumber) => {
+              values[columnNumber - 1] = excelCellToString(cell.value);
+            });
             rows.push(values.map((value) => `"${value.replace(/"/g, '""')}"`).join(","));
           });
           return parseCsv(rows.join("\n"));
@@ -218,7 +221,6 @@ async function extractPdfText(file: File): Promise<{ text: string; ocrPages: num
     }
   } finally {
     if (worker) await worker.terminate();
-    await pdf.destroy();
   }
 
   return { text: pages.join("\n"), ocrPages };
