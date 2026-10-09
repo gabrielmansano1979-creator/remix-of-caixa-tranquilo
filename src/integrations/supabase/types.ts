@@ -14,6 +14,38 @@ export type Database = {
   }
   public: {
     Tables: {
+      accountant_invites: {
+        Row: {
+          accountant_email: string
+          created_at: string
+          id: string
+          owner_user_id: string
+          status: string
+        }
+        Insert: {
+          accountant_email: string
+          created_at?: string
+          id?: string
+          owner_user_id: string
+          status?: string
+        }
+        Update: {
+          accountant_email?: string
+          created_at?: string
+          id?: string
+          owner_user_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accountant_invites_owner_user_id_fkey"
+            columns: ["owner_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       app_feedback: {
         Row: {
           comment: string | null
@@ -83,6 +115,88 @@ export type Database = {
         }
         Relationships: []
       }
+      commissions: {
+        Row: {
+          amount_cents: number
+          client_name: string | null
+          created_at: string
+          id: string
+          paid_at: string | null
+          partner_id: string
+          receipt_url: string | null
+          status: string
+          subscription_id: string | null
+        }
+        Insert: {
+          amount_cents?: number
+          client_name?: string | null
+          created_at?: string
+          id?: string
+          paid_at?: string | null
+          partner_id: string
+          receipt_url?: string | null
+          status?: string
+          subscription_id?: string | null
+        }
+        Update: {
+          amount_cents?: number
+          client_name?: string | null
+          created_at?: string
+          id?: string
+          paid_at?: string | null
+          partner_id?: string
+          receipt_url?: string | null
+          status?: string
+          subscription_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commissions_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "partner_requests"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      coupons: {
+        Row: {
+          code: string
+          commission_percent: number
+          created_at: string
+          discount_percent: number
+          id: string
+          is_active: boolean
+          partner_id: string
+        }
+        Insert: {
+          code: string
+          commission_percent?: number
+          created_at?: string
+          discount_percent?: number
+          id?: string
+          is_active?: boolean
+          partner_id: string
+        }
+        Update: {
+          code?: string
+          commission_percent?: number
+          created_at?: string
+          discount_percent?: number
+          id?: string
+          is_active?: boolean
+          partner_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coupons_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: true
+            referencedRelation: "partner_requests"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       entries: {
         Row: {
           amount_cents: number
@@ -133,6 +247,47 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      partner_requests: {
+        Row: {
+          crc_number: string
+          created_at: string
+          full_name: string
+          pix_key: string
+          pix_type: string
+          status: string
+          tax_id: string
+          user_id: string
+        }
+        Insert: {
+          crc_number: string
+          created_at?: string
+          full_name: string
+          pix_key: string
+          pix_type: string
+          status?: string
+          tax_id: string
+          user_id: string
+        }
+        Update: {
+          crc_number?: string
+          created_at?: string
+          full_name?: string
+          pix_key?: string
+          pix_type?: string
+          status?: string
+          tax_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_requests_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -387,6 +542,24 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       whatsapp_webhook_events: {
         Row: {
           delivery_id: string
@@ -425,6 +598,13 @@ export type Database = {
       cash_projection: { Args: { _days?: number }; Returns: Json }
       ensure_user_setup: { Args: never; Returns: undefined }
       get_access: { Args: { _user_id: string }; Returns: Json }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       import_entries: { Args: { _rows: Json }; Returns: number }
       my_access: { Args: never; Returns: Json }
       my_usage: { Args: never; Returns: Json }
@@ -449,6 +629,7 @@ export type Database = {
       }
     }
     Enums: {
+      app_role: "admin" | "moderator" | "user"
       billing_interval: "month" | "year"
       entry_status: "pending" | "paid"
       entry_type: "income" | "expense"
@@ -588,6 +769,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_role: ["admin", "moderator", "user"],
       billing_interval: ["month", "year"],
       entry_status: ["pending", "paid"],
       entry_type: ["income", "expense"],
