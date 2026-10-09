@@ -2,7 +2,7 @@ ALTER TABLE public.partner_requests
   ADD COLUMN IF NOT EXISTS email text;
 
 ALTER TABLE public.subscriptions
-  ADD COLUMN IF NOT EXISTS affiliate_partner_id uuid REFERENCES public.partner_requests(user_id),
+  ADD COLUMN IF NOT EXISTS affiliate_partner_id uuid REFERENCES public.partner_requests(id),
   ADD COLUMN IF NOT EXISTS affiliate_coupon_code text,
   ADD COLUMN IF NOT EXISTS affiliate_commission_percent integer,
   ADD COLUMN IF NOT EXISTS affiliate_discount_percent integer,
@@ -26,7 +26,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS commissions_payment_id_unique
 
 CREATE TABLE IF NOT EXISTS public.accountant_access (
   client_user_id uuid PRIMARY KEY REFERENCES public.profiles(user_id) ON DELETE CASCADE,
-  partner_id uuid NOT NULL REFERENCES public.partner_requests(user_id) ON DELETE CASCADE,
+  partner_id uuid NOT NULL REFERENCES public.partner_requests(id) ON DELETE CASCADE,
   granted_at timestamptz NOT NULL DEFAULT now()
 );
 

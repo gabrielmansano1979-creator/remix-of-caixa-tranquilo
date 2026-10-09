@@ -41,15 +41,18 @@ function LoginPage() {
   useEffect(() => {
     let active = true;
     let redirecting = false;
+    let redirectTimer: ReturnType<typeof setTimeout> | undefined;
     const redirectToApp = () => {
       if (!active || redirecting) return;
       redirecting = true;
-      void navigate({ to: "/caixa", replace: true }).catch((error: unknown) => {
-        if (!active) return;
-        redirecting = false;
-        console.error("Falha ao redirecionar após autenticação:", error);
-        setError("Não foi possível abrir sua conta. Tente novamente.");
-      });
+      redirectTimer = setTimeout(() => {
+        void navigate({ to: "/caixa", replace: true }).catch((error: unknown) => {
+          if (!active) return;
+          redirecting = false;
+          console.error("Falha ao redirecionar após autenticação:", error);
+          setError("Não foi possível abrir sua conta. Tente novamente.");
+        });
+      }, 0);
     };
     const {
       data: { subscription },
@@ -75,6 +78,7 @@ function LoginPage() {
 
     return () => {
       active = false;
+      if (redirectTimer) clearTimeout(redirectTimer);
       subscription.unsubscribe();
     };
   }, [navigate]);
