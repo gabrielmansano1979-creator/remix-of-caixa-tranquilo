@@ -11,6 +11,29 @@ const origin = async () => {
   return new URL(getRequest().url).origin;
 };
 
+function isValidCpfCnpj(value: string) {
+  const digits = value.replace(/\D/g, "");
+  if (/^(\d)\1+$/.test(digits)) return false;
+  if (digits.length === 11) {
+    const digitAt = (length: number) => {
+      const sum = digits.slice(0, length).split("").reduce((total, digit, index) => total + Number(digit) * (length + 1 - index), 0);
+      const remainder = (sum * 10) % 11;
+      return remainder === 10 ? 0 : remainder;
+    };
+    return digitAt(9) === Number(digits[9]) && digitAt(10) === Number(digits[10]);
+  }
+  if (digits.length === 14) {
+    const checkDigit = (length: number) => {
+      const weights = length === 12 ? [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2] : [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+      const sum = digits.slice(0, length).split("").reduce((total, digit, index) => total + Number(digit) * weights[index], 0);
+      const remainder = sum % 11;
+      return remainder < 2 ? 0 : 11 - remainder;
+    };
+    return checkDigit(12) === Number(digits[12]) && checkDigit(13) === Number(digits[13]);
+  }
+  return false;
+}
+
 async function ensureCustomer(userId: string, email: string | undefined, fullName: string | undefined, doc: string) {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const asaas = await import("./asaas.server");
@@ -39,7 +62,7 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({
     plan: z.enum(["starter", "pro", "business"]),
     interval: z.enum(["month", "year"]),
-    cpfCnpj: z.string().transform((v) => v.replace(/\D/g, "")).refine((v) => v.length === 11 || v.length === 14, "CPF ou CNPJ inválido"),
+    cpfCnpj: z.string().transform((v) => v.replace(/\D/g, "")).refine(isValidCpfCnpj, "CPF ou CNPJ inválido"),
     referralCode: z.string().trim().max(80).optional(),
   }).parse(d))
   .handler(async ({ data, context }): Promise<Out> => {
@@ -58,46 +81,62 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       const customerEmail = (claims as { email?: string }).email || `${userId}@criefy.local`;
       const metadata = (claims as { user_metadata?: { full_name?: string; affiliate_referral_code?: string } }).user_metadata;
       const customerName = metadata?.full_name;
-      const referralCode = (data.referralCode || metadata?.affiliate_referral_code || "").trim().toUpperCase();
+      const requestedReferralCode = (data.referralCode || metadata?.affiliate_referral_code || "").trim().toUpperCase();
+      if (prev?.paid_at && prev.affiliate_partner_id && requestedReferralCode && requestedReferralCode !== prev.affiliate_coupon_code) {
+        return { error: "A indicação desta assinatura já está vinculada e não pode ser substituída." };
+      }
+      const referralCode = requestedReferralCode || prev?.affiliate_coupon_code || "";
 
       const plan = getPlan(data.plan);
       const basePrice = data.interval === "year" ? plan.priceYearCents : plan.priceMonthCents;
-      const { data: prev, error: prevError } = await supabaseAdmin.from("subscriptions").select("paid_at").eq("user_id", userId).maybeSingle();
+      const { data: prev, error: prevError } = await supabaseAdmin.from("subscriptions")
+        .select("paid_at, affiliate_partner_id, affiliate_coupon_code, affiliate_commission_percent, affiliate_discount_percent")
+        .eq("user_id", userId)
+        .maybeSingle();
       if (prevError) throw prevError;
       const isFirst = !prev?.paid_at;
       let affiliate: { partnerId: string; code: string; commissionPercent: number; discountPercent: number } | null = null;
 
       if (referralCode) {
-        const { data: coupon, error: couponError } = await supabaseAdmin
-          .from("coupons")
-          .select("code, partner_id, discount_percent, commission_percent")
-          .eq("code", referralCode)
-          .eq("is_active", true)
-          .maybeSingle();
-        if (couponError) throw couponError;
-        if (!coupon) return { error: "O cupom de indicação é inválido ou está inativo." };
+        if (prev?.affiliate_partner_id && prev.affiliate_coupon_code === referralCode && prev.affiliate_commission_percent && prev.affiliate_discount_percent) {
+          affiliate = {
+            partnerId: prev.affiliate_partner_id,
+            code: referralCode,
+            commissionPercent: prev.affiliate_commission_percent,
+            discountPercent: prev.affiliate_discount_percent,
+          };
+        } else {
+          const { data: coupon, error: couponError } = await supabaseAdmin
+            .from("coupons")
+            .select("code, partner_id, discount_percent, commission_percent")
+            .eq("code", referralCode)
+            .eq("is_active", true)
+            .maybeSingle();
+          if (couponError) throw couponError;
+          if (!coupon) return { error: "O cupom de indicação é inválido ou está inativo." };
 
-        const { data: partner, error: partnerError } = await supabaseAdmin
-          .from("partner_requests")
-          .select("user_id, email, tax_id, status")
-          .eq("user_id", coupon.partner_id)
-          .maybeSingle();
-        if (partnerError) throw partnerError;
-        if (!partner || partner.status !== "approved") return { error: "O cupom de indicação não está disponível." };
+          const { data: partner, error: partnerError } = await supabaseAdmin
+            .from("partner_requests")
+            .select("user_id, email, tax_id, status")
+            .eq("user_id", coupon.partner_id)
+            .maybeSingle();
+          if (partnerError) throw partnerError;
+          if (!partner || partner.status !== "approved") return { error: "O cupom de indicação não está disponível." };
 
-        const buyerEmail = customerEmail.trim().toLowerCase();
-        const partnerEmail = (partner.email ?? "").trim().toLowerCase();
-        const buyerDoc = data.cpfCnpj.replace(/\D/g, "");
-        const partnerDoc = partner.tax_id.replace(/\D/g, "");
-        if (partner.user_id === userId || (partnerEmail && partnerEmail === buyerEmail) || (partnerDoc && partnerDoc === buyerDoc)) {
-          return { error: "Você não pode utilizar seu próprio cupom de indicação para assinar um plano." };
+          const buyerEmail = customerEmail.trim().toLowerCase();
+          const partnerEmail = (partner.email ?? "").trim().toLowerCase();
+          const buyerDoc = data.cpfCnpj.replace(/\D/g, "");
+          const partnerDoc = partner.tax_id.replace(/\D/g, "");
+          if (partner.user_id === userId || (partnerEmail && partnerEmail === buyerEmail) || (partnerDoc && partnerDoc === buyerDoc)) {
+            return { error: "Você não pode utilizar seu próprio cupom de indicação para assinar um plano." };
+          }
+          affiliate = {
+            partnerId: partner.user_id,
+            code: coupon.code,
+            commissionPercent: coupon.commission_percent,
+            discountPercent: coupon.discount_percent,
+          };
         }
-        affiliate = {
-          partnerId: partner.user_id,
-          code: coupon.code,
-          commissionPercent: coupon.commission_percent,
-          discountPercent: coupon.discount_percent,
-        };
       }
 
       const discountPercent = affiliate?.discountPercent ?? (isFirst ? Math.round(FIRST_PIX_DISCOUNT * 100) : 0);

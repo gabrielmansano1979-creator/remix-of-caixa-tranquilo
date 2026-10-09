@@ -1,13 +1,12 @@
 import { toE164 } from "@/lib/phone";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-import * as XLSX from "xlsx";
 
 export type ReportFormat = "pdf" | "excel" | "csv";
 export type ReportColumn = { key: string; label: string };
 export type ReportRow = Record<string, string | number | null>;
 
-export function exportReport({
+export async function exportReport({
   title,
   fileName,
   format,
@@ -36,12 +35,15 @@ export function exportReport({
   }
 
   if (format === "excel") {
-    const workbook = XLSX.utils.book_new();
-    const summarySheet = XLSX.utils.aoa_to_sheet([[title], ...summary]);
-    const detailSheet = XLSX.utils.aoa_to_sheet([columns.map((column) => column.label), ...rows.map((row) => columns.map((column) => row[column.key] ?? ""))]);
-    XLSX.utils.book_append_sheet(workbook, summarySheet, "Resumo");
-    XLSX.utils.book_append_sheet(workbook, detailSheet, "Detalhamento");
-    XLSX.writeFile(workbook, `${fileName}.xlsx`);
+    const ExcelJS = (await import("exceljs")).default;
+    const workbook = new ExcelJS.Workbook();
+    const summarySheet = workbook.addWorksheet("Resumo");
+    summarySheet.addRows([[title], ...summary]);
+    const detailSheet = workbook.addWorksheet("Detalhamento");
+    detailSheet.addRow(columns.map((column) => column.label));
+    rows.forEach((row) => detailSheet.addRow(columns.map((column) => row[column.key] ?? "")));
+    const buffer = await workbook.xlsx.writeBuffer();
+    download(new Blob([new Uint8Array(buffer)], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), `${fileName}.xlsx`);
     return;
   }
 
@@ -68,7 +70,7 @@ function download(blob: Blob, fileName: string) {
   anchor.href = url;
   anchor.download = fileName;
   anchor.click();
-  URL.revokeObjectURL(url);
+  setTimeout(() => URL.revokeObjectURL(url), 500);
 }
 
 export type ReportPeriod = "mensal" | "anual";
@@ -85,7 +87,7 @@ export type ExportOptions = {
   month?: number;
 };
 
-export function generateAccountingReport(options: ExportOptions, rows: ReportRow[]) {
+export async function generateAccountingReport(options: ExportOptions, rows: ReportRow[]) {
   const safeCompany = options.companyName || "Empresa";
   const label = options.period === "mensal"
     ? `Mês ${String(options.month ?? new Date().getMonth() + 1).padStart(2, "0")}/${options.year ?? new Date().getFullYear()}`
@@ -95,7 +97,7 @@ export function generateAccountingReport(options: ExportOptions, rows: ReportRow
   const money = (cents: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100);
   const fileName = `relatorio-${safeCompany.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "-")}-${options.period}`;
 
-  exportReport({
+  await exportReport({
     title: `Relatório financeiro — ${safeCompany}`,
     fileName,
     format: options.format,

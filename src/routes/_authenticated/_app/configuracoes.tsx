@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { exportReport, type ReportFormat } from "@/lib/reporting";
 
 export const Route = createFileRoute("/_authenticated/_app/configuracoes")({
   head: () => ({ meta: [{ title: "Configurações — Critical Cash" }, { name: "description", content: "Ajuste os dados e preferências do seu negócio." }, { property: "og:title", content: "Configurações — Critical Cash" }, { property: "og:description", content: "Ajuste os dados e preferências do seu negócio." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }, { name: "robots", content: "noindex" }] }),
@@ -181,24 +182,38 @@ function DataSection() {
   const [busy, setBusy] = useState(false);
   useEffect(() => { if (!step) setTyped(""); }, [step]);
 
-  const exportData = async (fmt: "json" | "csv") => {
+  const exportData = async (fmt: "json" | ReportFormat) => {
     const [p, e, r, l] = await Promise.all([
       supabase.from("profiles").select("*").maybeSingle(),
       supabase.from("entries").select("*"),
       supabase.from("reminder_rules").select("*"),
       supabase.from("reminder_logs").select("*"),
     ]);
-    if (e.error) return toast.error("Não foi possível exportar.");
-    let blob: Blob;
-    if (fmt === "json") blob = new Blob([JSON.stringify({ perfil: p.data, contas: e.data, regua: r.data, envios: l.data }, null, 2)], { type: "application/json" });
-    else {
-      const cols = ["description", "amount_cents", "due_date", "type", "status", "paid_at", "counterparty_name", "counterparty_email"] as const;
-      const q = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-      blob = new Blob(["\uFEFF" + [cols.join(","), ...(e.data ?? []).map((row) => cols.map((c) => q(row[c])).join(","))].join("\n")], { type: "text/csv" });
+    if (p.error || e.error || r.error || l.error) return toast.error("Não foi possível carregar todos os dados para exportação.");
+    if (fmt === "json") {
+      const blob = new Blob([JSON.stringify({ perfil: p.data, contas: e.data, regua: r.data, envios: l.data }, null, 2)], { type: "application/json" });
+      const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: "critical-cash-dados.json" });
+      a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 500);
+      toast.success("Exportação pronta.");
+      return;
     }
-    const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: `caixa-critico-dados.${fmt}` });
-    a.click(); URL.revokeObjectURL(a.href);
-    toast.success("Exportação pronta.");
+    try {
+      await exportReport({
+        title: "Exportação dos dados pessoais — Critical Cash",
+        fileName: "critical-cash-dados",
+        format: fmt,
+        columns: [{ key: "categoria", label: "Categoria" }, { key: "detalhes", label: "Detalhes" }],
+        rows: [
+          ...(e.data ?? []).map((row) => ({ categoria: "Lançamento", detalhes: JSON.stringify(row) })),
+          ...(r.data ?? []).map((row) => ({ categoria: "Regra de lembrete", detalhes: JSON.stringify(row) })),
+          ...(l.data ?? []).map((row) => ({ categoria: "Histórico de envio", detalhes: JSON.stringify(row) })),
+        ],
+        summary: [["Perfil", p.data?.business_name ?? p.data?.full_name ?? "Conta"], ["Lançamentos", e.data?.length ?? 0], ["Regras de lembrete", r.data?.length ?? 0], ["Registros de envio", l.data?.length ?? 0]],
+      });
+      toast.success("Exportação pronta.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível exportar.");
+    }
   };
 
   const confirmDelete = async () => {
@@ -216,7 +231,7 @@ function DataSection() {
     <section className={`${card} space-y-4`}>
       <h2 className="font-semibold">Meus dados (LGPD)</h2>
       <div className="flex flex-wrap gap-2">
-        <Button variant="outline" className="h-11 rounded-xl" onClick={() => exportData("csv")}><Download className="mr-2 h-4 w-4" />Exportar contas (CSV)</Button>
+        {(["pdf", "excel", "csv"] as const).map((format) => <Button key={format} variant="outline" className="h-11 rounded-xl" onClick={() => void exportData(format)}><Download className="mr-2 h-4 w-4" />Exportar tudo ({format.toUpperCase()})</Button>)}
         <Button variant="outline" className="h-11 rounded-xl" onClick={() => exportData("json")}><Download className="mr-2 h-4 w-4" />Exportar tudo (JSON)</Button>
       </div>
       <div className="border-t pt-4">

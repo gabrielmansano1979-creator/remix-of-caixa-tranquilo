@@ -140,35 +140,47 @@ function AccountantPage() {
     data: new Date(item.created_at).toLocaleDateString("pt-BR"),
     pago_em: item.paid_at ? new Date(item.paid_at).toLocaleDateString("pt-BR") : "—",
   }));
-  const exportClients = (format: ReportFormat) => exportReport({
-    title: "Relatório de clientes que autorizaram compartilhamento",
-    fileName: "clientes-compartilhados",
-    format,
-    columns: [
-      { key: "cliente", label: "Cliente" }, { key: "descricao", label: "Descrição" }, { key: "tipo", label: "Tipo" },
-      { key: "valor", label: "Valor" }, { key: "vencimento", label: "Vencimento" }, { key: "status", label: "Status" },
-    ],
-    rows: clientRows.flatMap((client) => client.entries.map((entry) => ({
-      cliente: client.client_name ?? "Cliente",
-      descricao: entry.description,
-      tipo: entry.type === "income" ? "Entrada" : "Saída",
-      valor: money(entry.amount_cents),
-      vencimento: new Date(`${entry.due_date}T12:00:00`).toLocaleDateString("pt-BR"),
-      status: entry.status === "paid" ? "Pago" : "Pendente",
-    }))),
-    summary: [["Clientes autorizados", clientRows.length], ["Lançamentos incluídos", clientRows.reduce((count, client) => count + client.entry_count, 0)]],
-  });
-  const exportCommissions = (format: ReportFormat) => exportReport({
-    title: "Extrato de comissões",
-    fileName: "extrato-comissoes",
-    format,
-    columns: [
-      { key: "cliente", label: "Cliente" }, { key: "valor", label: "Valor" }, { key: "situacao", label: "Situação" },
-      { key: "data", label: "Data" }, { key: "pago_em", label: "Pago em" },
-    ],
-    rows: commissionRows,
-    summary: [["Total acumulado", money(dashboard?.totals.commission_cents ?? 0)]],
-  });
+  const exportClients = async (format: ReportFormat) => {
+    try {
+      await exportReport({
+        title: "Relatório de clientes que autorizaram compartilhamento",
+        fileName: "clientes-compartilhados",
+        format,
+        columns: [
+          { key: "cliente", label: "Cliente" }, { key: "descricao", label: "Descrição" }, { key: "tipo", label: "Tipo" },
+          { key: "valor", label: "Valor" }, { key: "vencimento", label: "Vencimento" }, { key: "status", label: "Status" },
+        ],
+        rows: clientRows.flatMap((client) => client.entries.map((entry) => ({
+          cliente: client.client_name ?? "Cliente",
+          descricao: entry.description,
+          tipo: entry.type === "income" ? "Entrada" : "Saída",
+          valor: money(entry.amount_cents),
+          vencimento: new Date(`${entry.due_date}T12:00:00`).toLocaleDateString("pt-BR"),
+          status: entry.status === "paid" ? "Pago" : "Pendente",
+        }))),
+        summary: [["Clientes autorizados", clientRows.length], ["Lançamentos incluídos", clientRows.reduce((count, client) => count + client.entry_count, 0)]],
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível gerar o relatório.");
+    }
+  };
+  const exportCommissions = async (format: ReportFormat) => {
+    try {
+      await exportReport({
+        title: "Extrato de comissões",
+        fileName: "extrato-comissoes",
+        format,
+        columns: [
+          { key: "cliente", label: "Cliente" }, { key: "valor", label: "Valor" }, { key: "situacao", label: "Situação" },
+          { key: "data", label: "Data" }, { key: "pago_em", label: "Pago em" },
+        ],
+        rows: commissionRows,
+        summary: [["Total acumulado", money(dashboard?.totals.commission_cents ?? 0)]],
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível gerar o relatório.");
+    }
+  };
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 py-8">
@@ -219,8 +231,8 @@ function LinkCard({ title, value, onCopy }: { title: string; value: string; onCo
   return <div className="flex min-w-0 items-center gap-3 rounded-xl border bg-muted/30 p-4"><div className="min-w-0 flex-1"><p className="text-xs text-muted-foreground">{title}</p><p className="truncate text-sm">{value}</p></div><Button variant="outline" size="icon" aria-label={`Copiar ${title}`} onClick={onCopy}><Clipboard className="h-4 w-4" /></Button></div>;
 }
 
-function ExportButtons({ onExport }: { onExport: (format: ReportFormat) => void }) {
-  return <div className="flex gap-1">{(["pdf", "excel", "csv"] as const).map((format) => <Button key={format} variant="outline" size="sm" onClick={() => onExport(format)}><Download className="mr-1 h-3.5 w-3.5" />{format.toUpperCase()}</Button>)}</div>;
+function ExportButtons({ onExport }: { onExport: (format: ReportFormat) => Promise<void> }) {
+  return <div className="flex gap-1">{(["pdf", "excel", "csv"] as const).map((format) => <Button key={format} variant="outline" size="sm" onClick={() => void onExport(format)}><Download className="mr-1 h-3.5 w-3.5" />{format.toUpperCase()}</Button>)}</div>;
 }
 
 function DataTable({ headers, rows, empty }: { headers: string[]; rows: unknown[][]; empty: string }) {

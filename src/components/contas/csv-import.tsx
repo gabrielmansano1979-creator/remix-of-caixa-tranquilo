@@ -34,18 +34,25 @@ export function CsvImportDialog({ open, onOpenChange, onLimit }: { open: boolean
         setRows(parsed.rows);
         return;
       }
-      if (extension === "xlsx" || extension === "xls") {
-        const XLSX = await import("xlsx");
-        const workbook = XLSX.read(await f.arrayBuffer(), { type: "array", cellDates: true });
-        const parsedSheets = workbook.SheetNames.map((name) => {
-          const sheet = workbook.Sheets[name];
-          return parseCsv(XLSX.utils.sheet_to_csv(sheet, { FS: ",", blankrows: false, dateNF: "yyyy-mm-dd" }));
+      if (extension === "xlsx") {
+        const ExcelJS = (await import("exceljs")).default;
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.load(await f.arrayBuffer());
+        const parsedSheets = workbook.worksheets.map((sheet) => {
+          const rows: string[] = [];
+          sheet.eachRow({ includeEmpty: false }, (row) => {
+            const values = row.values.slice(1).map(excelCellToString);
+            rows.push(values.map((value) => `"${value.replace(/"/g, '""')}"`).join(","));
+          });
+          return parseCsv(rows.join("\n"));
         });
-        const invalidSheet = parsedSheets.find((parsed) => parsed.headerError);
-        if (invalidSheet?.headerError) throw new Error(invalidSheet.headerError);
-        const combined = parsedSheets.flatMap((parsed) => parsed.rows);
+        const usableSheets = parsedSheets.filter((parsed) => !parsed.headerError);
+        if (!usableSheets.length) throw new Error(parsedSheets[0]?.headerError ?? "Nenhuma aba contém as colunas de lançamentos esperadas.");
+        const combined = usableSheets.flatMap((parsed) => parsed.rows);
         if (combined.length > 5000) throw new Error("A planilha excede o limite de 5.000 linhas para pré-visualização.");
         setRows(combined.map((row, index) => ({ ...row, line: index + 2 })));
+        const skippedSheets = parsedSheets.length - usableSheets.length;
+        if (skippedSheets) setFileWarning(`${skippedSheets} aba(s) sem as colunas de lançamentos esperadas foram ignoradas.`);
         return;
       }
       if (extension === "pdf") {
@@ -104,7 +111,7 @@ export function CsvImportDialog({ open, onOpenChange, onLimit }: { open: boolean
               <Upload className="h-8 w-8 text-primary" />
               <span className="font-medium">Escolher arquivo CSV, Excel ou PDF</span>
               <span className="text-xs text-muted-foreground">Planilhas: colunas descricao, valor, vencimento, tipo e nome. PDFs passam por revisão antes de gravar.</span>
-              <input type="file" accept=".csv,.xlsx,.xls,.pdf,text/csv,application/pdf" className="sr-only" onChange={(e) => onFile(e.target.files?.[0])} />
+              <input type="file" accept=".csv,.xlsx,.pdf,text/csv,application/pdf" className="sr-only" onChange={(e) => onFile(e.target.files?.[0])} />
             </label>
             {fileErr && <p className="flex items-center gap-2 rounded-xl bg-danger/10 p-3 text-sm text-danger" role="alert"><AlertCircle className="h-4 w-4" />{fileErr}</p>}
             {fileWarning && <p className="flex items-center gap-2 rounded-xl bg-warning/10 p-3 text-sm text-warning" role="status"><AlertCircle className="h-4 w-4" />{fileWarning}</p>}
@@ -155,6 +162,20 @@ export function CsvImportDialog({ open, onOpenChange, onLimit }: { open: boolean
   );
 }
 
+function excelCellToString(value: unknown): string {
+  if (value == null) return "";
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return String(value);
+  if (typeof value === "object") {
+    if ("text" in value && typeof value.text === "string") return value.text;
+    if ("result" in value && (typeof value.result === "string" || typeof value.result === "number")) return String(value.result);
+    if ("richText" in value && Array.isArray(value.richText)) {
+      return value.richText.map((fragment) => typeof fragment === "object" && fragment && "text" in fragment ? String(fragment.text) : "").join("");
+    }
+  }
+  return "";
+}
+
 async function extractPdfText(file: File): Promise<{ text: string; ocrPages: number }> {
   const pdfjs = await import("pdfjs-dist");
   const { createWorker } = await import("tesseract.js");
@@ -169,7 +190,15 @@ async function extractPdfText(file: File): Promise<{ text: string; ocrPages: num
     for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
       const page = await pdf.getPage(pageNumber);
       const content = await page.getTextContent();
-      let text = content.items.map((item) => "str" in item ? item.str : "").join(" ");
+      const textLines: Array<{ y: number; text: string }> = [];
+      for (const item of content.items) {
+        if (!("str" in item) || !("transform" in item)) continue;
+        const y = Math.round(item.transform[5] / 2) * 2;
+        const previous = textLines[textLines.length - 1];
+        if (previous && Math.abs(previous.y - y) <= 2) previous.text += ` ${item.str}`;
+        else textLines.push({ y, text: item.str });
+      }
+      let text = textLines.map((line) => line.text).join("\n");
       if (text.replace(/\s/g, "").length < 30) {
         worker ??= await createWorker("por");
         const viewport = page.getViewport({ scale: 1.8 });

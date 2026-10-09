@@ -81,7 +81,7 @@ function AdminPage() {
     }
   };
 
-  const exportAdmin = (format: ReportFormat) => {
+  const exportAdmin = async (format: ReportFormat) => {
     const rows = commissions.map((commission) => ({
       contador: commission.partner_name,
       cliente: commission.client_name ?? "Cliente",
@@ -91,7 +91,8 @@ function AdminPage() {
       paga_em: commission.paid_at ? new Date(commission.paid_at).toLocaleDateString("pt-BR") : "—",
       chave_pix: commission.pix_key,
     }));
-    exportReport({
+    try {
+      await exportReport({
       title: "Faturamento e comissões por contador",
       fileName: "faturamento-por-afiliado",
       format,
@@ -102,7 +103,10 @@ function AdminPage() {
       ],
       rows,
       summary: [["Comissões pendentes", money(pendingCents)], ["Contadores cadastrados", partners.length], ["Clientes indicados", referralCount]],
-    });
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível gerar o relatório.");
+    }
   };
 
   if (query.isLoading) return <div className="p-8 text-muted-foreground">Carregando painel administrativo...</div>;
@@ -112,7 +116,7 @@ function AdminPage() {
     <div className="mx-auto max-w-7xl space-y-6 py-8">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Gestão global</p><h1 className="mt-2 text-3xl font-bold">Contadores e comissões</h1></div>
-        <div className="flex gap-2">{(["pdf", "excel", "csv"] as const).map((format) => <Button key={format} variant="outline" onClick={() => exportAdmin(format)}><Download className="mr-2 h-4 w-4" />{format.toUpperCase()}</Button>)}</div>
+        <div className="flex gap-2">{(["pdf", "excel", "csv"] as const).map((format) => <Button key={format} variant="outline" onClick={() => void exportAdmin(format)}><Download className="mr-2 h-4 w-4" />{format.toUpperCase()}</Button>)}</div>
       </header>
       <div className="grid gap-4 md:grid-cols-3">
         <Metric icon={<UserCheck className="h-4 w-4" />} label="Contadores cadastrados" value={String(partners.length)} />
