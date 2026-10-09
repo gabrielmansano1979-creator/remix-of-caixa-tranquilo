@@ -1,11 +1,11 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { createFileRoute, useNavigate, Link } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase'; // Ajuste o import se o seu client Supabase estiver em outro caminho
+import { supabase } from '@/lib/supabase'; // Ajuste se o seu cliente Supabase estiver em @/integrations/supabase/client
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ArrowLeft, Eye, EyeOff, Lock } from 'lucide-react';
-import { Link } from '@tanstack/react-router';
+import { toast } from 'sonner';
 
 export const Route = createFileRoute('/login')({
   component: LoginComponent,
@@ -17,33 +17,32 @@ function LoginComponent() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Monitora o estado de autenticação (captura login do Google/Hash e sessão existente)
   useEffect(() => {
-    const checkSessionAndRedirect = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        // Redireciona com base na role ou padrão para /caixa
-        const userRole = session.user.user_metadata?.role;
-        if (userRole === 'admin') {
-          navigate({ to: '/admin' });
-        } else {
-          navigate({ to: '/caixa' });
-        }
+    // Redireciona com base no email ou role do utilizador
+    const handleRedirect = (sessionUser: any) => {
+      const userEmail = sessionUser.email;
+      const userRole = sessionUser.user_metadata?.role;
+
+      // Se for o email do admin ou se tiver role admin no metadata
+      if (userEmail === 'criticalcash2026@gmail.com' || userRole === 'admin') {
+        navigate({ to: '/admin' });
+      } else {
+        navigate({ to: '/caixa' });
       }
     };
 
-    checkSessionAndRedirect();
+    // 1. Verifica se já existe uma sessão ativa
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        handleRedirect(session.user);
+      }
+    });
 
+    // 2. Escuta alterações de autenticação (captura o callback OAuth com #access_token)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
-        const userRole = session.user.user_metadata?.role;
-        if (userRole === 'admin') {
-          navigate({ to: '/admin' });
-        } else {
-          navigate({ to: '/caixa' });
-        }
+        handleRedirect(session.user);
       }
     });
 
@@ -55,7 +54,6 @@ function LoginComponent() {
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setErrorMessage(null);
 
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -65,16 +63,19 @@ function LoginComponent() {
 
       if (error) throw error;
 
-      if (data.session) {
-        const userRole = data.user?.user_metadata?.role;
-        if (userRole === 'admin') {
+      if (data.session?.user) {
+        toast.success('Login realizado com sucesso!');
+        const userEmail = data.session.user.email;
+        const userRole = data.session.user.user_metadata?.role;
+
+        if (userEmail === 'criticalcash2026@gmail.com' || userRole === 'admin') {
           navigate({ to: '/admin' });
         } else {
           navigate({ to: '/caixa' });
         }
       }
     } catch (err: any) {
-      setErrorMessage(err.message || 'Erro ao realizar login. Verifique suas credenciais.');
+      toast.error(err.message || 'Erro ao realizar login. Verifique as suas credenciais.');
     } finally {
       setLoading(false);
     }
@@ -82,7 +83,6 @@ function LoginComponent() {
 
   const handleGoogleLogin = async () => {
     setLoading(true);
-    setErrorMessage(null);
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -92,14 +92,13 @@ function LoginComponent() {
       });
       if (error) throw error;
     } catch (err: any) {
-      setErrorMessage(err.message || 'Erro ao conectar com Google.');
+      toast.error(err.message || 'Erro ao conectar com o Google.');
       setLoading(false);
     }
   };
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-50 flex flex-col justify-center items-center p-4 relative">
-      {/* Botão de Voltar */}
       <div className="absolute top-6 left-6">
         <Link
           to="/"
@@ -116,7 +115,6 @@ function LoginComponent() {
       </div>
 
       <div className="w-full max-w-md space-y-8 bg-slate-900/50 p-8 rounded-2xl border border-slate-800 backdrop-blur-xl">
-        {/* Logo e Título */}
         <div className="text-center space-y-3">
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 mb-2">
             <svg
@@ -135,17 +133,10 @@ function LoginComponent() {
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-white">Critical Cash</h1>
           <h2 className="text-xl font-semibold text-slate-200">Bem-vindo de volta</h2>
-          <p className="text-sm text-slate-400">Entre na sua conta para acompanhar seu caixa.</p>
+          <p className="text-sm text-slate-400">Entre na sua conta para acompanhar o seu caixa.</p>
         </div>
 
-        {errorMessage && (
-          <div className="p-3 text-sm rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-center">
-            {errorMessage}
-          </div>
-        )}
-
         <div className="space-y-4">
-          {/* Botão do Google */}
           <Button
             type="button"
             variant="outline"
@@ -183,7 +174,6 @@ function LoginComponent() {
             </div>
           </div>
 
-          {/* Formulário de Email e Senha */}
           <form onSubmit={handleEmailLogin} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email" className="text-slate-300">E-mail</Label>
