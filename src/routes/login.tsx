@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate, Link } from '@tanstack/react-router';
+import { createFileRoute, Link } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -12,13 +12,11 @@ export const Route = createFileRoute('/login')({
 });
 
 function LoginComponent() {
-  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Redireciona o usuário para /admin ou /caixa conforme email ou role
   const redirectUser = (sessionUser: any) => {
     if (!sessionUser) return;
 
@@ -29,38 +27,36 @@ function LoginComponent() {
       userEmail === 'gabrielmansano1979@gmail.com' ||
       userRole === 'admin';
 
-    if (isAdmin) {
-      navigate({ to: '/admin' });
-    } else {
-      navigate({ to: '/caixa' });
-    }
+    const targetPath = isAdmin ? '/admin' : '/caixa';
+
+    // Redireciona limpando a hash da URL
+    window.location.replace(targetPath);
   };
 
   useEffect(() => {
     let isMounted = true;
 
     const processAuth = async () => {
-      // 1. Processa a Hash da URL caso venha do callback OAuth do Google
-      if (window.location.hash.includes('access_token')) {
+      // 1. Extrai o access_token diretamente da hash (#access_token=...)
+      if (window.location.hash && window.location.hash.includes('access_token')) {
         const hashParams = new URLSearchParams(window.location.hash.substring(1));
         const accessToken = hashParams.get('access_token');
         const refreshToken = hashParams.get('refresh_token');
 
-        if (accessToken && refreshToken) {
+        if (accessToken) {
           const { data, error } = await supabase.auth.setSession({
             access_token: accessToken,
-            refresh_token: refreshToken,
+            refresh_token: refreshToken || '',
           });
 
           if (!error && data.session?.user && isMounted) {
-            window.history.replaceState(null, '', window.location.pathname);
             redirectUser(data.session.user);
             return;
           }
         }
       }
 
-      // 2. Caso já exista uma sessão salva
+      // 2. Verifica se já existe sessão ativa no Supabase
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user && isMounted) {
         redirectUser(session.user);
@@ -80,7 +76,7 @@ function LoginComponent() {
       isMounted = false;
       subscription.unsubscribe();
     };
-  }, [navigate]);
+  }, []);
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -99,7 +95,7 @@ function LoginComponent() {
         redirectUser(data.session.user);
       }
     } catch (err: any) {
-      toast.error(err.message || 'Erro ao realizar login. Verifique suas credenciais.');
+      toast.error(err.message || 'Erro ao realizar login.');
     } finally {
       setLoading(false);
     }
