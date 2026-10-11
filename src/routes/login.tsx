@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, Eye, EyeOff, Lock } from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff, Lock, User, Building, Phone } from 'lucide-react';
 import { toast } from 'sonner';
 
 export const Route = createFileRoute('/login')({
@@ -14,8 +14,14 @@ export const Route = createFileRoute('/login')({
 function LoginComponent() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [companyName, setCompanyName] = useState('');
+  const [phone, setPhone] = useState('');
+
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [isRegistering, setIsRegistering] = useState(false); // Alterna entre Login e Cadastro
 
   const redirectUser = (sessionUser: any) => {
     if (!sessionUser) return;
@@ -29,7 +35,7 @@ function LoginComponent() {
 
     const targetPath = isAdmin ? '/admin' : '/caixa';
 
-    // Redireciona limpando a hash da URL
+    // Redireciona limpando a URL
     window.location.replace(targetPath);
   };
 
@@ -37,7 +43,22 @@ function LoginComponent() {
     let isMounted = true;
 
     const processAuth = async () => {
-      // 1. Extrai o access_token diretamente da hash (#access_token=...)
+      // 1. Trata o código de autorização OAuth (?code=...) vindo do Google/Supabase
+      const urlParams = new URLSearchParams(window.location.search);
+      const authCode = urlParams.get('code');
+      if (authCode) {
+        try {
+          const { data, error } = await supabase.auth.exchangeCodeForSession(authCode);
+          if (!error && data.session?.user && isMounted) {
+            redirectUser(data.session.user);
+            return;
+          }
+        } catch (err) {
+          console.error("Erro ao trocar código por sessão:", err);
+        }
+      }
+
+      // 2. Extrai o access_token diretamente da hash (#access_token=...) caso venha por hash
       if (window.location.hash && window.location.hash.includes('access_token')) {
         const hashParams = new URLSearchParams(window.location.hash.substring(1));
         const accessToken = hashParams.get('access_token');
@@ -56,16 +77,16 @@ function LoginComponent() {
         }
       }
 
-      // 2. Verifica se já existe sessão ativa no Supabase
+      // 3. Verifica se já existe sessão ativa no Supabase
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user && isMounted) {
         redirectUser(session.user);
       }
     };
 
-    processAuth();
+    void processAuth();
 
-    // 3. Ouve alterações de autenticação
+    // 4. Ouve alterações de autenticação
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user && isMounted) {
         redirectUser(session.user);
@@ -78,24 +99,52 @@ function LoginComponent() {
     };
   }, []);
 
-  const handleEmailLogin = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      if (isRegistering) {
+        if (password !== confirmPassword) {
+          toast.error('As senhas não coincidem.');
+          setLoading(false);
+          return;
+        }
 
-      if (error) throw error;
+        // Fluxo de Cadastro Completo
+        const { error } = await supabase.auth.signUp({
+          email: email.trim().toLowerCase(),
+          password,
+          options: {
+            data: {
+              full_name: fullName,
+              company_name: companyName,
+              phone: phone,
+              role: 'caixa',
+            },
+          },
+        });
 
-      if (data.session?.user) {
-        toast.success('Login realizado com sucesso!');
-        redirectUser(data.session.user);
+        if (error) throw error;
+
+        toast.success('Conta criada com sucesso! Faça login para continuar.');
+        setIsRegistering(false); // Muda para a aba de login
+      } else {
+        // Fluxo de Login
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: email.trim().toLowerCase(),
+          password,
+        });
+
+        if (error) throw error;
+
+        if (data.session?.user) {
+          toast.success('Login realizado com sucesso!');
+          redirectUser(data.session.user);
+        }
       }
     } catch (err: any) {
-      toast.error(err.message || 'Erro ao realizar login.');
+      toast.error(err.message || 'Ocorreu um erro ao processar sua solicitação.');
     } finally {
       setLoading(false);
     }
@@ -118,7 +167,7 @@ function LoginComponent() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-50 flex flex-col justify-center items-center p-4 relative">
+    <div className="min-h-screen bg-slate-950 text-slate-50 flex flex-col justify-center items-center p-4 relative py-12">
       <div className="absolute top-6 left-6">
         <Link
           to="/"
@@ -134,7 +183,7 @@ function LoginComponent() {
         Acesso seguro
       </div>
 
-      <div className="w-full max-w-md space-y-8 bg-slate-900/50 p-8 rounded-2xl border border-slate-800 backdrop-blur-xl">
+      <div className="w-full max-w-lg space-y-6 bg-slate-900/50 p-8 rounded-2xl border border-slate-800 backdrop-blur-xl shadow-2xl">
         <div className="text-center space-y-3">
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 mb-2">
             <svg
@@ -152,8 +201,36 @@ function LoginComponent() {
             </svg>
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-white">Critical Cash</h1>
-          <h2 className="text-xl font-semibold text-slate-200">Bem-vindo de volta</h2>
-          <p className="text-sm text-slate-400">Entre na sua conta para acompanhar seu caixa.</p>
+          <h2 className="text-xl font-semibold text-slate-200">
+            {isRegistering ? 'Criar Nova Conta' : 'Bem-vindo de volta'}
+          </h2>
+          <p className="text-sm text-slate-400">
+            {isRegistering 
+              ? 'Preencha os dados abaixo para registrar seu estabelecimento.' 
+              : 'Entre na sua conta para acompanhar seu caixa.'}
+          </p>
+        </div>
+
+        {/* Abas de Alternância: Entrar / Criar Conta */}
+        <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800">
+          <button
+            type="button"
+            onClick={() => setIsRegistering(false)}
+            className={`flex-1 py-2 text-xs font-medium rounded-lg transition-all ${
+              !isRegistering ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            Entrar
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsRegistering(true)}
+            className={`flex-1 py-2 text-xs font-medium rounded-lg transition-all ${
+              isRegistering ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            Criar Conta
+          </button>
         </div>
 
         <div className="space-y-4">
@@ -182,19 +259,68 @@ function LoginComponent() {
                 d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
               />
             </svg>
-            Continuar com Google
+            {isRegistering ? 'Cadastrar com o Google' : 'Continuar com o Google'}
           </Button>
 
-          <div className="relative my-6">
+          <div className="relative my-4">
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-slate-800" />
             </div>
             <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-slate-950 px-2 text-slate-500">ou</span>
+              <span className="bg-slate-950 px-2 text-slate-500">ou com e-mail</span>
             </div>
           </div>
 
-          <form onSubmit={handleEmailLogin} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {isRegistering && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="fullName" className="text-slate-300 flex items-center gap-2">
+                    <User className="w-3.5 h-3.5 text-emerald-400" /> Nome Completo
+                  </Label>
+                  <Input
+                    id="fullName"
+                    type="text"
+                    placeholder="Seu nome"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    required
+                    className="bg-slate-900/80 border-slate-800 text-slate-100 focus:border-emerald-500 focus:ring-emerald-500"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="companyName" className="text-slate-300 flex items-center gap-2">
+                    <Building className="w-3.5 h-3.5 text-emerald-400" /> Nome da Empresa / Estabelecimento
+                  </Label>
+                  <Input
+                    id="companyName"
+                    type="text"
+                    placeholder="Nome da sua empresa ou negócio"
+                    value={companyName}
+                    onChange={(e) => setCompanyName(e.target.value)}
+                    required
+                    className="bg-slate-900/80 border-slate-800 text-slate-100 focus:border-emerald-500 focus:ring-emerald-500"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="phone" className="text-slate-300 flex items-center gap-2">
+                    <Phone className="w-3.5 h-3.5 text-emerald-400" /> Telefone / WhatsApp
+                  </Label>
+                  <Input
+                    id="phone"
+                    type="tel"
+                    placeholder="(21) 99999-9999"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    required
+                    className="bg-slate-900/80 border-slate-800 text-slate-100 focus:border-emerald-500 focus:ring-emerald-500"
+                  />
+                </div>
+              </>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="email" className="text-slate-300">E-mail</Label>
               <Input
@@ -211,12 +337,14 @@ function LoginComponent() {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label htmlFor="password" className="text-slate-300">Senha</Label>
-                <Link
-                  to="/esqueci-senha"
-                  className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors"
-                >
-                  Esqueci a senha
-                </Link>
+                {!isRegistering && (
+                  <Link
+                    to="/esqueci-senha"
+                    className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors"
+                  >
+                    Esqueci a senha
+                  </Link>
+                )}
               </div>
               <div className="relative">
                 <Input
@@ -225,6 +353,7 @@ function LoginComponent() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
+                  placeholder="Mínimo de 6 caracteres"
                   className="bg-slate-900/80 border-slate-800 text-slate-100 pr-10 focus:border-emerald-500 focus:ring-emerald-500"
                 />
                 <button
@@ -237,12 +366,29 @@ function LoginComponent() {
               </div>
             </div>
 
+            {isRegistering && (
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword" className="text-slate-300">Confirmar Senha</Label>
+                <Input
+                  id="confirmPassword"
+                  type={showPassword ? 'text' : 'password'}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  placeholder="Repita a senha"
+                  className="bg-slate-900/80 border-slate-800 text-slate-100 focus:border-emerald-500 focus:ring-emerald-500"
+                />
+              </div>
+            )}
+
             <Button
               type="submit"
               disabled={loading}
-              className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2 rounded-lg transition-colors mt-2"
+              className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-3 rounded-lg transition-colors mt-2 shadow-lg shadow-emerald-950/50"
             >
-              {loading ? 'Entrando...' : 'Entrar'}
+              {loading 
+                ? (isRegistering ? 'Criando conta...' : 'Entrando...') 
+                : (isRegistering ? 'Concluir Cadastro' : 'Entrar')}
             </Button>
           </form>
         </div>

@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as CadastroRouteImport } from './routes/cadastro'
 import { Route as CheckoutRouteImport } from './routes/checkout'
@@ -21,8 +22,6 @@ import { Route as TermosRouteImport } from './routes/termos'
 import { Route as AuthenticatedAppRouteRouteImport } from './routes/_authenticated/_app/route'
 import { Route as AuthenticatedOnboardingRouteImport } from './routes/_authenticated/onboarding'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
-import { Route as AdminLoginRouteImport } from './routes/admin/login'
-import { Route as AdminRepassesRouteImport } from './routes/admin/repasses'
 import { Route as DashboardParceiroRouteImport } from './routes/dashboard/parceiro'
 import { Route as AuthenticatedAppAssinaturaRouteImport } from './routes/_authenticated/_app/assinatura'
 import { Route as AuthenticatedAppCaixaRouteImport } from './routes/_authenticated/_app/caixa'
@@ -33,6 +32,11 @@ import { Route as AuthenticatedAppPlanosRouteImport } from './routes/_authentica
 import { Route as ApiPublicAsaasWebhookRouteImport } from './routes/api/public/asaas-webhook'
 import { Route as ApiPublicStripeWebhookRouteImport } from './routes/api/public/stripe-webhook'
 
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
@@ -91,16 +95,6 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
   path: '/admin/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminLoginRoute = AdminLoginRouteImport.update({
-  id: '/admin/login',
-  path: '/admin/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminRepassesRoute = AdminRepassesRouteImport.update({
-  id: '/admin/repasses',
-  path: '/admin/repasses',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const DashboardParceiroRoute = DashboardParceiroRouteImport.update({
   id: '/dashboard/parceiro',
   path: '/dashboard/parceiro',
@@ -151,7 +145,7 @@ const ApiPublicStripeWebhookRoute = ApiPublicStripeWebhookRouteImport.update({
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof AuthenticatedAppRouteRouteWithChildren
+  '/': typeof IndexRoute
   '/cadastro': typeof CadastroRoute
   '/checkout': typeof CheckoutRoute
   '/contador': typeof ContadorRoute
@@ -161,8 +155,6 @@ export interface FileRoutesByFullPath {
   '/redefinir-senha': typeof RedefinirSenhaRoute
   '/termos': typeof TermosRoute
   '/onboarding': typeof AuthenticatedOnboardingRoute
-  '/admin/login': typeof AdminLoginRoute
-  '/admin/repasses': typeof AdminRepassesRoute
   '/dashboard/parceiro': typeof DashboardParceiroRoute
   '/admin/': typeof AdminIndexRoute
   '/assinatura': typeof AuthenticatedAppAssinaturaRoute
@@ -175,7 +167,7 @@ export interface FileRoutesByFullPath {
   '/api/public/stripe-webhook': typeof ApiPublicStripeWebhookRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof AuthenticatedAppRouteRouteWithChildren
+  '/': typeof IndexRoute
   '/cadastro': typeof CadastroRoute
   '/checkout': typeof CheckoutRoute
   '/contador': typeof ContadorRoute
@@ -185,8 +177,6 @@ export interface FileRoutesByTo {
   '/redefinir-senha': typeof RedefinirSenhaRoute
   '/termos': typeof TermosRoute
   '/onboarding': typeof AuthenticatedOnboardingRoute
-  '/admin/login': typeof AdminLoginRoute
-  '/admin/repasses': typeof AdminRepassesRoute
   '/dashboard/parceiro': typeof DashboardParceiroRoute
   '/admin': typeof AdminIndexRoute
   '/assinatura': typeof AuthenticatedAppAssinaturaRoute
@@ -200,6 +190,7 @@ export interface FileRoutesByTo {
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
+  '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/cadastro': typeof CadastroRoute
   '/checkout': typeof CheckoutRoute
@@ -211,8 +202,6 @@ export interface FileRoutesById {
   '/termos': typeof TermosRoute
   '/_authenticated/_app': typeof AuthenticatedAppRouteRouteWithChildren
   '/_authenticated/onboarding': typeof AuthenticatedOnboardingRoute
-  '/admin/login': typeof AdminLoginRoute
-  '/admin/repasses': typeof AdminRepassesRoute
   '/dashboard/parceiro': typeof DashboardParceiroRoute
   '/admin/': typeof AdminIndexRoute
   '/_authenticated/_app/assinatura': typeof AuthenticatedAppAssinaturaRoute
@@ -237,8 +226,6 @@ export interface FileRouteTypes {
     | '/redefinir-senha'
     | '/termos'
     | '/onboarding'
-    | '/admin/login'
-    | '/admin/repasses'
     | '/dashboard/parceiro'
     | '/admin/'
     | '/assinatura'
@@ -261,8 +248,6 @@ export interface FileRouteTypes {
     | '/redefinir-senha'
     | '/termos'
     | '/onboarding'
-    | '/admin/login'
-    | '/admin/repasses'
     | '/dashboard/parceiro'
     | '/admin'
     | '/assinatura'
@@ -275,6 +260,7 @@ export interface FileRouteTypes {
     | '/api/public/stripe-webhook'
   id:
     | '__root__'
+    | '/'
     | '/_authenticated'
     | '/cadastro'
     | '/checkout'
@@ -286,8 +272,6 @@ export interface FileRouteTypes {
     | '/termos'
     | '/_authenticated/_app'
     | '/_authenticated/onboarding'
-    | '/admin/login'
-    | '/admin/repasses'
     | '/dashboard/parceiro'
     | '/admin/'
     | '/_authenticated/_app/assinatura'
@@ -301,6 +285,7 @@ export interface FileRouteTypes {
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
+  IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   CadastroRoute: typeof CadastroRoute
   CheckoutRoute: typeof CheckoutRoute
@@ -310,8 +295,6 @@ export interface RootRouteChildren {
   PrivacidadeRoute: typeof PrivacidadeRoute
   RedefinirSenhaRoute: typeof RedefinirSenhaRoute
   TermosRoute: typeof TermosRoute
-  AdminLoginRoute: typeof AdminLoginRoute
-  AdminRepassesRoute: typeof AdminRepassesRoute
   DashboardParceiroRoute: typeof DashboardParceiroRoute
   AdminIndexRoute: typeof AdminIndexRoute
   ApiPublicAsaasWebhookRoute: typeof ApiPublicAsaasWebhookRoute
@@ -320,6 +303,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated': {
       id: '/_authenticated'
       path: ''
@@ -402,20 +392,6 @@ declare module '@tanstack/react-router' {
       path: '/admin'
       fullPath: '/admin/'
       preLoaderRoute: typeof AdminIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin/login': {
-      id: '/admin/login'
-      path: '/admin/login'
-      fullPath: '/admin/login'
-      preLoaderRoute: typeof AdminLoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin/repasses': {
-      id: '/admin/repasses'
-      path: '/admin/repasses'
-      fullPath: '/admin/repasses'
-      preLoaderRoute: typeof AdminRepassesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard/parceiro': {
@@ -521,6 +497,7 @@ const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
+  IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   CadastroRoute: CadastroRoute,
   CheckoutRoute: CheckoutRoute,
@@ -530,8 +507,6 @@ const rootRouteChildren: RootRouteChildren = {
   PrivacidadeRoute: PrivacidadeRoute,
   RedefinirSenhaRoute: RedefinirSenhaRoute,
   TermosRoute: TermosRoute,
-  AdminLoginRoute: AdminLoginRoute,
-  AdminRepassesRoute: AdminRepassesRoute,
   DashboardParceiroRoute: DashboardParceiroRoute,
   AdminIndexRoute: AdminIndexRoute,
   ApiPublicAsaasWebhookRoute: ApiPublicAsaasWebhookRoute,

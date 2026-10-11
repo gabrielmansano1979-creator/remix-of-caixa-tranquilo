@@ -17,7 +17,6 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
       new Headers(init.headers).forEach((value, key) => headers.set(key, value));
     }
 
-    // New Supabase API keys are opaque strings, not bearer JWTs.
     if (
       isNewSupabaseApiKey(supabaseKey) &&
       headers.get("Authorization") === `Bearer ${supabaseKey}`
@@ -31,8 +30,6 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
 }
 
 function createSupabaseClient() {
-  // Use import.meta.env for client-side (Vite build-time replacement)
-  // Fall back to process.env for SSR (server-side rendering)
   const runtimeEnv =
     typeof window !== "undefined"
       ? (window as Window & { __CRIEFY_ENV__?: Record<string, string> }).__CRIEFY_ENV__
@@ -59,23 +56,32 @@ function createSupabaseClient() {
     throw new Error(message);
   }
 
+  // Tenta usar o storage customizado, com fallback seguro para o localStorage padrão se houver falhas no preview
+  let authStorage = brokeredPreviewStorage();
+  try {
+    if (typeof window !== "undefined" && !window.localStorage) {
+      authStorage = undefined;
+    }
+  } catch {
+    // ignora e mantém o padrão
+  }
+
   return createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     global: {
       fetch: createSupabaseFetch(SUPABASE_PUBLISHABLE_KEY),
     },
     auth: {
-      storage: brokeredPreviewStorage(),
+      storage: authStorage,
       persistSession: true,
       autoRefreshToken: true,
       detectSessionInUrl: true,
+      flowType: 'pkce', // Usa o fluxo PKCE moderno que evita tokens no hash da URL quando suportado
     },
   });
 }
 
 let _supabase: ReturnType<typeof createSupabaseClient> | undefined;
 
-// Import the supabase client like this:
-// import { supabase } from "@/integrations/supabase/client";
 export const supabase = new Proxy({} as ReturnType<typeof createSupabaseClient>, {
   get(_, prop, receiver) {
     if (!_supabase) _supabase = createSupabaseClient();
