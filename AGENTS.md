@@ -1,55 +1,57 @@
-<!-- CRIEFY:CONTEXTO -->
 # Instruções compartilhadas do projeto (CrieFy)
 
 Antes de planejar ou alterar arquivos, leia `CLAUDE.md` integralmente. Ele contém as regras obrigatórias do produto, do template, da paleta e do fluxo de construção. O pedido textual do usuário define o produto; o template define somente o visual.
 
 <!-- LOVABLE:BEGIN -->
 > [!IMPORTANT]
-> This project is connected to [Lovable](https://lovable.dev). Avoid rewriting
-> published git history — force pushing, or rebasing/amending/squashing commits
-> that are already pushed — as it rewrites history on Lovable's side and the
-> user will likely lose their project history.
+> This project is connected to [Lovable](https://lovable.dev). Avoid rewriting published git history — force pushing, or rebasing/amending/squashing commits that are already pushed — as it rewrites history on Lovable's side and the user will likely lose their project history.
 >
-> Commits you push to the connected branch sync back to Lovable and show up in
-> the editor, so keep the branch in a working state.
+> Commits you push to the connected branch sync back to Lovable and show up in the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
 
 ## Application architecture
+
 - Keep PLG trial defaults in database setup and client plan configuration together, so access and offers cannot diverge.
-- Store new reminder deliveries with stage_rule_id and channel; keep legacy rule_id null on new deliveries to preserve per-channel idempotency without breaking historical records.
-- Persist onboarding profile and financial inputs through authenticated database access; derive the semaphore from cash_projection rather than simulated state.
-- Use the shared ReminderPreview for public examples and in-app previews, so both channel renderings remain consistent.
+- Store new reminder deliveries with `stage_rule_id` and `channel`; keep legacy `rule_id` null on new deliveries to preserve per-channel idempotency without breaking historical records.
+- Persist onboarding profile and financial inputs through authenticated database access; derive the semaphore from `cash_projection` rather than simulated state.
+- Use the shared `ReminderPreview` for public examples and in-app previews, so both channel renderings remain consistent.
 
 <!-- CRIEFY:MEMORIA:INICIO -->
 # Memória do projeto (mantida pelo CrieFy)
 
-Este arquivo é escrito automaticamente. Ele existe para que o trabalho
-continue consistente quando o motor de IA opera (Claude Code ↔ GPT Codex ↔ Antigravity).
+Este arquivo é escrito automaticamente. Ele existe para que o trabalho continue consistente quando o motor de IA opera (Claude Code ↔ GPT Codex ↔ Antigravity).
+
 **Leia antes de agir e não recomece o que já está feito.**
 
 ## O que já foi feito (Histórico de Turnos)
 
-- Turno: Usuário pediu "Clone esse repositório do github: https://github.com/gabrielmansano1979-creator/remix-of-caixa-tranquilo.git" → O repositório GitHub solicitado não foi encontrado (erro 404). Isso pode acontecer por dois motivos: 1. **Repositório privado**: O repositór _(criefy)_ — 2026-10-02
-O token de acesso fornecido não possui permissão de leitura para este repositório (erro 403). Para clonar repositórios privados do GitHub, é _(criefy)_ — 2026-10-02
-O repositório `remix-of-caixa-tranquilo` não foi encontrado (erro 404) mesmo com os três tokens PAT fornecidos. A API do GitHub confirma que _(criefy)_ — 2026-10-02
-Repositório clonado e integrado com sucesso ao projeto. **O que foi feito:** - Clonagem do repositório `remix-of-caixa-tranquilo` realizada  _(criefy)_ — 2026-10-02
-- Turno: Usuário pediu "Use o conector asaas para receber os pagamentos de forma automática" → Integração do Asaas concluída com sucesso. **O que foi implementado:** 1. **Módulo de integração Asaas** (`src/lib/asaas.server.ts`): Funçõe _(criefy)_ — 2026-10-02
-- Turno: Usuário pediu "Continuar" → A integração do Asaas está completa e funcional. Todos os componentes foram implementados: módulo de API (`asaas.server.ts`), webhook de con _(criefy)_ — 2026-10-02
-- Turno: Usuário pediu "Configure-a" → O arquivo `.env` já existe e contém a variável `ASAAS_API_KEY=""` vazia, pronta para ser preenchida. Como esta é uma variável de ambiente qu _(criefy)_ — 2026-10-02
-- Turno: Usuário pediu "Verifique e faça um pushing para que todas as plataformas que tenha esse projeto seja atualizado com o que foi modificad" → Push realizado com sucesso para o repositório remoto. Todas as plataformas que possuem esse projeto foram atualizadas com as últimas modific _(criefy)_ — 2026-10-02
-- Turno: Usuário pediu "Foi feito o pushing?" → Sim, o push foi realizado com sucesso. O commit `bb2acfb` contendo as atualizações dos arquivos de histórico e timeline está sincronizado no _(criefy)_ — 2026-10-02
+- **2026-10-02 — Clonagem e acesso ao repositório:** houve inicialmente erro 404 ao tentar localizar o repositório `remix-of-caixa-tranquilo` e erro 403 relacionado às permissões do token de acesso. Posteriormente, o repositório foi clonado e integrado com sucesso ao projeto.
+- **2026-10-02 — Integração Asaas:** integração implementada nos arquivos e componentes do módulo Asaas, incluindo o módulo de API `src/lib/asaas.server.ts` e o webhook correspondente.
+- **2026-10-02 — Configuração Asaas:** o arquivo `.env` já existia com a variável `ASAAS_API_KEY` vazia, pronta para ser configurada com segurança.
+- **2026-10-02 — Sincronização com GitHub:** foi registrado um push anterior com atualizações dos arquivos de histórico e timeline. O commit informado naquele registro era `bb2acfb`.
 
 ## Imagens e Identidade Visual (DIRETRIZ OFICIAL CRIEFY)
 
-1. PRIORIDADE DE GERAÇÃO: Sempre que houver ferramenta de geração de imagem ativa (.zheus/imagem.cjs ou API nativa), priorize gerar ativos visuais exclusivos e fotorrealistas salvos em assets/.
-2. BANCOS DE IMAGENS PÚBLICOS E FALLBACK: Caso a geração local por IA não esteja disponível, retorne erro ou o usuário solicite fotos reais, é TOTALMENTE PERMITIDO E RECOMENDADO utilizar fotos em alta resolução do Unsplash (https://images.unsplash.com/photo-...) diretamente nas tags <img>, mantendo coerência absoluta com o nicho do projeto.
-3. LINKS FORNECIDOS PELO CRIADOR: Sempre que o usuário fornecer URLs de imagens ou logos, incorpore-os com prioridade máxima.
+1. **Prioridade de geração:** sempre que houver ferramenta de geração de imagem ativa (`.zheus/imagem.cjs` ou API nativa), priorize gerar ativos visuais exclusivos e fotorrealistas salvos em `assets/`.
+2. **Bancos de imagens públicos e fallback:** caso a geração local por IA não esteja disponível, retorne erro ou o usuário solicite fotos reais, é permitido e recomendado utilizar fotos em alta resolução do Unsplash diretamente nas tags `<img>`, mantendo coerência absoluta com o nicho do projeto.
+3. **Links fornecidos pelo criador:** sempre que o usuário fornecer URLs de imagens ou logos, incorpore-os com prioridade máxima.
 
-## Aplicações e Sites com Geração de Imagem por IA:
-Se o site/projeto que você está criando for um SaaS de Geração de Imagens ou tiver botão "Gerar Imagem":
-- O JavaScript do index.html DEVE fazer requisição para o endpoint nativo do servidor CrieFy:
-  `const res = await fetch("/api/ai/generate-image", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt: textoDoPrompt, aspectRatio: "1:1" }) });`
-  `const data = await res.json(); const urlRealDaImagem = data.imageUrl;`
-- É TERMINANTEMENTE PROIBIDO USAR POLLINATIONS.AI, FLUX EXTERNO OU MOCKS. Use sempre a API nativa do CrieFy Imagen 3.
+## Aplicações e Sites com Geração de Imagem por IA
 
-<!-- CRIEFY:MEMORIA:FIM -->
+Se o site/projeto que você está criando for um SaaS de geração de imagens ou tiver botão "Gerar Imagem":
+
+- O JavaScript do `index.html` deve fazer requisição para o endpoint nativo do servidor CrieFy:
+
+  ```javascript
+  const res = await fetch("/api/ai/generate-image", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ prompt: textoDoPrompt, aspectRatio: "1:1" })
+  });
+  const data = await res.json();
+  const urlRealDaImagem = data.imageUrl;
+  ```
+
+- É proibido usar Pollinations.ai, Flux externo ou mocks. Use sempre a API nativa do CrieFy Imagen 3.
+
+<!-- CRIEFY:MEMORIA:FIM -->S

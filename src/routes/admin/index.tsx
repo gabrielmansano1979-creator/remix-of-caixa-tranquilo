@@ -1,138 +1,282 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+
+import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
-import { Download, LoaderCircle, ShieldCheck, UserCheck, Wallet } from "lucide-react";
+import { useEffect, useState } from "react";
+import {
+  Download,
+  LoaderCircle,
+  ShieldCheck,
+  UserCheck,
+  Wallet,
+  Users,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { exportReport, type ReportFormat } from "@/lib/reporting";
 
 export const Route = createFileRoute("/admin/")({
-  beforeLoad: async () => {
-    // 1. Verifica se há utilizador autenticado
-    const { data: authData, error: authError } = await supabase.auth.getUser();
-    if (authError || !authData.user) {
-      throw redirect({ to: "/login" });
-    }
-
-    const userEmail = authData.user.email;
-    const userRole = authData.user.user_metadata?.role;
-    const isAdmin = userEmail === 'gabrielmansano1979@gmail.com' || userRole === 'admin';
-
-    // Se não for admin, redireciona imediatamente para o caixa
-    if (!isAdmin) {
-      throw redirect({ to: "/caixa" });
-    }
-  },
   head: () => ({
-    meta: [{ title: "Admin — Critical Cash" }, { name: "robots", content: "noindex" }],
+    meta: [
+      { title: "Admin — Critical Cash" },
+      { name: "robots", content: "noindex" },
+    ],
   }),
   component: AdminPage,
 });
 
 type PartnerRow = {
   user_id: string;
-  name: string;
-  tax_id: string;
-  crc_number: string;
-  email: string;
-  pix_type: string;
-  pix_key: string;
-  status: string;
+  name: string | null;
+  email: string | null;
+  status: string | null;
   coupon_code: string | null;
   commission_percent: number | null;
   referrals: number;
-  gross_commission_cents: number;
 };
 
 type CommissionRow = {
   id: string;
   partner_id: string;
-  partner_name: string;
-  client_name: string | null;
-  amount_cents: number;
+  partner_name: string | null;
+  amount: number;
   status: string;
   created_at: string;
-  paid_at: string | null;
-  pix_type: string;
-  pix_key: string;
 };
 
-type AdminOverview = { partners: PartnerRow[]; commissions: CommissionRow[] };
+type ClientRow = {
+  user_id: string;
+  partner_id: string;
+  partner_name: string | null;
+  client_name: string | null;
+  client_email: string | null;
+  subscription_status: string | null;
+  created_at: string;
+  paid_at: string | null;
+};
 
-const money = (cents: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100);
+type AdminOverview = {
+  partners: PartnerRow[];
+  commissions: CommissionRow[];
+  clients: ClientRow[];
+  total_commissions: number;
+  total_commission_amount: number;
+  total_clients: number;
+};
+
+type AuthStatus = "checking" | "authorized";
+
+const emptyOverview: AdminOverview = {
+  partners: [],
+  commissions: [],
+  clients: [],
+  total_commissions: 0,
+  total_commission_amount: 0,
+  total_clients: 0,
+};
+
+const money = (value: number) =>
+  new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(Number(value) || 0);
+
+const date = (value: string | null | undefined) => {
+  if (!value) return "—";
+
+  const parsed = new Date(value);
+
+  if (Number.isNaN(parsed.getTime())) return "—";
+
+  return parsed.toLocaleDateString("pt-BR");
+};
+
+const statusLabel = (status: string | null | undefined) => {
+  const labels: Record<string, string> = {
+    pending: "Pendente",
+    available: "Disponível",
+    paid: "Paga",
+    approved: "Aprovado",
+    rejected: "Recusado",
+    active: "Ativo",
+    trialing: "Em teste",
+    canceled: "Cancelado",
+    past_due: "Pagamento atrasado",
+    incomplete: "Incompleto",
+    unpaid: "Não pago",
+  };
+
+  if (!status) return "Não informado";
+
+  return labels[status] ?? status;
+};
 
 function AdminPage() {
   const queryClient = useQueryClient();
+
   const [busyKey, setBusyKey] = useState("");
+  const [authStatus, setAuthStatus] =
+    useState<AuthStatus>("checking");
+
+  useEffect(() => {
+    let active = true;
+
+    const verifyAdminAccess = async () => {
+      try {
+        const {
+          data: { session },
+          error,
+        } = await supabase.auth.getSession();
+
+        if (!active) return;
+
+        if (error || !session?.user) {
+          window.location.replace("/login");
+          return;
+        }
+
+        const userEmail = session.user.email
+          ?.toLowerCase()
+          .trim();
+
+        const userRole = session.user.user_metadata?.role;
+
+        const isAdmin =
+          userEmail === "gabrielmansano1979@gmail.com" ||
+          userRole === "admin";
+
+        if (!isAdmin) {
+          window.location.replace("/caixa");
+          return;
+        }
+
+        setAuthStatus("authorized");
+      } catch (error) {
+        if (!active) return;
+
+        console.error(
+          "[ADMIN] Erro ao verificar autenticação:",
+          error,
+        );
+
+        window.location.replace("/login");
+      }
+    };
+
+    void verifyAdminAccess();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const query = useQuery({
     queryKey: ["admin-partners"],
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc("admin_partner_overview");
+    enabled: authStatus === "authorized",
+    queryFn: async (): Promise<AdminOverview> => {
+      const { data, error } = await supabase.rpc(
+        "admin_partner_overview",
+      );
+
       if (error) {
-        // Retorna dados vazios caso a tabela/RPC ainda não tenha registos, evitando tela de erro 500
-        return { partners: [], commissions: [] } as AdminOverview;
+        console.error(
+          "[ADMIN] Erro ao carregar painel:",
+          error,
+        );
+
+        throw error;
       }
-      return data as unknown as AdminOverview;
+
+      if (!data || typeof data !== "object") {
+        throw new Error(
+          "A função admin_partner_overview não retornou dados válidos.",
+        );
+      }
+
+      const result = data as unknown as Partial<AdminOverview>;
+
+      return {
+        partners: Array.isArray(result.partners)
+          ? result.partners
+          : [],
+        commissions: Array.isArray(result.commissions)
+          ? result.commissions
+          : [],
+        clients: Array.isArray(result.clients)
+          ? result.clients
+          : [],
+        total_commissions: Number(
+          result.total_commissions ??
+            result.commissions?.length ??
+            0,
+        ),
+        total_commission_amount: Number(
+          result.total_commission_amount ?? 0,
+        ),
+        total_clients: Number(result.total_clients ?? 0),
+      };
     },
   });
 
-  const data = query.data;
-  const partners = data?.partners ?? [];
-  const commissions = data?.commissions ?? [];
-  const pendingCommissions = commissions.filter(
-    (item) => item.status === "pending" || item.status === "available",
-  );
-  const pendingCents = pendingCommissions.reduce((total, item) => total + item.amount_cents, 0);
-  const referralCount = partners.reduce((total, partner) => total + partner.referrals, 0);
+  const data = query.data ?? emptyOverview;
+  const partners = data.partners;
+  const commissions = data.commissions;
+  const clients = data.clients;
 
-  const updatePartner = async (partnerId: string, action: "approved" | "rejected" | number) => {
+  const pendingCommissions = commissions.filter(
+    (item) =>
+      item.status === "pending" ||
+      item.status === "available",
+  );
+
+  const pendingAmount = pendingCommissions.reduce(
+    (total, item) => total + Number(item.amount || 0),
+    0,
+  );
+
+  const updatePartner = async (
+    partnerId: string,
+    action: "approved" | "rejected",
+  ) => {
     const key = `${partnerId}:${action}`;
     setBusyKey(key);
-    try {
-      const result =
-        typeof action === "number"
-          ? await supabase.rpc("admin_update_partner_rate", {
-              _partner_id: partnerId,
-              _percent: action,
-            })
-          : await supabase.rpc("admin_set_partner_status", {
-              _partner_id: partnerId,
-              _status: action,
-            });
-      if (result.error) throw result.error;
-      await queryClient.invalidateQueries({ queryKey: ["admin-partners"] });
-      toast.success(
-        typeof action === "number"
-          ? "Alíquota atualizada."
-          : action === "approved"
-            ? "Contador aprovado."
-            : "Solicitação recusada.",
-      );
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Não foi possível atualizar o cadastro.",
-      );
-    } finally {
-      setBusyKey("");
-    }
-  };
 
-  const markPaid = async (commission: CommissionRow) => {
-    setBusyKey(commission.id);
     try {
-      const { error } = await supabase.rpc("admin_mark_commission_paid", {
-        _commission_id: commission.id,
-      });
+      const { error } = await supabase.rpc(
+        "admin_set_partner_status",
+        {
+          _partner_id: partnerId,
+          _status: action,
+        },
+      );
+
       if (error) throw error;
-      await queryClient.invalidateQueries({ queryKey: ["admin-partners"] });
-      toast.success("Comissão registrada como paga via PIX.");
+
+      await queryClient.invalidateQueries({
+        queryKey: ["admin-partners"],
+      });
+
+      toast.success(
+        action === "approved"
+          ? "Contador aprovado."
+          : "Solicitação recusada.",
+      );
     } catch (error) {
+      console.error(
+        "[ADMIN] Erro ao atualizar parceiro:",
+        error,
+      );
+
       toast.error(
-        error instanceof Error ? error.message : "Não foi possível atualizar o pagamento.",
+        error instanceof Error
+          ? error.message
+          : "Não foi possível atualizar o cadastro.",
       );
     } finally {
       setBusyKey("");
@@ -141,14 +285,12 @@ function AdminPage() {
 
   const exportAdmin = async (format: ReportFormat) => {
     const rows = commissions.map((commission) => ({
-      contador: commission.partner_name,
-      cliente: commission.client_name ?? "Cliente",
-      valor: money(commission.amount_cents),
-      status: commission.status,
-      criada_em: new Date(commission.created_at).toLocaleDateString("pt-BR"),
-      paga_em: commission.paid_at ? new Date(commission.paid_at).toLocaleDateString("pt-BR") : "—",
-      chave_pix: commission.pix_key,
+      contador: commission.partner_name ?? "Não identificado",
+      valor: money(Number(commission.amount)),
+      status: statusLabel(commission.status),
+      criada_em: date(commission.created_at),
     }));
+
     try {
       await exportReport({
         title: "Faturamento e comissões por contador",
@@ -156,40 +298,91 @@ function AdminPage() {
         format,
         columns: [
           { key: "contador", label: "Contador" },
-          { key: "cliente", label: "Cliente" },
           { key: "valor", label: "Comissão" },
           { key: "status", label: "Status" },
           { key: "criada_em", label: "Criada em" },
-          { key: "paga_em", label: "Paga em" },
-          { key: "chave_pix", label: "Chave PIX" },
         ],
         rows,
         summary: [
-          ["Comissões pendentes", money(pendingCents)],
+          ["Total de comissões", data.total_commissions],
+          [
+            "Valor total das comissões",
+            money(data.total_commission_amount),
+          ],
+          ["Comissões pendentes", money(pendingAmount)],
           ["Contadores cadastrados", partners.length],
-          ["Clientes indicados", referralCount],
+          ["Clientes indicados", data.total_clients],
         ],
       });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Não foi possível gerar o relatório.");
+      console.error("[ADMIN] Erro ao exportar relatório:", error);
+
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível gerar o relatório.",
+      );
     }
   };
 
-  if (query.isLoading)
-    return <div className="p-8 text-muted-foreground">Carregando painel administrativo...</div>;
+  if (authStatus !== "authorized") {
+    return (
+      <div className="p-8 text-muted-foreground">
+        Verificando acesso administrativo...
+      </div>
+    );
+  }
+
+  if (query.isLoading) {
+    return (
+      <div className="p-8 text-muted-foreground">
+        Carregando painel administrativo...
+      </div>
+    );
+  }
+
+  if (query.isError) {
+    return (
+      <div className="space-y-3 p-8">
+        <p className="text-red-400">
+          Não foi possível carregar os dados administrativos.
+        </p>
+
+        <p className="text-sm text-muted-foreground">
+          Verifique o console do navegador e a função
+          admin_partner_overview no Supabase.
+        </p>
+
+        <Button
+          variant="outline"
+          onClick={() => void query.refetch()}
+        >
+          Tentar novamente
+        </Button>
+      </div>
+    );
+  }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 py-8 px-4">
+    <div className="mx-auto max-w-7xl space-y-6 px-4 py-8">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-400">
             Gestão global
           </p>
-          <h1 className="mt-2 text-3xl font-bold text-white">Contadores e comissões</h1>
+
+          <h1 className="mt-2 text-3xl font-bold text-white">
+            Contadores e comissões
+          </h1>
         </div>
-        <div className="flex gap-2">
+
+        <div className="flex flex-wrap gap-2">
           {(["pdf", "excel", "csv"] as const).map((format) => (
-            <Button key={format} variant="outline" onClick={() => void exportAdmin(format)}>
+            <Button
+              key={format}
+              variant="outline"
+              onClick={() => void exportAdmin(format)}
+            >
               <Download className="mr-2 h-4 w-4" />
               {format.toUpperCase()}
             </Button>
@@ -197,116 +390,281 @@ function AdminPage() {
         </div>
       </header>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <Metric
           icon={<UserCheck className="h-4 w-4" />}
           label="Contadores cadastrados"
           value={String(partners.length)}
         />
+
         <Metric
           icon={<Wallet className="h-4 w-4" />}
-          label="Comissões pendentes"
-          value={money(pendingCents)}
+          label="Total de comissões"
+          value={String(data.total_commissions)}
         />
+
+        <Metric
+          icon={<Wallet className="h-4 w-4" />}
+          label="Valor total das comissões"
+          value={money(data.total_commission_amount)}
+        />
+
         <Metric
           icon={<ShieldCheck className="h-4 w-4" />}
+          label="Comissões pendentes"
+          value={money(pendingAmount)}
+        />
+
+        <Metric
+          icon={<Users className="h-4 w-4" />}
           label="Clientes indicados"
-          value={String(referralCount)}
+          value={String(data.total_clients)}
         />
       </div>
 
-      <Card className="bg-zinc-900/60 border-white/10 text-zinc-100">
+      <Card className="border-white/10 bg-zinc-900/60 text-zinc-100">
         <CardHeader>
           <CardTitle>Gestão de contadores parceiros</CardTitle>
+          <p className="text-sm text-zinc-400">
+            Aprove ou recuse as solicitações. Os percentuais de comissão
+            não podem ser alterados por este painel.
+          </p>
         </CardHeader>
+
         <CardContent>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1050px] text-left text-sm">
+            <table className="w-full min-w-[760px] text-left text-sm">
               <thead>
                 <tr className="border-b border-white/10 text-xs text-zinc-400">
                   {[
                     "Nome",
-                    "CRC",
                     "E-mail",
-                    "CPF/CNPJ",
-                    "Chave PIX",
                     "Status",
                     "Indicações",
-                    "Comissão",
                     "Ações",
                   ].map((title) => (
-                    <th key={title} className="px-3 py-3 font-medium">
+                    <th
+                      key={title}
+                      className="px-3 py-3 font-medium"
+                    >
                       {title}
                     </th>
                   ))}
                 </tr>
               </thead>
+
               <tbody>
                 {partners.length ? (
                   partners.map((partner) => (
-                    <tr key={partner.user_id} className="border-b border-white/5 last:border-0">
-                      <td className="px-3 py-3 font-medium">{partner.name}</td>
-                      <td className="px-3 py-3">{partner.crc_number}</td>
-                      <td className="px-3 py-3">{partner.email}</td>
-                      <td className="px-3 py-3">{partner.tax_id}</td>
-                      <td className="px-3 py-3">
-                        {partner.pix_type}: {partner.pix_key}
+                    <tr
+                      key={partner.user_id}
+                      className="border-b border-white/5 last:border-0"
+                    >
+                      <td className="px-3 py-3 font-medium">
+                        {partner.name || "Nome não informado"}
                       </td>
-                      <td className="px-3 py-3">{partner.status}</td>
-                      <td className="num px-3 py-3">{partner.referrals}</td>
+
                       <td className="px-3 py-3">
-                        <select
-                          aria-label={`Comissão de ${partner.name}`}
-                          className="h-9 rounded-lg border border-white/10 bg-zinc-950 px-2 text-zinc-100"
-                          disabled={
-                            !partner.coupon_code || busyKey.startsWith(`${partner.user_id}:`)
-                          }
-                          value={partner.commission_percent ?? 20}
-                          onChange={(event) =>
-                            updatePartner(partner.user_id, Number(event.target.value))
-                          }
-                        >
-                          {Array.from({ length: 11 }, (_, index) => index + 20).map((value) => (
-                            <option key={value} value={value}>
-                              {value}%
-                            </option>
-                          ))}
-                        </select>
+                        {partner.email ?? "—"}
                       </td>
+
                       <td className="px-3 py-3">
-                        <div className="flex gap-2">
+                        {statusLabel(partner.status)}
+                      </td>
+
+                      <td className="num px-3 py-3">
+                        {Number(partner.referrals) || 0}
+                      </td>
+
+                      <td className="px-3 py-3">
+                        <div className="flex flex-wrap gap-2">
                           {partner.status !== "approved" && (
                             <Button
                               size="sm"
                               disabled={!!busyKey}
-                              onClick={() => updatePartner(partner.user_id, "approved")}
+                              onClick={() =>
+                                void updatePartner(
+                                  partner.user_id,
+                                  "approved",
+                                )
+                              }
                             >
-                              {busyKey === `${partner.user_id}:approved` && (
+                              {busyKey ===
+                                `${partner.user_id}:approved` && (
                                 <LoaderCircle className="mr-1 h-3.5 w-3.5 animate-spin" />
                               )}
                               Aprovar
                             </Button>
                           )}
-                          {partner.status !== "rejected" && partner.status !== "approved" && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              disabled={!!busyKey}
-                              onClick={() => updatePartner(partner.user_id, "rejected")}
-                            >
-                              Recusar
-                            </Button>
-                          )}
+
+                          {partner.status !== "rejected" &&
+                            partner.status !== "approved" && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={!!busyKey}
+                                onClick={() =>
+                                  void updatePartner(
+                                    partner.user_id,
+                                    "rejected",
+                                  )
+                                }
+                              >
+                                {busyKey ===
+                                  `${partner.user_id}:rejected` && (
+                                  <LoaderCircle className="mr-1 h-3.5 w-3.5 animate-spin" />
+                                )}
+                                Recusar
+                              </Button>
+                            )}
                         </div>
                       </td>
                     </tr>
                   ))
                 ) : (
-                  <tr>
-                    <td colSpan={9} className="px-3 py-8 text-center text-zinc-400">
-                      Nenhum contador cadastrado.
-                    </td>
-                  </tr>
+                  <EmptyRow
+                    colSpan={5}
+                    message="Nenhuma solicitação de contador encontrada."
+                  />
+                )}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-white/10 bg-zinc-900/60 text-zinc-100">
+        <CardHeader>
+          <CardTitle>Clientes indicados por contador</CardTitle>
+          <p className="text-sm text-zinc-400">
+            Clientes vinculados a uma indicação registrada nas assinaturas.
+          </p>
+        </CardHeader>
+
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[850px] text-left text-sm">
+              <thead>
+                <tr className="border-b border-white/10 text-xs text-zinc-400">
+                  {[
+                    "Cliente",
+                    "E-mail do cliente",
+                    "Contador responsável",
+                    "Status da assinatura",
+                    "Cadastro",
+                    "Pagamento",
+                  ].map((title) => (
+                    <th
+                      key={title}
+                      className="px-3 py-3 font-medium"
+                    >
+                      {title}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+
+              <tbody>
+                {clients.length ? (
+                  clients.map((client, index) => (
+                    <tr
+                      key={`${client.user_id}:${client.partner_id}:${index}`}
+                      className="border-b border-white/5 last:border-0"
+                    >
+                      <td className="px-3 py-3 font-medium">
+                        {client.client_name || "Nome não informado"}
+                      </td>
+
+                      <td className="px-3 py-3">
+                        {client.client_email ?? "—"}
+                      </td>
+
+                      <td className="px-3 py-3">
+                        {client.partner_name ||
+                          "Contador não identificado"}
+                      </td>
+
+                      <td className="px-3 py-3">
+                        {statusLabel(client.subscription_status)}
+                      </td>
+
+                      <td className="px-3 py-3">
+                        {date(client.created_at)}
+                      </td>
+
+                      <td className="px-3 py-3">
+                        {date(client.paid_at)}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <EmptyRow
+                    colSpan={6}
+                    message="Nenhum cliente com indicação registrada foi encontrado."
+                  />
+                )}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-white/10 bg-zinc-900/60 text-zinc-100">
+        <CardHeader>
+          <CardTitle>Histórico de comissões</CardTitle>
+        </CardHeader>
+
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[650px] text-left text-sm">
+              <thead>
+                <tr className="border-b border-white/10 text-xs text-zinc-400">
+                  {[
+                    "Contador",
+                    "Valor",
+                    "Status",
+                    "Data de criação",
+                  ].map((title) => (
+                    <th
+                      key={title}
+                      className="px-3 py-3 font-medium"
+                    >
+                      {title}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+
+              <tbody>
+                {commissions.length ? (
+                  commissions.map((commission) => (
+                    <tr
+                      key={commission.id}
+                      className="border-b border-white/5 last:border-0"
+                    >
+                      <td className="px-3 py-3 font-medium">
+                        {commission.partner_name ||
+                          "Contador não identificado"}
+                      </td>
+
+                      <td className="num px-3 py-3">
+                        {money(Number(commission.amount))}
+                      </td>
+
+                      <td className="px-3 py-3">
+                        {statusLabel(commission.status)}
+                      </td>
+
+                      <td className="px-3 py-3">
+                        {date(commission.created_at)}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <EmptyRow
+                    colSpan={4}
+                    message="Nenhuma comissão registrada."
+                  />
                 )}
               </tbody>
             </table>
@@ -317,14 +675,46 @@ function AdminPage() {
   );
 }
 
-function Metric({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+function EmptyRow({
+  colSpan,
+  message,
+}: {
+  colSpan: number;
+  message: string;
+}) {
   return (
-    <Card className="bg-zinc-900/60 border-white/10 text-zinc-100">
+    <tr>
+      <td
+        colSpan={colSpan}
+        className="px-3 py-8 text-center text-zinc-400"
+      >
+        {message}
+      </td>
+    </tr>
+  );
+}
+
+function Metric({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <Card className="border-white/10 bg-zinc-900/60 text-zinc-100">
       <CardHeader className="flex-row items-center gap-2 space-y-0 pb-2 text-zinc-400">
         <span>{icon}</span>
-        <CardTitle className="text-sm font-medium">{label}</CardTitle>
+        <CardTitle className="text-sm font-medium">
+          {label}
+        </CardTitle>
       </CardHeader>
-      <CardContent className="num text-2xl font-semibold text-white">{value}</CardContent>
+
+      <CardContent className="num text-2xl font-semibold text-white">
+        {value}
+      </CardContent>
     </Card>
   );
 }
