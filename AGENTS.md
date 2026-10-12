@@ -30,9 +30,9 @@ continue consistente quando o motor de IA opera (Claude Code ↔ GPT Codex ↔ A
 ## O que já foi feito (Histórico de Turnos)
 
 - Turno: Usuário pediu "Clone esse repositório do github: https://github.com/gabrielmansano1979-creator/remix-of-caixa-tranquilo.git" → O repositório GitHub solicitado não foi encontrado (erro 404). Isso pode acontecer por dois motivos: 1. **Repositório privado**: O repositór _(criefy)_ — 2026-10-02
-- Turno: Usuário pediu "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" → O token de acesso fornecido não possui permissão de leitura para este repositório (erro 403). Para clonar repositórios privados do GitHub, é _(criefy)_ — 2026-10-02
-- Turno: Usuário pediu "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" → O repositório `remix-of-caixa-tranquilo` não foi encontrado (erro 404) mesmo com os três tokens PAT fornecidos. A API do GitHub confirma que _(criefy)_ — 2026-10-02
-- Turno: Usuário pediu "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" → Repositório clonado e integrado com sucesso ao projeto. **O que foi feito:** - Clonagem do repositório `remix-of-caixa-tranquilo` realizada  _(criefy)_ — 2026-10-02
+O token de acesso fornecido não possui permissão de leitura para este repositório (erro 403). Para clonar repositórios privados do GitHub, é _(criefy)_ — 2026-10-02
+O repositório `remix-of-caixa-tranquilo` não foi encontrado (erro 404) mesmo com os três tokens PAT fornecidos. A API do GitHub confirma que _(criefy)_ — 2026-10-02
+Repositório clonado e integrado com sucesso ao projeto. **O que foi feito:** - Clonagem do repositório `remix-of-caixa-tranquilo` realizada  _(criefy)_ — 2026-10-02
 - Turno: Usuário pediu "Use o conector asaas para receber os pagamentos de forma automática" → Integração do Asaas concluída com sucesso. **O que foi implementado:** 1. **Módulo de integração Asaas** (`src/lib/asaas.server.ts`): Funçõe _(criefy)_ — 2026-10-02
 - Turno: Usuário pediu "Continuar" → A integração do Asaas está completa e funcional. Todos os componentes foram implementados: módulo de API (`asaas.server.ts`), webhook de con _(criefy)_ — 2026-10-02
 - Turno: Usuário pediu "Configure-a" → O arquivo `.env` já existe e contém a variável `ASAAS_API_KEY=""` vazia, pronta para ser preenchida. Como esta é uma variável de ambiente qu _(criefy)_ — 2026-10-02
