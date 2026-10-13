@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { commissionRateForConfirmedClients } from "@/lib/affiliate-commission";
 
 type PaymentObject = {
   id?: string;
@@ -130,7 +131,7 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
                   .eq("affiliate_partner_id", partnerId)
                   .not("paid_at", "is", null);
                 if (countError) throw countError;
-                const commissionRate = (confirmedClients ?? 0) <= 5 ? 20 : (confirmedClients ?? 0) <= 15 ? 25 : 30;
+                const commissionRate = commissionRateForConfirmedClients(confirmedClients ?? 0);
 
                 if (partner?.status === "approved" && partner.pix_type && partner.pix_key) {
                   const { error: couponError } = await db
