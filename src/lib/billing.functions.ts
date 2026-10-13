@@ -68,26 +68,37 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
         .maybeSingle();
       if (existingCheckoutError) throw existingCheckoutError;
       if (existingCheckout) {
-        if (existingCheckout.plan !== data.plan || existingCheckout.billing_interval !== data.interval) {
-          return { error: "Você já tem um Pix pendente para outro plano. Pague esse Pix ou aguarde a confirmação antes de trocar de plano." };
-        }
         if (!existingCheckout.payment_id) {
           return { error: "Seu Pix está sendo preparado. Aguarde alguns segundos e tente novamente." };
         }
+
         const currentPayment = await asaas.getPayment(existingCheckout.payment_id);
         const paymentStatus = currentPayment.status.toUpperCase();
         if (["CONFIRMED", "RECEIVED", "PAID", "SETTLED"].includes(paymentStatus)) {
           return { error: "O Asaas já identificou o pagamento. A ativação está sendo processada; não gere outro Pix." };
         }
-        if (["DELETED", "REFUNDED", "CANCELED", "CANCELLED"].includes(paymentStatus)) {
-          const { error } = await supabaseAdmin.from("pending_billing_changes")
-            .update({ status: "failed", updated_at: new Date().toISOString() })
-            .eq("checkout_reference", existingCheckout.checkout_reference);
-          if (error) throw error;
-        } else {
+
+        const paymentAlreadyUnavailable = ["DELETED", "REFUNDED", "CANCELED", "CANCELLED"].includes(paymentStatus);
+        const sameCheckout = existingCheckout.plan === data.plan && existingCheckout.billing_interval === data.interval;
+        if (!paymentAlreadyUnavailable && sameCheckout) {
           const qr = await asaas.getPixQrCode(existingCheckout.payment_id);
           return { qrCode: qr.pixQrCode, copyPaste: qr.pixCopyAndPaste, paymentId: existingCheckout.payment_id };
         }
+
+        if (!paymentAlreadyUnavailable) {
+          // Switching plan first removes the previous unpaid PIX so a customer cannot
+          // accidentally pay two checkouts and create two active recurring subscriptions.
+          try {
+            await asaas.deletePayment(existingCheckout.payment_id);
+          } catch (error) {
+            if (!(error instanceof Error) || !error.message.startsWith("ASAAS_404")) throw error;
+          }
+        }
+
+        const { error } = await supabaseAdmin.from("pending_billing_changes")
+          .update({ status: "failed", updated_at: new Date().toISOString() })
+          .eq("checkout_reference", existingCheckout.checkout_reference);
+        if (error) throw error;
       }
 
       const { data: prev, error: prevError } = await supabaseAdmin.from("subscriptions")
