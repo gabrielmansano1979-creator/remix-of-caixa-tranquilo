@@ -17,12 +17,28 @@ ALTER TABLE public.profiles
   ALTER COLUMN balance_updated_at SET NOT NULL;
 
 -- Keep the date shown in the UI, but store the exact time a payment was confirmed going forward.
-ALTER TABLE public.entries
-  ALTER COLUMN paid_at TYPE timestamptz
-  USING CASE
-    WHEN paid_at IS NULL THEN NULL
-    ELSE ((paid_at::date::timestamp + interval '12 hours') AT TIME ZONE 'America/Sao_Paulo')
-  END;
+-- Convert only when the source column is still date. This makes the migration safe to rerun
+-- after a deployment has already stored precise payment timestamps.
+DO $migration$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'entries'
+      AND column_name = 'paid_at'
+      AND data_type = 'date'
+  ) THEN
+    EXECUTE $sql$
+      ALTER TABLE public.entries
+        ALTER COLUMN paid_at TYPE timestamptz
+        USING CASE
+          WHEN paid_at IS NULL THEN NULL
+          ELSE ((paid_at::date::timestamp + interval '12 hours') AT TIME ZONE 'America/Sao_Paulo')
+        END
+    $sql$;
+  END IF;
+END
+$migration$;
 
 CREATE OR REPLACE FUNCTION public.capture_balance_snapshot_time()
 RETURNS trigger
