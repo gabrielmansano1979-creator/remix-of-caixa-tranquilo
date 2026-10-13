@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import {
   Download,
+  LogOut,
   LoaderCircle,
   ShieldCheck,
   UserCheck,
@@ -387,6 +388,22 @@ function AdminPage() {
               {format.toUpperCase()}
             </Button>
           ))}
+          <Button
+            variant="outline"
+            onClick={async () => {
+              const { error } = await supabase.auth.signOut();
+              if (error) {
+                toast.error("Não foi possível sair da conta. Tente novamente.");
+                console.error("[ADMIN] Erro ao encerrar sessão:", error);
+                return;
+              }
+              queryClient.clear();
+              window.location.replace("/login");
+            }}
+          >
+            <LogOut className="mr-2 h-4 w-4" />
+            Sair
+          </Button>
         </div>
       </header>
 
