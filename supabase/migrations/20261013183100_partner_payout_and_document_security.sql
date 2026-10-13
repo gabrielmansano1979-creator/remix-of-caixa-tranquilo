@@ -115,10 +115,20 @@ $migration$;
 -- Remove the redundant standalone index only when it is not owned by a UNIQUE constraint.
 DO $drop_duplicate_payment_index$
 BEGIN
-  IF to_regclass('public.commissions_payment_id_unique') IS NOT NULL
+  IF EXISTS (
+       SELECT 1 FROM pg_class idx
+       JOIN pg_namespace ns ON ns.oid = idx.relnamespace
+       WHERE ns.nspname = 'public'
+         AND idx.relname = 'commissions_payment_id_unique'
+         AND idx.relkind = 'i'
+     )
      AND NOT EXISTS (
-       SELECT 1 FROM pg_constraint
-       WHERE conindid = 'public.commissions_payment_id_unique'::regclass
+       SELECT 1
+       FROM pg_constraint con
+       JOIN pg_class idx ON idx.oid = con.conindid
+       JOIN pg_namespace ns ON ns.oid = idx.relnamespace
+       WHERE ns.nspname = 'public'
+         AND idx.relname = 'commissions_payment_id_unique'
      ) THEN
     EXECUTE 'DROP INDEX public.commissions_payment_id_unique';
   END IF;
