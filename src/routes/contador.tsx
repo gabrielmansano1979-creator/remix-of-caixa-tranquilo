@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
+import { isValidCpfCnpj } from "@/lib/identity";
 import {
   exportReport,
   formatPixKeyType,
@@ -71,7 +72,7 @@ type PartnerDashboard = {
   }>;
 };
 
-const empty = { full_name: "", tax_id: "", crc_number: "", pix_type: "cpf", pix_key: "", phone: "", city: "", state: "", office_name: "" };
+const empty = { full_name: "", tax_id: "", crc_number: "", pix_type: "", pix_key: "", phone: "", city: "", state: "", office_name: "" };
 type ApplicationDocuments = { crc: File | null; identity: File | null; address: File | null };
 const emptyDocuments: ApplicationDocuments = { crc: null, identity: null, address: null };
 const MAX_DOCUMENT_SIZE = 10 * 1024 * 1024;
@@ -136,7 +137,7 @@ function AccountantPage() {
         full_name: state.full_name ?? "",
         tax_id: state.tax_id ?? "",
         crc_number: state.crc_number ?? "",
-        pix_type: state.pix_type ?? "cpf",
+        pix_type: state.pix_type ?? "",
         pix_key: state.pix_key ?? "",
       });
     }
@@ -218,6 +219,28 @@ function AccountantPage() {
     }
   };
 
+  const savePayout = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!form.pix_type || !form.pix_key.trim()) {
+      toast.error("Informe o tipo e a chave PIX para liberar o cupom.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const { error } = await supabase.rpc("update_partner_payout", {
+        _pix_type: form.pix_type,
+        _pix_key: form.pix_key.trim(),
+      });
+      if (error) throw error;
+      await queryClient.invalidateQueries({ queryKey: ["partner-area"] });
+      toast.success("Dados de recebimento salvos. Seu cupom foi atualizado.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível salvar os dados de recebimento.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const copy = async (value: string) => {
     try {
       await navigator.clipboard.writeText(value);
@@ -283,7 +306,7 @@ function AccountantPage() {
               </Card>
               <Card>
                 <CardHeader className="pb-2"><div className="mb-1 grid h-10 w-10 place-items-center rounded-xl bg-muted text-foreground"><ShieldCheck className="h-5 w-5" /></div><CardTitle className="text-base">Análise pelo administrador</CardTitle></CardHeader>
-                <CardContent><p className="text-sm leading-relaxed text-muted-foreground">O cadastro é analisado antes da liberação. Seus documentos ficam em área privada e são usados para avaliar a solicitação.</p></CardContent>
+                <CardContent><p className="text-sm leading-relaxed text-muted-foreground">O cadastro é analisado antes da liberação. Seus documentos ficam em área privada e só podem ser consultados por você e pelos administradores autorizados.</p></CardContent>
               </Card>
             </div>
             <Card>
@@ -303,19 +326,19 @@ function AccountantPage() {
             <CardHeader>
               <Button type="button" variant="ghost" className="mb-1 w-fit px-0" onClick={() => setShowApplicationForm(false)}><ArrowLeft className="mr-2 h-4 w-4" />Voltar às informações do programa</Button>
               <CardTitle>Quero ser um contador afiliado</CardTitle>
-              <p className="text-sm text-muted-foreground">Preencha os dados e anexe os três documentos obrigatórios. Aceitamos somente PDF, CSV ou Excel (.xls/.xlsx), até 10 MB por arquivo.</p>
+              <p className="text-sm text-muted-foreground">Área exclusiva para contadores. Informe seus dados civis e profissionais e anexe cópias legíveis do CRC, da identidade e do comprovante de endereço. Envie digitalizações/fotos convertidas em PDF ou arquivos PDF, CSV e Excel (.xls/.xlsx), até 10 MB por arquivo. O PIX é opcional nesta etapa e pode ser cadastrado após a aprovação.</p>
             </CardHeader>
             <CardContent>
               <form onSubmit={submit} className="grid gap-5 sm:grid-cols-2">
-                <div className="space-y-1.5"><Label htmlFor="partner-name">Nome completo</Label><Input id="partner-name" required minLength={2} maxLength={160} autoComplete="name" value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} /></div>
+                <div className="space-y-1.5"><Label htmlFor="partner-name">Nome civil completo, como consta no documento</Label><Input id="partner-name" required minLength={2} maxLength={160} autoComplete="name" value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} /></div>
                 <div className="space-y-1.5"><Label htmlFor="partner-doc">CPF ou CNPJ</Label><Input id="partner-doc" required autoComplete="off" value={form.tax_id} onChange={(e) => setForm({ ...form, tax_id: e.target.value })} /></div>
                 <div className="space-y-1.5"><Label htmlFor="partner-crc">Número de registro no CRC</Label><Input id="partner-crc" required placeholder="SP-123456/O" value={form.crc_number} onChange={(e) => setForm({ ...form, crc_number: e.target.value })} /><p className="text-xs text-muted-foreground">Formato: UF-123456/O.</p></div>
                 <div className="space-y-1.5"><Label htmlFor="partner-phone"><Phone className="mr-1 inline h-3.5 w-3.5" />Telefone com DDD</Label><Input id="partner-phone" required type="tel" autoComplete="tel" placeholder="(11) 99999-9999" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
                 <div className="space-y-1.5"><Label htmlFor="partner-city"><MapPin className="mr-1 inline h-3.5 w-3.5" />Cidade</Label><Input id="partner-city" required autoComplete="address-level2" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} /></div>
                 <div className="space-y-1.5"><Label htmlFor="partner-state">Estado (UF)</Label><Input id="partner-state" required minLength={2} maxLength={2} placeholder="SP" autoComplete="address-level1" value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value.toUpperCase() })} /></div>
                 <div className="space-y-1.5 sm:col-span-2"><Label htmlFor="partner-office"><Building2 className="mr-1 inline h-3.5 w-3.5" />Escritório contábil (opcional)</Label><Input id="partner-office" maxLength={180} value={form.office_name} onChange={(e) => setForm({ ...form, office_name: e.target.value })} /></div>
-                <div className="space-y-1.5"><Label htmlFor="partner-pix-type">Tipo de chave PIX</Label><select id="partner-pix-type" className="mt-1.5 h-11 w-full rounded-xl border bg-background px-3 text-sm" value={form.pix_type} onChange={(e) => setForm({ ...form, pix_type: e.target.value })}><option value="cpf">CPF</option><option value="cnpj">CNPJ</option><option value="email">E-mail</option><option value="phone">Telefone</option><option value="random">Aleatória</option></select></div>
-                <div className="space-y-1.5"><Label htmlFor="partner-pix-key">Chave PIX para recebimento</Label><Input id="partner-pix-key" required maxLength={180} value={form.pix_key} onChange={(e) => setForm({ ...form, pix_key: e.target.value })} /></div>
+                <div className="space-y-1.5"><Label htmlFor="partner-pix-type">Tipo de chave PIX (opcional)</Label><select id="partner-pix-type" className="mt-1.5 h-11 w-full rounded-xl border bg-background px-3 text-sm" value={form.pix_type} onChange={(e) => setForm({ ...form, pix_type: e.target.value })}><option value="">Cadastrar depois</option><option value="cpf">CPF</option><option value="cnpj">CNPJ</option><option value="email">E-mail</option><option value="phone">Telefone</option><option value="random">Aleatória</option></select></div>
+                <div className="space-y-1.5"><Label htmlFor="partner-pix-key">Chave PIX para recebimento (opcional)</Label><Input id="partner-pix-key" maxLength={180} value={form.pix_key} onChange={(e) => setForm({ ...form, pix_key: e.target.value })} /></div>
                 <div className="space-y-2 rounded-xl border p-4 sm:col-span-2"><Label htmlFor="partner-doc-crc">Comprovação de registro no CRC *</Label><p className="text-xs text-muted-foreground">Certidão de regularidade ou carteira profissional do Conselho Regional de Contabilidade.</p><Input id="partner-doc-crc" type="file" required accept=".pdf,.csv,.xls,.xlsx,application/pdf,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="h-auto min-h-11 py-2" onChange={(e) => setDocuments({ ...documents, crc: e.target.files?.[0] ?? null })} />{documents.crc && <p className="text-xs text-success"><FileText className="mr-1 inline h-3.5 w-3.5" />{documents.crc.name}</p>}</div>
                 <div className="space-y-2 rounded-xl border p-4 sm:col-span-2"><Label htmlFor="partner-doc-identity">Documento de identidade com foto *</Label><p className="text-xs text-muted-foreground">RG ou CNH, frente e verso no mesmo arquivo quando aplicável.</p><Input id="partner-doc-identity" type="file" required accept=".pdf,.csv,.xls,.xlsx,application/pdf,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="h-auto min-h-11 py-2" onChange={(e) => setDocuments({ ...documents, identity: e.target.files?.[0] ?? null })} />{documents.identity && <p className="text-xs text-success"><FileText className="mr-1 inline h-3.5 w-3.5" />{documents.identity.name}</p>}</div>
                 <div className="space-y-2 rounded-xl border p-4 sm:col-span-2"><Label htmlFor="partner-doc-address">Comprovante de endereço *</Label><p className="text-xs text-muted-foreground">Documento recente que mostre o nome e o endereço informado.</p><Input id="partner-doc-address" type="file" required accept=".pdf,.csv,.xls,.xlsx,application/pdf,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="h-auto min-h-11 py-2" onChange={(e) => setDocuments({ ...documents, address: e.target.files?.[0] ?? null })} />{documents.address && <p className="text-xs text-success"><FileText className="mr-1 inline h-3.5 w-3.5" />{documents.address.name}</p>}</div>
