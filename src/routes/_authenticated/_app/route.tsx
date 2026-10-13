@@ -1,6 +1,7 @@
 import { createFileRoute, Link, Outlet, redirect, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bell, CreditCard, ListChecks, LogOut, Settings, Wallet, AlertTriangle } from "lucide-react";
+import { Bell, CreditCard, ListChecks, LogOut, Settings, Wallet, AlertTriangle, Moon, Sun, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Logo } from "@/components/brand";
 import { accessQuery, profileQuery } from "@/lib/app-data";
@@ -24,6 +25,7 @@ const NAV = [
   { to: "/caixa", label: "Caixa", icon: Wallet },
   { to: "/contas", label: "Contas", icon: ListChecks },
   { to: "/lembretes", label: "Lembretes", icon: Bell },
+  { to: "/contador", label: "Contador Afiliado", icon: Users },
 ] as const;
 
 function AppShell() {
@@ -33,6 +35,21 @@ function AppShell() {
   const { data: access } = useQuery(accessQuery);
   const { data: profile } = useQuery(profileQuery);
   const initials = (user.email ?? "?").slice(0, 2).toUpperCase();
+  const [isDark, setIsDark] = useState(true);
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem("critical-cash-theme");
+    const dark = saved !== "light";
+    document.documentElement.classList.toggle("dark", dark);
+    setIsDark(dark);
+  }, []);
+
+  const toggleTheme = () => {
+    const nextIsDark = !isDark;
+    document.documentElement.classList.toggle("dark", nextIsDark);
+    window.localStorage.setItem("critical-cash-theme", nextIsDark ? "dark" : "light");
+    setIsDark(nextIsDark);
+  };
 
   const signOut = async () => {
     await qc.cancelQueries();
@@ -122,7 +139,7 @@ function AppShell() {
         </main>
       </div>
 
-      <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-3 border-t border-border/80 bg-background/90 pb-[env(safe-area-inset-bottom)] shadow-[0_-10px_32px_-24px_var(--foreground)] backdrop-blur-xl md:hidden" aria-label="Principal">
+      <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-border/80 bg-background/90 pb-[env(safe-area-inset-bottom)] shadow-[0_-10px_32px_-24px_var(--foreground)] backdrop-blur-xl md:hidden" aria-label="Principal">
         {NAV.map((n) => (
           <Link key={n.to} to={n.to} className="flex h-16 flex-col items-center justify-center gap-1 text-xs font-semibold text-muted-foreground transition-colors" activeProps={{ className: "!text-primary" }}>
             <n.icon className="h-5 w-5" />{n.label}
