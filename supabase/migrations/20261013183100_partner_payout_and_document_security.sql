@@ -332,6 +332,7 @@ SET search_path TO public, pg_temp
 AS $function$
 DECLARE
   uid uuid := auth.uid();
+  partner_record_id uuid;
   partner_status text;
   payout_type text := NULLIF(lower(trim(_pix_type)), '');
   payout_key text := NULLIF(trim(_pix_key), '');
@@ -349,26 +350,26 @@ BEGIN
   UPDATE public.partner_requests
   SET pix_type = payout_type, pix_key = payout_key, updated_at = now()
   WHERE user_id = uid
-  RETURNING status INTO partner_status;
+  RETURNING id, status INTO partner_record_id, partner_status;
   IF NOT FOUND THEN RAISE EXCEPTION 'partner request not found'; END IF;
 
   IF partner_status = 'approved' AND payout_type IS NOT NULL AND payout_key IS NOT NULL
      AND public.is_valid_pix_key(payout_type, payout_key) THEN
     SELECT count(DISTINCT s.user_id)::integer INTO confirmed_referrals
     FROM public.subscriptions s
-    WHERE s.affiliate_partner_id = uid AND s.paid_at IS NOT NULL;
+    WHERE s.affiliate_partner_id = partner_record_id AND s.paid_at IS NOT NULL;
     payout_rate := CASE WHEN confirmed_referrals <= 5 THEN 20 WHEN confirmed_referrals <= 15 THEN 25 ELSE 30 END;
 
     UPDATE public.coupons
     SET is_active = true, commission_percent = payout_rate, updated_at = now()
-    WHERE partner_id = uid;
+    WHERE partner_id = partner_record_id;
 
     IF NOT FOUND THEN
       INSERT INTO public.coupons(partner_id, code, discount_percent, commission_percent, is_active, updated_at)
-      VALUES (uid, 'CC-' || upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 10)), 10, payout_rate, true, now());
+      VALUES (partner_record_id, 'CC-' || upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 10)), 10, payout_rate, true, now());
     END IF;
   ELSE
-    UPDATE public.coupons SET is_active = false, updated_at = now() WHERE partner_id = uid;
+    UPDATE public.coupons SET is_active = false, updated_at = now() WHERE partner_id = partner_record_id;
   END IF;
 END
 $function$;
@@ -380,6 +381,7 @@ SECURITY DEFINER
 SET search_path TO public, pg_temp
 AS $function$
 DECLARE
+  partner_record_id uuid;
   partner_pix_type text;
   partner_pix_key text;
   confirmed_referrals integer := 0;
@@ -390,28 +392,29 @@ BEGIN
   END IF;
   IF _status NOT IN ('approved', 'rejected') THEN RAISE EXCEPTION 'invalid status'; END IF;
 
+  -- The RPC argument is the authenticated owner's user_id from the admin screen.
   UPDATE public.partner_requests
   SET status = _status, updated_at = now()
   WHERE user_id = _partner_id
-  RETURNING pix_type, pix_key INTO partner_pix_type, partner_pix_key;
+  RETURNING id, pix_type, pix_key INTO partner_record_id, partner_pix_type, partner_pix_key;
   IF NOT FOUND THEN RAISE EXCEPTION 'partner not found'; END IF;
 
   IF _status = 'approved' AND public.is_valid_pix_key(partner_pix_type, partner_pix_key) THEN
     SELECT count(DISTINCT s.user_id)::integer INTO confirmed_referrals
     FROM public.subscriptions s
-    WHERE s.affiliate_partner_id = _partner_id AND s.paid_at IS NOT NULL;
+    WHERE s.affiliate_partner_id = partner_record_id AND s.paid_at IS NOT NULL;
     payout_rate := CASE WHEN confirmed_referrals <= 5 THEN 20 WHEN confirmed_referrals <= 15 THEN 25 ELSE 30 END;
 
     UPDATE public.coupons
     SET is_active = true, commission_percent = payout_rate, updated_at = now()
-    WHERE partner_id = _partner_id;
+    WHERE partner_id = partner_record_id;
 
     IF NOT FOUND THEN
       INSERT INTO public.coupons(partner_id, code, discount_percent, commission_percent, is_active, updated_at)
-      VALUES (_partner_id, 'CC-' || upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 10)), 10, payout_rate, true, now());
+      VALUES (partner_record_id, 'CC-' || upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 10)), 10, payout_rate, true, now());
     END IF;
   ELSE
-    UPDATE public.coupons SET is_active = false, updated_at = now() WHERE partner_id = _partner_id;
+    UPDATE public.coupons SET is_active = false, updated_at = now() WHERE partner_id = partner_record_id;
   END IF;
 END
 $function$;
@@ -455,7 +458,7 @@ BEGIN
       AND public.is_valid_pix_key(pr.pix_type, pr.pix_key)
     INTO payout_is_ready
     FROM public.partner_requests pr
-    WHERE pr.user_id = affected_partner;
+    WHERE pr.id = affected_partner;
 
     UPDATE public.coupons c
     SET commission_percent = payout_rate,
@@ -497,6 +500,7 @@ SET search_path TO public, pg_temp
 AS $function$
 DECLARE
   uid uuid := auth.uid();
+  partner_record_id uuid;
   result jsonb;
 BEGIN
   IF uid IS NULL OR NOT EXISTS (
@@ -506,6 +510,12 @@ BEGIN
     RAISE EXCEPTION 'approved partner access required';
   END IF;
 
+  SELECT id INTO partner_record_id
+  FROM public.partner_requests
+  WHERE user_id = uid AND status = 'approved';
+
+  IF partner_record_id IS NULL THEN RAISE EXCEPTION 'approved partner record not found'; END IF;
+
   SELECT jsonb_build_object(
     'coupon', (
       SELECT jsonb_build_object(
@@ -514,20 +524,20 @@ BEGIN
         'commission_percent', c.commission_percent
       )
       FROM public.coupons c
-      WHERE c.partner_id = uid AND c.is_active
+      WHERE c.partner_id = partner_record_id AND c.is_active
       LIMIT 1
     ),
     'totals', jsonb_build_object(
-      'commission_cents', COALESCE((SELECT sum(c.amount_cents) FROM public.commissions c WHERE c.partner_id = uid), 0),
-      'pending_cents', COALESCE((SELECT sum(c.amount_cents) FROM public.commissions c WHERE c.partner_id = uid AND c.status IN ('pending','available')), 0),
-      'paid_cents', COALESCE((SELECT sum(c.amount_cents) FROM public.commissions c WHERE c.partner_id = uid AND c.status = 'paid'), 0),
+      'commission_cents', COALESCE((SELECT sum(c.amount_cents) FROM public.commissions c WHERE c.partner_id = partner_record_id), 0),
+      'pending_cents', COALESCE((SELECT sum(c.amount_cents) FROM public.commissions c WHERE c.partner_id = partner_record_id AND c.status IN ('pending','available')), 0),
+      'paid_cents', COALESCE((SELECT sum(c.amount_cents) FROM public.commissions c WHERE c.partner_id = partner_record_id AND c.status = 'paid'), 0),
       'referred_clients', (
         SELECT count(DISTINCT s.user_id) FROM public.subscriptions s
-        WHERE s.affiliate_partner_id = uid AND s.paid_at IS NOT NULL
+        WHERE s.affiliate_partner_id = partner_record_id AND s.paid_at IS NOT NULL
       ),
       'active_clients', (
         SELECT count(*) FROM public.subscriptions s
-        WHERE s.affiliate_partner_id = uid AND s.status = 'active' AND s.paid_at IS NOT NULL
+        WHERE s.affiliate_partner_id = partner_record_id AND s.status = 'active' AND s.paid_at IS NOT NULL
       )
     ),
     'referrals', COALESCE((
@@ -541,7 +551,7 @@ BEGIN
       ) ORDER BY s.paid_at DESC)
       FROM public.subscriptions s
       JOIN public.profiles p ON p.user_id = s.user_id
-      WHERE s.affiliate_partner_id = uid
+      WHERE s.affiliate_partner_id = partner_record_id
         AND s.paid_at IS NOT NULL
     ), '[]'::jsonb),
     'commissions', COALESCE((
@@ -551,7 +561,7 @@ BEGIN
         'receipt_url', c.receipt_url
       ) ORDER BY c.created_at DESC)
       FROM public.commissions c
-      WHERE c.partner_id = uid
+      WHERE c.partner_id = partner_record_id
     ), '[]'::jsonb),
     'clients', COALESCE((
       SELECT jsonb_agg(jsonb_build_object(
@@ -571,7 +581,7 @@ BEGIN
         ), '[]'::jsonb)
       ) ORDER BY p.business_name)
       FROM public.accountant_access aa
-      JOIN public.subscriptions s ON s.user_id = aa.client_user_id AND s.affiliate_partner_id = uid
+      JOIN public.subscriptions s ON s.user_id = aa.client_user_id AND s.affiliate_partner_id = partner_record_id
       JOIN public.profiles p ON p.user_id = aa.client_user_id
       LEFT JOIN LATERAL (
         SELECT count(*) AS entry_count,
@@ -615,12 +625,12 @@ BEGIN
         'commission_percent', cp.commission_percent,
         'referrals', (
           SELECT count(DISTINCT s.user_id) FROM public.subscriptions s
-          WHERE s.affiliate_partner_id = pr.user_id AND s.paid_at IS NOT NULL
+          WHERE s.affiliate_partner_id = pr.id AND s.paid_at IS NOT NULL
         )
       ) ORDER BY pr.created_at DESC)
       FROM public.partner_requests pr
       LEFT JOIN auth.users au ON au.id = pr.user_id
-      LEFT JOIN public.coupons cp ON cp.partner_id = pr.user_id
+      LEFT JOIN public.coupons cp ON cp.partner_id = pr.id
     ), '[]'::jsonb),
     'commissions', COALESCE((
       SELECT jsonb_agg(jsonb_build_object(
@@ -634,7 +644,7 @@ BEGIN
         'paid_at', c.paid_at
       ) ORDER BY c.created_at DESC)
       FROM public.commissions c
-      LEFT JOIN public.partner_requests pr ON pr.user_id = c.partner_id
+      LEFT JOIN public.partner_requests pr ON pr.id = c.partner_id
     ), '[]'::jsonb),
     'clients', COALESCE((
       SELECT jsonb_agg(jsonb_build_object(
@@ -648,7 +658,7 @@ BEGIN
         'paid_at', s.paid_at
       ) ORDER BY s.paid_at DESC)
       FROM public.subscriptions s
-      JOIN public.partner_requests pr ON pr.user_id = s.affiliate_partner_id
+      JOIN public.partner_requests pr ON pr.id = s.affiliate_partner_id
       JOIN public.profiles p ON p.user_id = s.user_id
       LEFT JOIN auth.users au ON au.id = s.user_id
       WHERE s.affiliate_partner_id IS NOT NULL
