@@ -647,6 +647,26 @@ REVOKE ALL ON FUNCTION public.admin_partner_overview() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.partner_dashboard() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.admin_partner_overview() TO authenticated;
 
+-- Evaluate applicant status under the function owner's privileges so a separate RLS
+-- policy on partner_requests cannot accidentally hide a pending application from these checks.
+CREATE OR REPLACE FUNCTION public.can_manage_partner_application_documents()
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path TO public, pg_temp
+AS $function$
+  SELECT auth.uid() IS NOT NULL
+    AND NOT EXISTS (
+      SELECT 1
+      FROM public.partner_requests pr
+      WHERE pr.user_id = auth.uid()
+        AND pr.status <> 'rejected'
+    );
+$function$;
+REVOKE ALL ON FUNCTION public.can_manage_partner_application_documents() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.can_manage_partner_application_documents() TO authenticated, service_role;
+
 -- Only the owner of the document set and genuine administrators may read it.
 DROP POLICY IF EXISTS "Partner applicants can read their own documents" ON public.partner_application_documents;
 CREATE POLICY "Partner applicants can read their own documents"
@@ -666,13 +686,10 @@ WITH CHECK (
   AND crc_document_path LIKE (SELECT auth.uid())::text || '/crc-%'
   AND identity_document_path LIKE (SELECT auth.uid())::text || '/identidade-%'
   AND address_document_path LIKE (SELECT auth.uid())::text || '/endereco-%'
-  AND lower(crc_document_path) ~ '\.(pdf|csv|xls|xlsx)$'
-  AND lower(identity_document_path) ~ '\.(pdf|csv|xls|xlsx)$'
-  AND lower(address_document_path) ~ '\.(pdf|csv|xls|xlsx)$'
-  AND NOT EXISTS (
-    SELECT 1 FROM public.partner_requests pr
-    WHERE pr.user_id = (SELECT auth.uid()) AND pr.status <> 'rejected'
-  )
+  AND lower(crc_document_path) ~ '\\.(pdf|csv|xls|xlsx)$'
+  AND lower(identity_document_path) ~ '\\.(pdf|csv|xls|xlsx)$'
+  AND lower(address_document_path) ~ '\\.(pdf|csv|xls|xlsx)$'
+  AND public.can_manage_partner_application_documents()
 );
 
 DROP POLICY IF EXISTS "Partner applicants can update their own documents" ON public.partner_application_documents;
@@ -680,24 +697,27 @@ CREATE POLICY "Partner applicants can update their own documents"
 ON public.partner_application_documents FOR UPDATE TO authenticated
 USING (
   (SELECT auth.uid()) = user_id
-  AND EXISTS (
-    SELECT 1 FROM public.partner_requests pr
-    WHERE pr.user_id = (SELECT auth.uid()) AND pr.status = 'rejected'
-  )
+  AND public.can_manage_partner_application_documents()
 )
 WITH CHECK (
   (SELECT auth.uid()) = user_id
   AND crc_document_path LIKE (SELECT auth.uid())::text || '/crc-%'
   AND identity_document_path LIKE (SELECT auth.uid())::text || '/identidade-%'
   AND address_document_path LIKE (SELECT auth.uid())::text || '/endereco-%'
-  AND lower(crc_document_path) ~ '\.(pdf|csv|xls|xlsx)$'
-  AND lower(identity_document_path) ~ '\.(pdf|csv|xls|xlsx)$'
-  AND lower(address_document_path) ~ '\.(pdf|csv|xls|xlsx)$'
-  AND EXISTS (
-    SELECT 1 FROM public.partner_requests pr
-    WHERE pr.user_id = (SELECT auth.uid()) AND pr.status = 'rejected'
-  )
+  AND lower(crc_document_path) ~ '\\.(pdf|csv|xls|xlsx)$'
+  AND lower(identity_document_path) ~ '\\.(pdf|csv|xls|xlsx)$'
+  AND lower(address_document_path) ~ '\\.(pdf|csv|xls|xlsx)$'
+  AND public.can_manage_partner_application_documents()
 );
+
+DROP POLICY IF EXISTS "Partner applicants can delete their own documents" ON public.partner_application_documents;
+CREATE POLICY "Partner applicants can delete their own documents"
+ON public.partner_application_documents FOR DELETE TO authenticated
+USING (
+  (SELECT auth.uid()) = user_id
+  AND public.can_manage_partner_application_documents()
+);
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.partner_application_documents TO authenticated;
 
 UPDATE storage.buckets
 SET public = false,
@@ -722,10 +742,7 @@ WITH CHECK (
     OR (lower(name) LIKE '%.xls' AND COALESCE(metadata->>'mimetype', '') = 'application/vnd.ms-excel')
     OR (lower(name) LIKE '%.xlsx' AND COALESCE(metadata->>'mimetype', '') = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
   )
-  AND NOT EXISTS (
-    SELECT 1 FROM public.partner_requests pr
-    WHERE pr.user_id = (SELECT auth.uid()) AND pr.status <> 'rejected'
-  )
+  AND public.can_manage_partner_application_documents()
 );
 
 DROP POLICY IF EXISTS "Applicants and administrators read partner documents" ON storage.objects;
@@ -737,6 +754,15 @@ USING (
     (storage.foldername(name))[1] = (SELECT auth.uid())::text
     OR public.has_role((SELECT auth.uid()), 'admin'::public.app_role)
   )
+);
+
+DROP POLICY IF EXISTS "Applicants delete their own partner documents" ON storage.objects;
+CREATE POLICY "Applicants delete their own partner documents"
+ON storage.objects FOR DELETE TO authenticated
+USING (
+  bucket_id = 'partner-application-documents'
+  AND (storage.foldername(name))[1] = (SELECT auth.uid())::text
+  AND public.can_manage_partner_application_documents()
 );
 
 -- Prevent anonymous access to sensitive RPCs; authorization inside SECURITY DEFINER functions is mandatory.
