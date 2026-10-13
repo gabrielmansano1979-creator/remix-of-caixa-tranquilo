@@ -170,8 +170,8 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
 
           const { data: partner, error: partnerError } = await supabaseAdmin
             .from("partner_requests")
-            .select("user_id, email, tax_id, status")
-            .eq("user_id", coupon.partner_id)
+            .select("id, user_id, email, tax_id, status")
+            .eq("id", coupon.partner_id)
             .maybeSingle();
           if (partnerError) throw partnerError;
           if (!partner || partner.status !== "approved") return { error: "O cupom de indicação não está disponível." };
@@ -184,7 +184,7 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
             return { error: "Você não pode utilizar seu próprio cupom de indicação para assinar um plano." };
           }
           affiliate = {
-            partnerId: partner.user_id,
+            partnerId: coupon.partner_id,
             code: coupon.code,
             commissionPercent: coupon.commission_percent,
             discountPercent: coupon.discount_percent,
