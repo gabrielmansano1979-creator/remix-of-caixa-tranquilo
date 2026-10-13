@@ -1,39 +1,42 @@
-# Diagnóstico e plano seguro: tornar `dygwbadhvwzajordpmst` o backend principal
+# Diagnóstico do login — Critical Cash (sem alterações)
 
-## Diagnóstico (o que existe hoje)
+## Causa comprovada
 
-- **Backend que atende o app hoje:** o Lovable Cloud gerenciado (ref `zotsdccggybuufxwgomw`). É lá que estão hoje as contas, os lançamentos, as assinaturas, os parceiros e as comissões. Um único backend atende o preview e o site publicado.
-- **`vite.config.ts`:** os valores reserva apontam para o host `c--cd7fdc5c-...-prod.lovable.cloud`, para a chave publicável do backend atual e para o project ID `zotsdccggybuufxwgomw`. É a única referência fixa no código aos dois identificadores.
-- **`src/integrations/supabase/client.ts`:** é gerado pela plataforma. Ele lê primeiro `VITE_SUPABASE_*` e depois `window.__CRIEFY_ENV__`. Ele não contém nenhum host fixo.
-- **`.env`:** tem as variáveis `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` e `VITE_SUPABASE_*`, mas todas vazias neste ambiente. Esse arquivo é gerenciado pela plataforma.
-- **`supabase/config.toml`:** já declara `project_id = "dygwbadhvwzajordpmst"`. O código atual tem essa divergência: o arquivo indica um projeto, mas a conexão real usa outro.
-- **Login com Google:** passa pelo broker gerenciado (`@lovable.dev/cloud-auth-js`), que só funciona com o backend Lovable Cloud. Num projeto Supabase próprio, o broker não funciona. Seria preciso configurar um OAuth do Google próprio e trocar a chamada.
-- **Funções do servidor, webhooks Asaas/Stripe, envio de lembretes e cron:** usam `SUPABASE_URL` e a chave de serviço injetadas no servidor (`client.server.ts`, `cron-auth.ts`). Trocar o fallback do front não muda o servidor: elas continuariam gravando no backend atual.
-- **Drizzle:** usa `LOVABLE_DB_MIGRATION_URL`, uma credencial gerenciada que aponta para o backend atual. Há 11 migrations Supabase e 4 Drizzle, e as duas trilhas precisam ser aplicadas.
+1. **O site publicado usa o backend antigo.** O código publicado de critical-cash.lovable.app (`/assets/utils-*.js`) contém apenas o host `c--cd7fdc5c-…-prod.lovable.cloud`, que é o Lovable Cloud `zotsdccggybuufxwgomw`. O host `dygwbadhvwzajordpmst.supabase.co` não aparece em nenhum ponto do código publicado. Por isso, os 2 usuários que estão no Supabase de destino não conseguem entrar: o login consulta outro banco de usuários.
+2. **`vite.config.ts` (linhas 11-20):** quando as variáveis do build estão vazias, os valores reserva apontam para o host antigo, para a chave publicável antiga e para o ID `zotsdccggybuufxwgomw`. Neste ambiente, `.env` tem todas as variáveis `SUPABASE_*` e `VITE_SUPABASE_*` vazias, então esses valores reserva sempre vencem.
+3. **`supabase/config.toml` (linha 1)** já declara `dygwbadhvwzajordpmst`. O resultado é uma configuração dividida: o arquivo aponta para um projeto, mas a conexão real usa outro.
+4. **O login com Google usa a chamada direta do Supabase** (`supabase.auth.signInWithOAuth`) em `src/routes/login.tsx:128` e em `src/components/auth-shell.tsx:41`. O helper gerenciado (`src/integrations/lovable/index.ts`) não é usado. Num backend Lovable Cloud, a chamada direta não usa o Google gerenciado. No Supabase próprio, ela só funciona se o provedor Google estiver configurado lá, com o redirect `https://critical-cash.lovable.app/login` autorizado.
 
-## Resposta direta: trocar os fallbacks basta?
+## Hipóteses (não comprovadas)
 
-**Não. Fazer só isso é arriscado.**
-1. O front passaria a usar o novo projeto, mas as funções do servidor, os webhooks e o cron continuariam no backend atual. Os dados ficariam divididos entre os dois.
-2. As contas não migram com a troca de URL. Os usuários, as senhas e as sessões estão em `auth.users` do backend atual, e todo mundo seria deslogado ou "não encontrado".
-3. Se o esquema do novo projeto não for idêntico ao atual, o app quebra. Isso inclui tabelas, enums, funções como `cash_projection`, `get_access` e `top_risks`, triggers, RLS e grants.
-4. O login com Google para de funcionar.
-5. Os fallbacks só valem quando as variáveis do build estão vazias. A plataforma pode reinjetar os valores do Lovable Cloud e sobrescrever a troca.
-6. A plataforma não oferece uma forma suportada de desconectar o Lovable Cloud de um projeto e apontá-lo para outro Supabase. É preciso confirmar isso antes de executar.
+- **Servidor:** `src/integrations/supabase/client.server.ts` (linhas 33-34) e `auth-middleware.ts` (linhas 37-38) leem `SUPABASE_URL` e as chaves do ambiente de execução publicado. Provavelmente esse ambiente é injetado com o backend antigo. Se o navegador passar a usar o destino e o servidor continuar no antigo, as funções protegidas vão rejeitar os tokens: o token emitido por um backend é inválido no outro.
+- **Variáveis reinjetadas:** a plataforma pode voltar a preencher `VITE_SUPABASE_*` com o Lovable Cloud a cada publicação. Isso anularia uma troca feita só nos valores reserva.
+- **Esquema do destino:** não sei se o destino tem todas as tabelas, funções (`get_access`, `my_access`, `cash_projection`, `top_risks`, `ensure_user_setup`), triggers, RLS e grants. O login funcionaria mesmo assim, mas o painel pode quebrar logo depois.
+- **Login com e-mail no destino:** não confirmei se o login por e-mail está ativo, se a confirmação de e-mail está ligada nem se o Site URL e os redirects estão corretos.
 
-## Plano seguro (só executar após aprovação)
+## Outros riscos no código de login
 
-1. **Inventário (somente leitura):** contar as linhas por tabela e os usuários do backend atual, para comparar depois.
-2. **Verificar o projeto de destino:** confirmar acesso ao `dygwbadhvwzajordpmst`, o estado atual dele (vazio ou com dados) e a chave publicável correta. A chave de serviço fica só no cofre de segredos.
-3. **Replicar o esquema:** aplicar todas as migrations, das duas trilhas, no destino. Depois comparar tabelas, funções, policies, grants e triggers.
-4. **Migrar os dados com preservação de IDs:** exportar `auth.users` com os hashes de senha e `auth.identities`, e importar no destino mantendo os mesmos UUIDs. Depois copiar as tabelas `public` respeitando a ordem das chaves estrangeiras (profiles → partner_requests → coupons, entries etc.).
-5. **Validar:** contagens idênticas, login de teste com senha e checagem de RLS com um usuário real.
-6. **Reconfigurar os serviços:** Google OAuth próprio (redirect para o novo domínio de autenticação), URLs de redirect e e-mail, segredos do servidor (URL, chave de serviço, Asaas, Stripe, cron) e URLs dos webhooks no Asaas e no Stripe. Recriar o agendamento diário de lembretes.
-7. **Código:** trocar os fallbacks em `vite.config.ts`, trocar o login Google para a chamada direta e alinhar a configuração do Drizzle.
-8. **Virada:** congelar escritas por pouco tempo, fazer uma sincronização final dos dados, publicar e monitorar. O backend atual fica intacto como plano de volta.
+- `login.tsx:33`: o acesso de admin é decidido por um e-mail fixo e por `user_metadata.role`, que o próprio usuário pode editar. Isso redireciona para `/admin`. A proteção real precisa estar no servidor (`has_role`).
+- `login.tsx:91`: o cadastro grava `role: 'caixa'` nos metadados. Hoje não causa dano, mas reforça o padrão inseguro acima.
+- `login.tsx:38`: usa `window.location.replace`. Funciona, mas recarrega o app inteiro.
 
-## Pontos a confirmar com você
+## Testes que faltam (somente leitura, antes de mudar)
 
-- O projeto `dygwbadhvwzajordpmst` está vazio ou já tem dados?
-- Você tem acesso de administrador a ele, para gerar as credenciais e aplicar o esquema?
-- Aceita reconfigurar o login com Google por conta própria?
+1. Confirmar no ambiente publicado qual `SUPABASE_URL` as funções do servidor usam: por um log de inicialização, ou por uma função de diagnóstico que retorne só o host, nunca chaves.
+2. No destino, conferir: login por e-mail ativo, provedor Google, Site URL e redirects permitidos, e se a confirmação de e-mail está ligada.
+3. Comparar o esquema do destino com as 11 migrations Supabase e as 4 Drizzle (tabelas, funções, policies, grants).
+4. Contar os usuários e dados do backend antigo, para saber se alguém além dos 2 usuários do destino usa o app hoje.
+5. Depois da troca, fazer um teste ponta a ponta com um dos 2 usuários: login, abertura de `/caixa` e uma função protegida respondendo.
+
+## Plano em etapas (aguarda sua autorização)
+
+1. **Diagnóstico extra (somente leitura):** executar os testes 1 a 4. Sem eles, a troca pode deixar o painel quebrado.
+2. **Alinhar o esquema do destino, se faltar algo:** aplicar só migrations aditivas (criar o que falta), sem apagar nem sobrescrever os 2 usuários, profiles e subscriptions existentes.
+3. **Front:** trocar os valores reserva de `vite.config.ts` para a URL e a chave publicável do destino, e o ID para `dygwbadhvwzajordpmst`.
+4. **Servidor:** registrar nos segredos do ambiente publicado `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` e a chave de serviço do destino. Você precisa inserir essa chave; ela nunca entra no código. Também precisamos confirmar se a plataforma permite sobrepor essas variáveis num projeto com Lovable Cloud ativo. Se não permitir, o caminho é desconectar o Cloud, e isso é uma decisão sua.
+5. **Google:** configurar o OAuth no Supabase de destino e manter a chamada direta já existente.
+6. **Segurança:** trocar o redirecionamento de admin para usar `has_role` em vez de e-mail fixo e metadados.
+7. **Webhooks e cron:** apontar Asaas, Stripe e os lembretes para o novo backend, para que pagamentos não sejam gravados no banco antigo.
+8. **Publicar e testar** o login com os 2 usuários reais. O backend antigo fica intacto como plano de volta.
+
+O menor caminho para o login voltar a funcionar são as etapas 3 e 4, junto com a etapa 5 se você quiser manter o Google. Ainda assim, a etapa 1 deve vir antes, para não trocar um problema de login por um painel quebrado.
