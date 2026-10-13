@@ -1,3 +1,32 @@
+-- Keep a pending plan change separate from the currently active subscription.
+-- A one-off PIX payment is issued first; only after confirmation is an Asaas recurrence created.
+CREATE TABLE IF NOT EXISTS public.pending_billing_changes (
+  checkout_reference text PRIMARY KEY,
+  payment_id text UNIQUE,
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  customer_id text NOT NULL,
+  plan text NOT NULL CHECK (plan IN ('starter', 'pro', 'business')),
+  billing_interval text NOT NULL CHECK (billing_interval IN ('month', 'year')),
+  initial_amount_cents bigint NOT NULL CHECK (initial_amount_cents > 0),
+  recurring_amount_cents bigint NOT NULL CHECK (recurring_amount_cents > 0),
+  affiliate_partner_id uuid,
+  affiliate_coupon_code text,
+  affiliate_commission_percent integer CHECK (affiliate_commission_percent IS NULL OR affiliate_commission_percent IN (20, 25, 30)),
+  affiliate_discount_percent integer CHECK (affiliate_discount_percent IS NULL OR affiliate_discount_percent BETWEEN 0 AND 100),
+  previous_asaas_subscription_id text,
+  status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processed', 'failed')),
+  paid_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.pending_billing_changes ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.pending_billing_changes FROM PUBLIC, anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.pending_billing_changes TO service_role;
+CREATE UNIQUE INDEX IF NOT EXISTS pending_billing_changes_one_pending_per_user
+  ON public.pending_billing_changes(user_id)
+  WHERE status = 'pending';
+
 -- Approved accountants retain the affiliate dashboard, but do not receive a free
 -- trial of the financial-product features. An active paid plan still grants normal access.
 CREATE OR REPLACE FUNCTION public.get_access(_user_id uuid)
