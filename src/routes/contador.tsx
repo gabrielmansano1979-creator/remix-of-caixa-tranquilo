@@ -167,8 +167,9 @@ function AccountantPage() {
       ["comprovante de endereço", documents.address],
     ] as const) {
       if (!file) continue;
-      if (!ACCEPTED_DOCUMENT_TYPES.includes(file.type))
-        return toast.error("O arquivo de " + label + " deve ser PDF, JPG ou PNG.");
+      const extension = "." + (file.name.split(".").pop()?.toLowerCase() ?? "");
+      if (!ALLOWED_DOCUMENT_EXTENSIONS.includes(extension))
+        return toast.error("O arquivo de " + label + " deve ser PDF, CSV ou Excel (.xls/.xlsx).");
       if (file.size > MAX_DOCUMENT_SIZE)
         return toast.error("O arquivo de " + label + " deve ter no máximo 10 MB.");
     }
@@ -178,10 +179,11 @@ function AccountantPage() {
       if (authError || !authData.user) throw new Error("Sua sessão expirou. Entre novamente.");
       const userId = authData.user.id;
       const uploadDocument = async (file: File, label: string) => {
+        const extension = "." + (file.name.split(".").pop()?.toLowerCase() ?? "");
         const safeName = file.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9._-]/g, "-").slice(-100);
         const path = userId + "/" + label + "-" + Date.now() + "-" + safeName;
         const { error } = await supabase.storage.from("partner-application-documents").upload(path, file, {
-          contentType: file.type || DOCUMENT_MIME_BY_EXTENSION["." + (file.name.split(".").pop()?.toLowerCase() ?? "")],
+          contentType: DOCUMENT_MIME_BY_EXTENSION[extension],
           upsert: false,
         });
         if (error) throw error;
