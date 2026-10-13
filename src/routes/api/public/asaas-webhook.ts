@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { commissionRateForConfirmedClients } from "@/lib/affiliate-commission";
 
 type PaymentObject = {
   id?: string;
@@ -129,21 +128,24 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
                   .maybeSingle();
                 if (partnerError) throw partnerError;
 
-                // Um cliente só entra na meta depois do primeiro pagamento confirmado.
-                const { count: confirmedClients, error: countError } = await db
-                  .from("subscriptions")
-                  .select("user_id", { count: "exact", head: true })
-                  .eq("affiliate_partner_id", partnerId)
-                  .not("paid_at", "is", null);
-                if (countError) throw countError;
-                const commissionRate = commissionRateForConfirmedClients(confirmedClients ?? 0);
+                // The payment update above runs sync_partner_coupon_rate() in PostgreSQL.
+                // Read the tier after that trigger so distinct user IDs, not subscription rows,
+                // determine the commission thresholds.
+                const { data: coupon, error: couponError } = await db
+                  .from("coupons")
+                  .select("commission_percent, is_active")
+                  .eq("partner_id", partnerId)
+                  .maybeSingle();
+                if (couponError) throw couponError;
+                const commissionRate = Number(coupon?.commission_percent ?? 0);
 
-                if (partner?.status === "approved" && partner.pix_type && partner.pix_key) {
-                  const { error: couponError } = await db
-                    .from("coupons")
-                    .update({ commission_percent: commissionRate, is_active: true, updated_at: paidAt })
-                    .eq("partner_id", partnerId);
-                  if (couponError) throw couponError;
+                if (
+                  partner?.status === "approved" &&
+                  partner.pix_type &&
+                  partner.pix_key &&
+                  coupon?.is_active &&
+                  [20, 25, 30].includes(commissionRate)
+                ) {
 
                   const { error: rateError } = await db
                     .from("subscriptions")
