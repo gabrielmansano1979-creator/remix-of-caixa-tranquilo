@@ -156,6 +156,7 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
         if (!event.id?.trim()) return new Response("missing event id", { status: 400 });
 
         const { supabaseAdmin: db } = await import("@/integrations/supabase/client.server");
+        let claimedPaymentId: string | null = null;
 
         try {
           const { error: eventError } = await db
@@ -219,6 +220,75 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
           // discount does not accidentally reduce every later monthly/yearly charge.
           if (pendingCheckout?.status === "processed") {
             return Response.json({ received: true, duplicatePayment: true });
+          }
+
+          // Asaas may emit distinct event IDs for the same payment. Claim the payment ID
+          // separately so each confirmed installment extends the subscription only once.
+          const staleClaimBefore = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+          const { data: existingPaymentClaim, error: existingPaymentClaimError } = await db
+            .from("asaas_processed_payments")
+            .select("payment_id, status, updated_at")
+            .eq("payment_id", paymentIdText)
+            .maybeSingle();
+          if (existingPaymentClaimError) throw existingPaymentClaimError;
+
+          if (existingPaymentClaim?.status === "processed") {
+            return Response.json({ received: true, duplicatePayment: true });
+          }
+
+          if (existingPaymentClaim?.status === "processing") {
+            if (Date.parse(existingPaymentClaim.updated_at) > Date.parse(staleClaimBefore)) {
+              return Response.json({ received: true, duplicatePayment: true });
+            }
+            const { data: reclaimed, error: reclaimError } = await db.from("asaas_processed_payments")
+              .update({ status: "processing", last_error: null, updated_at: new Date().toISOString() })
+              .eq("payment_id", paymentIdText)
+              .eq("status", "processing")
+              .lt("updated_at", staleClaimBefore)
+              .select("payment_id")
+              .maybeSingle();
+            if (reclaimError) throw reclaimError;
+            if (!reclaimed) return Response.json({ received: true, duplicatePayment: true });
+            claimedPaymentId = paymentIdText;
+          } else if (existingPaymentClaim?.status === "failed") {
+            const { data: reclaimed, error: reclaimError } = await db.from("asaas_processed_payments")
+              .update({ status: "processing", last_error: null, updated_at: new Date().toISOString() })
+              .eq("payment_id", paymentIdText)
+              .eq("status", "failed")
+              .select("payment_id")
+              .maybeSingle();
+            if (reclaimError) throw reclaimError;
+            if (!reclaimed) return Response.json({ received: true, duplicatePayment: true });
+            claimedPaymentId = paymentIdText;
+          } else {
+            const { error: claimError } = await db.from("asaas_processed_payments").insert({
+              payment_id: paymentIdText,
+              status: "processing",
+              updated_at: new Date().toISOString(),
+            });
+            if (claimError?.code === "23505") {
+              const { data: racedClaim, error: racedClaimError } = await db.from("asaas_processed_payments")
+                .select("status")
+                .eq("payment_id", paymentIdText)
+                .maybeSingle();
+              if (racedClaimError) throw racedClaimError;
+              if (racedClaim?.status !== "failed") {
+                return Response.json({ received: true, duplicatePayment: true });
+              }
+              const { data: reclaimed, error: reclaimError } = await db.from("asaas_processed_payments")
+                .update({ status: "processing", last_error: null, updated_at: new Date().toISOString() })
+                .eq("payment_id", paymentIdText)
+                .eq("status", "failed")
+                .select("payment_id")
+                .maybeSingle();
+              if (reclaimError) throw reclaimError;
+              if (!reclaimed) return Response.json({ received: true, duplicatePayment: true });
+              claimedPaymentId = paymentIdText;
+            } else if (claimError) {
+              throw claimError;
+            } else {
+              claimedPaymentId = paymentIdText;
+            }
           }
 
           if (pendingCheckout && pendingCheckout.status !== "processed") {
@@ -305,7 +375,7 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
             }
 
             const interval: BillingInterval = sub.billing_interval === "year" ? "year" : "month";
-            const cycleBaseDate = sub.current_period_end ?? payment.dueDate ?? paidAt;
+            const cycleBaseDate = payment.dueDate ?? sub.current_period_end ?? paidAt;
             const nextDueDate = nextBillingDate(cycleBaseDate, interval);
             const { data: renewedSub, error: renewalError } = await db.from("subscriptions")
               .update({
@@ -345,6 +415,11 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
               throw new Error("No Critical Cash subscription found for confirmed Asaas payment " + paymentIdText);
             }
             if (legacySub.status === "active" && legacySub.asaas_subscription_id) {
+              const { error: claimCompleteError } = await db.from("asaas_processed_payments")
+                .update({ status: "processed", last_error: null, updated_at: new Date().toISOString() })
+                .eq("payment_id", paymentIdText);
+              if (claimCompleteError) throw claimCompleteError;
+              claimedPaymentId = null;
               return Response.json({ received: true, duplicatePayment: true });
             }
             if (!legacySub.asaas_customer_id || !legacySub.plan) {
@@ -401,9 +476,28 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
             if (auditError) throw auditError;
           }
 
+          if (claimedPaymentId) {
+            const { error: claimCompleteError } = await db.from("asaas_processed_payments")
+              .update({ status: "processed", last_error: null, updated_at: new Date().toISOString() })
+              .eq("payment_id", claimedPaymentId);
+            if (claimCompleteError) throw claimCompleteError;
+            claimedPaymentId = null;
+          }
+
           return Response.json({ received: true });
         } catch (error) {
           console.error("Asaas webhook processing failed", event.id, error);
+          if (claimedPaymentId) {
+            const { error: claimFailedError } = await db.from("asaas_processed_payments")
+              .update({
+                status: "failed",
+                last_error: (error instanceof Error ? error.message : String(error)).slice(0, 1000),
+                updated_at: new Date().toISOString(),
+              })
+              .eq("payment_id", claimedPaymentId)
+              .eq("status", "processing");
+            if (claimFailedError) console.error("Asaas payment idempotency cleanup failed", claimedPaymentId, claimFailedError);
+          }
           const { error: cleanupError } = await db.from("asaas_events").delete().eq("id", event.id);
           if (cleanupError) console.error("Asaas webhook idempotency cleanup failed", event.id, cleanupError);
           return new Response("webhook processing failed", { status: 500 });
