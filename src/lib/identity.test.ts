@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isValidCpfCnpj } from "./identity";
+import { isValidCpfCnpj, isValidCrcNumber } from "./identity";
 
 describe("Brazilian CPF/CNPJ shape validation", () => {
   it("accepts a CPF with valid check digits, with or without punctuation", () => {
@@ -25,5 +25,24 @@ describe("Brazilian CPF/CNPJ shape validation", () => {
   it("rejects values with unsupported lengths", () => {
     expect(isValidCpfCnpj("1234567890")).toBe(false);
     expect(isValidCpfCnpj("123456789012345")).toBe(false);
+  });
+});
+
+
+describe("CFC/CRC professional registration number format", () => {
+  it("accepts primary origin and provisional registration formats", () => {
+    expect(isValidCrcNumber("SP-123456/O-3")).toBe(true);
+    expect(isValidCrcNumber("TO-654321/P-8")).toBe(true);
+  });
+
+  it("accepts transferred and secondary registration suffixes", () => {
+    expect(isValidCrcNumber("SP-123456/O-3 T-MG")).toBe(true);
+    expect(isValidCrcNumber("PI-111222/O-5 S-AC")).toBe(true);
+  });
+
+  it("rejects missing registration type/check digit and malformed suffixes", () => {
+    expect(isValidCrcNumber("SP-123456/O")).toBe(false);
+    expect(isValidCrcNumber("SP-123456/O-")).toBe(false);
+    expect(isValidCrcNumber("SP-123456/O-3 garbage")).toBe(false);
   });
 });
