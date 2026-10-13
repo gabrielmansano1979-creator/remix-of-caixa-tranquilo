@@ -43,5 +43,5 @@ export function isValidCpfCnpj(value: string): boolean {
  */
 export function isValidCrcNumber(value: string): boolean {
   const normalized = value.trim().toUpperCase();
-  return /^[A-Z]{2}-\\d{6}\\/[OP]-\\d(?:\\s+[TS]-[A-Z]{2})?$/.test(normalized);
+  return /^[A-Z]{2}-\d{6}\/[OP]-\d(?:\s+[TS]-[A-Z]{2})?$/.test(normalized);
 }
