@@ -362,8 +362,7 @@ BEGIN
 
     SELECT
       pr.status = 'approved'
-      AND NULLIF(trim(pr.pix_type), '') IS NOT NULL
-      AND NULLIF(trim(pr.pix_key), '') IS NOT NULL
+      AND public.is_valid_pix_key(pr.pix_type, pr.pix_key)
     INTO payout_is_ready
     FROM public.partner_requests pr
     WHERE pr.user_id = affected_partner;
