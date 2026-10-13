@@ -8,7 +8,8 @@ import { createCheckoutSession } from "@/lib/billing.functions";
 import { useEntitlements } from "@/hooks/use-entitlements";
 import { track } from "@/lib/analytics";
 import { Button } from "@/components/ui/button";
-import { PixPaymentDialog } from "@/components/pix-payment-dialog";\nimport { isValidCpfCnpj } from "@/lib/identity";
+import { PixPaymentDialog } from "@/components/pix-payment-dialog";
+import { isValidCpfCnpj } from "@/lib/identity";
 
 const ORDER: PlanId[] = ["starter", "pro", "business"];
 
@@ -17,7 +18,8 @@ export function PlanPicker({ referralCode }: { referralCode?: string }) {
   const checkout = useServerFn(createCheckoutSession);
   const [yearly, setYearly] = useState(ent.access?.billing_interval === "year");
   const [busy, setBusy] = useState<PlanId | null>(null);
-  const [doc, setDoc] = useState("");\n  const [legalName, setLegalName] = useState("");
+  const [doc, setDoc] = useState("");
+  const [legalName, setLegalName] = useState("");
   const [pixData, setPixData] = useState<{ qrCode?: string; copyPaste?: string; paymentId?: string } | null>(null);
   const subscribed = ent.access?.has_subscription && ["active", "past_due", "canceled", "pending_pix"].includes(ent.access.status);
   const current = subscribed ? ent.access?.plan : null;
@@ -62,6 +64,11 @@ export function PlanPicker({ referralCode }: { referralCode?: string }) {
         {referralCode ? "Cupom de parceiro com 10% de desconto aplicado. Não cumulativo com outras ofertas." : "Primeiro pagamento via Pix com 20% de desconto e confirmação automática em poucos segundos."}
       </div>
       <div className="mx-auto mt-6 max-w-xs">
+        <label htmlFor="legal-name" className="text-sm font-medium">Nome civil completo (como consta no documento)</label>
+        <input id="legal-name" autoComplete="name" required minLength={2} maxLength={160} value={legalName} onChange={(e) => setLegalName(e.target.value)} placeholder="Nome completo do titular"
+          className="mt-1.5 h-11 w-full rounded-xl border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+      </div>
+      <div className="mx-auto mt-3 max-w-xs">
         <label htmlFor="cpf-cnpj" className="text-sm font-medium">CPF ou CNPJ (exigido para o Pix)</label>
         <input id="cpf-cnpj" inputMode="numeric" value={doc} onChange={(e) => setDoc(e.target.value)} placeholder="000.000.000-00" maxLength={18}
           className="mt-1.5 h-11 w-full rounded-xl border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" />
