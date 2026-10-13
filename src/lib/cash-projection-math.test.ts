@@ -80,6 +80,25 @@ describe("cash movement arithmetic", () => {
     ]);
   });
 
+  it("rejects current-balance totals beyond exact integer precision", () => {
+    expect(() => calculateCurrentBalanceCents(Number.MAX_SAFE_INTEGER - 100, "2026-10-13T08:00:00Z", [
+      movement({ type: "income", amount_cents: 200, due_date: "2026-10-14", status: "paid", paid_at: "2026-10-13T11:00:00Z" }),
+    ])).toThrow(RangeError);
+  });
+
+  it("rejects daily-flow totals beyond exact integer precision", () => {
+    expect(() => calculateProjectedBalancesCents(0, [
+      movement({ type: "income", amount_cents: Number.MAX_SAFE_INTEGER, due_date: "2026-10-14", status: "pending" }),
+      movement({ type: "income", amount_cents: 1, due_date: "2026-10-14", status: "pending" }),
+    ], "2026-10-13", 2)).toThrow(RangeError);
+  });
+
+  it("rejects projected balances beyond exact integer precision", () => {
+    expect(() => calculateProjectedBalancesCents(Number.MAX_SAFE_INTEGER, [
+      movement({ type: "income", amount_cents: 1, due_date: "2026-10-13", status: "pending" }),
+    ], "2026-10-13", 1)).toThrow(RangeError);
+  });
+
   it("rejects invalid projection horizons and non-integer monetary amounts", () => {
     expect(() => calculateProjectedBalancesCents(0, [], "2026-10-13", 91)).toThrow(RangeError);
     expect(() => calculateCurrentBalanceCents(0, "2026-10-13T10:00:00Z", [
