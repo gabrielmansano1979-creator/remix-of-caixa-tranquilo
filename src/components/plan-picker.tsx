@@ -22,7 +22,7 @@ export function PlanPicker({ referralCode }: { referralCode?: string }) {
   const [doc, setDoc] = useState("");
   const [legalName, setLegalName] = useState("");
   const [pixData, setPixData] = useState<{ qrCode?: string; copyPaste?: string; paymentId?: string } | null>(null);
-  const subscribed = ent.access?.has_subscription && ["active", "past_due", "canceled", "pending_pix"].includes(ent.access.status);
+  const subscribed = ent.access?.has_subscription && ["active", "past_due", "pending_pix"].includes(ent.access.status);
   const current = subscribed ? ent.access?.plan : null;
 
   const go = async (plan: PlanId) => {
@@ -111,7 +111,7 @@ export function PlanPicker({ referralCode }: { referralCode?: string }) {
           );
         })}
       </div>
-      <p className="mt-4 text-center text-xs text-muted-foreground">Pagamento seguro via Pix (Asaas). Confirmação automática em segundos.</p>
+      <p className="mx-auto mt-4 max-w-2xl text-center text-xs leading-relaxed text-muted-foreground">Pagamento inicial via Pix com confirmação automática do Asaas. Depois da confirmação, as próximas cobranças serão geradas conforme o plano mensal ou anual, mas cada Pix deverá ser pago manualmente. Não é débito automático via Pix.</p>
 
       <PixPaymentDialog
         open={!!pixData}
