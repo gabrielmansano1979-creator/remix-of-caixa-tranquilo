@@ -238,10 +238,12 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
           `Critical Cash ${plan.name} ${data.interval === "year" ? "anual" : "mensal"}${discountLabel}`,
         );
       } catch (error) {
-        await supabaseAdmin.from("pending_billing_changes")
-          .update({ status: "failed", updated_at: new Date().toISOString() })
-          .eq("checkout_reference", checkoutReference);
-        throw error;
+        // The request may have reached Asaas even when the network response was lost.
+        // Keep the stable checkout reference pending so a retry can recover that payment
+        // instead of creating a second PIX charge. Stale empty references are retired after
+        // the recovery window by the next checkout attempt.
+        console.error("Asaas PIX creation result is ambiguous; keeping checkout reference for recovery", checkoutReference, error);
+        throw new Error("PIX_CREATE_STATUS_UNKNOWN:Não foi possível confirmar se o Pix foi criado. Reabra o checkout em alguns minutos; o sistema verificará a cobrança existente antes de gerar outra.");
       }
 
       const { error: paymentLinkError } = await supabaseAdmin.from("pending_billing_changes")
