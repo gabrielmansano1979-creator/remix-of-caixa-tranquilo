@@ -113,6 +113,15 @@ export async function createOrGetPixSubscription(
   if (!/^\d{4}-\d{2}-\d{2}$/.test(nextDueDate)) {
     throw new RangeError("nextDueDate must use YYYY-MM-DD");
   }
+  const [year, month, day] = nextDueDate.split("-").map(Number);
+  const calendarDate = new Date(Date.UTC(year, month - 1, day));
+  if (
+    calendarDate.getUTCFullYear() !== year
+    || calendarDate.getUTCMonth() + 1 !== month
+    || calendarDate.getUTCDate() !== day
+  ) {
+    throw new RangeError("nextDueDate must be a real calendar date");
+  }
 
   const existing = await findSubscriptionByExternalReference(externalReference);
   if (existing) {
