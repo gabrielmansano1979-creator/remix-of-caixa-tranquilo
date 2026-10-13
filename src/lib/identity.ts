@@ -35,3 +35,13 @@ export function isValidCpfCnpj(value: string): boolean {
 
   return false;
 }
+
+
+/**
+ * Checks the structural format used by the CFC/CRCs for professional registration numbers.
+ * This is a format check only; it does not verify whether the registration is active or regular.
+ */
+export function isValidCrcNumber(value: string): boolean {
+  const normalized = value.trim().toUpperCase();
+  return /^[A-Z]{2}-\\d{6}\\/[OP]-\\d(?:\\s+[TS]-[A-Z]{2})?$/.test(normalized);
+}
