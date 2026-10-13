@@ -77,7 +77,12 @@ VALUES (
 ON CONFLICT (id) DO UPDATE
 SET public = false,
     file_size_limit = 10485760,
-    allowed_mime_types = ARRAY['application/pdf', 'image/jpeg', 'image/png'];
+    allowed_mime_types = ARRAY[
+      'application/pdf',
+      'text/csv',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    ];
 
 DROP POLICY IF EXISTS "Applicants upload their own partner documents" ON storage.objects;
 CREATE POLICY "Applicants upload their own partner documents"
