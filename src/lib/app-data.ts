@@ -27,9 +27,20 @@ export const accessQuery = queryOptions({
 export const profileQuery = queryOptions({
   queryKey: ["profile"],
   queryFn: async () => {
-    await supabase.rpc("ensure_user_setup");
+    const { error: setupError } = await supabase.rpc("ensure_user_setup");
+    if (setupError) {
+      console.error("[Onboarding] Falha ao preparar perfil:", setupError);
+      throw new Error("Não foi possível preparar seu perfil. Faça login novamente e tente outra vez.");
+    }
+
     const { data, error } = await supabase.from("profiles").select("*").maybeSingle();
-    if (error) throw error;
+    if (error) {
+      console.error("[Onboarding] Falha ao carregar perfil:", error);
+      throw error;
+    }
+    if (!data) {
+      throw new Error("Seu perfil não foi criado. Saia da conta e entre novamente.");
+    }
     return data;
   },
 });
