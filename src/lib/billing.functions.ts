@@ -18,7 +18,7 @@ async function ensureCustomer(userId: string, email: string | undefined, fullNam
 
   const { data: sub } = await supabaseAdmin.from("subscriptions").select("asaas_customer_id").eq("user_id", userId).maybeSingle();
   if (sub?.asaas_customer_id) {
-    await asaas.updateCustomerDoc(sub.asaas_customer_id, doc);
+    await asaas.updateCustomerDoc(sub.asaas_customer_id, doc, fullName);
     return sub.asaas_customer_id;
   }
 
@@ -40,6 +40,7 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({
     plan: z.enum(["starter", "pro", "business"]),
     interval: z.enum(["month", "year"]),
+    legalName: z.string().trim().min(2, "Informe seu nome civil completo").max(160),
     cpfCnpj: z.string().transform((v) => v.replace(/\D/g, "")).refine(isValidCpfCnpj, "CPF ou CNPJ inválido"),
     referralCode: z.string().trim().max(80).optional(),
   }).parse(d))
