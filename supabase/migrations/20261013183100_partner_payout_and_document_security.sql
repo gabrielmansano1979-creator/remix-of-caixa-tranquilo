@@ -807,3 +807,69 @@ GRANT EXECUTE ON FUNCTION public.is_valid_cpf_cnpj(text) TO authenticated, servi
 GRANT EXECUTE ON FUNCTION public.submit_partner_request(text, text, text, text, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.update_partner_payout(text, text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.admin_set_partner_status(uuid, text) TO authenticated;
+
+
+-- Existing consent RPCs predate the affiliate row-ID schema and assumed
+-- coupons.partner_id was the authenticated user ID. Keep consent keyed to user_id,
+-- but resolve coupons through partner_requests.id and require a paid client plan.
+CREATE OR REPLACE FUNCTION public.grant_accountant_access(_coupon_code text)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO public, pg_temp
+AS $function$
+DECLARE
+  uid uuid := auth.uid();
+  partner_user_id uuid;
+BEGIN
+  IF uid IS NULL THEN RAISE EXCEPTION 'not authenticated'; END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.subscriptions s
+    WHERE s.user_id = uid
+      AND s.status = 'active'
+      AND s.plan::text IN ('starter', 'pro', 'business')
+      AND s.current_period_end IS NOT NULL
+      AND s.current_period_end > now()
+  ) THEN
+    RAISE EXCEPTION 'paid subscription required';
+  END IF;
+
+  SELECT pr.user_id INTO partner_user_id
+  FROM public.coupons c
+  JOIN public.partner_requests pr ON pr.id = c.partner_id AND pr.status = 'approved'
+  WHERE upper(c.code) = upper(trim(_coupon_code)) AND c.is_active;
+
+  IF partner_user_id IS NULL THEN RAISE EXCEPTION 'invalid or inactive partner code'; END IF;
+  IF partner_user_id = uid THEN RAISE EXCEPTION 'self sharing is not allowed'; END IF;
+
+  INSERT INTO public.accountant_access(client_user_id, partner_id)
+  VALUES (uid, partner_user_id)
+  ON CONFLICT (client_user_id) DO UPDATE
+  SET partner_id = EXCLUDED.partner_id, granted_at = now();
+END
+$function$;
+
+CREATE OR REPLACE FUNCTION public.my_accountant_access()
+RETURNS jsonb
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path TO public, pg_temp
+AS $function$
+  SELECT COALESCE(jsonb_build_object(
+    'coupon_code', c.code,
+    'partner_name', pr.full_name,
+    'granted_at', aa.granted_at
+  ), '{}'::jsonb)
+  FROM public.accountant_access aa
+  JOIN public.partner_requests pr ON pr.user_id = aa.partner_id
+  LEFT JOIN public.coupons c ON c.partner_id = pr.id AND c.is_active
+  WHERE aa.client_user_id = auth.uid()
+  LIMIT 1
+$function$;
+
+REVOKE ALL ON FUNCTION public.grant_accountant_access(text) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.my_accountant_access() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.grant_accountant_access(text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.my_accountant_access() TO authenticated;
