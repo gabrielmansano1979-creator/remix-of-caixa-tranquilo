@@ -235,10 +235,26 @@ BEGIN
   IF key_type = '' OR key_value = '' OR length(key_value) > 180 THEN
     RETURN false;
   END IF;
+
   CASE key_type
     WHEN 'cpf' THEN
-      -- Do not silently strip arbitrary letters and accept the remaining digits as a CPF.
-      RETURN key_value ~ '^[0-9. -]+
+      RETURN key_value ~ '^[0-9. -]+$'
+        AND length(digits) = 11
+        AND public.is_valid_cpf_cnpj(digits);
+    WHEN 'cnpj' THEN
+      RETURN length(alphanumeric) = 14
+        AND public.is_valid_cpf_cnpj(alphanumeric);
+    WHEN 'email' THEN
+      RETURN key_value ~ '^[^[:space:]@]+@[^[:space:]@]+[.][^[:space:]@]+$';
+    WHEN 'phone' THEN
+      RETURN key_value ~ '^[+0-9() .-]+$'
+        AND length(digits) BETWEEN 10 AND 13;
+    WHEN 'random' THEN
+      RETURN key_value ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+        OR key_value ~* '^[0-9a-f]{32}$';
+    ELSE
+      RETURN false;
+  END CASE;
 END
 $function$;
 
