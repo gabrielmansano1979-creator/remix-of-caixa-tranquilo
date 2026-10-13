@@ -1,7 +1,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Clipboard, Download, LoaderCircle, ShieldCheck } from "lucide-react";
+import { ArrowLeft, BadgeCheck, Building2, Clipboard, Download, FileText, LoaderCircle, Mail, MapPin, Phone, ShieldCheck, UserRound } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -71,13 +71,19 @@ type PartnerDashboard = {
   }>;
 };
 
-const empty = { full_name: "", tax_id: "", crc_number: "", pix_type: "cpf", pix_key: "" };
+const empty = { full_name: "", tax_id: "", crc_number: "", pix_type: "cpf", pix_key: "", phone: "", city: "", state: "", office_name: "" };
+type ApplicationDocuments = { crc: File | null; identity: File | null; address: File | null };
+const emptyDocuments: ApplicationDocuments = { crc: null, identity: null, address: null };
+const MAX_DOCUMENT_SIZE = 10 * 1024 * 1024;
+const ACCEPTED_DOCUMENT_TYPES = ["application/pdf", "image/jpeg", "image/png"];
 const money = (cents: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100);
 
 function AccountantPage() {
   const queryClient = useQueryClient();
   const [form, setForm] = useState(empty);
+  const [documents, setDocuments] = useState<ApplicationDocuments>(emptyDocuments);
+  const [showApplicationForm, setShowApplicationForm] = useState(false);
   const [busy, setBusy] = useState(false);
   const query = useQuery({
     queryKey: ["partner-area"],
@@ -98,6 +104,7 @@ function AccountantPage() {
   useEffect(() => {
     if (state && state.status !== "none") {
       setForm({
+        ...empty,
         full_name: state.full_name ?? "",
         tax_id: state.tax_id ?? "",
         crc_number: state.crc_number ?? "",
@@ -114,8 +121,55 @@ function AccountantPage() {
       return toast.error("Informe um CPF ou CNPJ válido.");
     if (!/^[A-Z]{2}-\d{6}\/[A-Z]$/.test(form.crc_number.toUpperCase()))
       return toast.error("Informe o CRC no formato UF-123456/O.");
+    if (form.phone.replace(/\D/g, "").length < 10 || form.phone.replace(/\D/g, "").length > 11)
+      return toast.error("Informe um telefone com DDD.");
+    if (!form.city.trim() || !/^[A-Za-zÀ-ÿ]{2}$/.test(form.state.trim()))
+      return toast.error("Informe a cidade e a UF.");
+    if (!documents.crc || !documents.identity || !documents.address)
+      return toast.error("Anexe a comprovação do CRC, o documento de identidade e o comprovante de endereço.");
+    for (const [label, file] of [
+      ["registro no CRC", documents.crc],
+      ["documento de identidade", documents.identity],
+      ["comprovante de endereço", documents.address],
+    ] as const) {
+      if (!file) continue;
+      if (!ACCEPTED_DOCUMENT_TYPES.includes(file.type))
+        return toast.error("O arquivo de " + label + " deve ser PDF, JPG ou PNG.");
+      if (file.size > MAX_DOCUMENT_SIZE)
+        return toast.error("O arquivo de " + label + " deve ter no máximo 10 MB.");
+    }
     setBusy(true);
     try {
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError || !authData.user) throw new Error("Sua sessão expirou. Entre novamente.");
+      const userId = authData.user.id;
+      const uploadDocument = async (file: File, label: string) => {
+        const safeName = file.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9._-]/g, "-").slice(-100);
+        const path = userId + "/" + label + "-" + Date.now() + "-" + safeName;
+        const { error } = await supabase.storage.from("partner-application-documents").upload(path, file, {
+          contentType: file.type,
+          upsert: false,
+        });
+        if (error) throw error;
+        return path;
+      };
+      const [crcPath, identityPath, addressPath] = await Promise.all([
+        uploadDocument(documents.crc, "crc"),
+        uploadDocument(documents.identity, "identidade"),
+        uploadDocument(documents.address, "endereco"),
+      ]);
+      const { error: documentsError } = await supabase.from("partner_application_documents").upsert({
+        user_id: userId,
+        phone: form.phone.trim(),
+        city: form.city.trim(),
+        state: form.state.trim().toUpperCase(),
+        office_name: form.office_name.trim() || null,
+        crc_document_path: crcPath,
+        identity_document_path: identityPath,
+        address_document_path: addressPath,
+        submitted_at: new Date().toISOString(),
+      });
+      if (documentsError) throw documentsError;
       const { error } = await supabase.rpc("submit_partner_request", {
         _full_name: form.full_name.trim(),
         _tax_id: taxId,
@@ -124,12 +178,11 @@ function AccountantPage() {
         _pix_key: form.pix_key.trim(),
       });
       if (error) throw error;
+      setShowApplicationForm(false);
       await queryClient.invalidateQueries({ queryKey: ["partner-area"] });
-      toast.success("Solicitação enviada para análise.");
+      toast.success("Solicitação e documentos enviados para avaliação do administrador.");
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Não foi possível enviar a solicitação.",
-      );
+      toast.error(error instanceof Error ? error.message : "Não foi possível enviar a solicitação.");
     } finally {
       setBusy(false);
     }
@@ -156,97 +209,88 @@ function AccountantPage() {
     );
 
   if (state?.status !== "approved") {
+    const canApply = state?.status !== "pending_approval";
     return (
-      <div className="mx-auto max-w-3xl space-y-6 py-8">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
-            Programa de parceiros
+      <div className="mx-auto max-w-4xl space-y-6 py-8">
+        <header className="space-y-3">
+          <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-primary">
+            <UserRound className="h-4 w-4" /> Programa de parceiros
           </p>
-          <h1 className="mt-2 text-3xl font-bold">Área do contador</h1>
-        </div>
+          <h1 className="text-3xl font-bold tracking-tight md:text-4xl">Contador Afiliado</h1>
+          <p className="max-w-2xl text-base leading-relaxed text-muted-foreground">
+            Indique o Critical Cash aos seus clientes e acompanhe as comissões geradas pelas assinaturas elegíveis.
+          </p>
+        </header>
         {state?.status === "pending_approval" && (
-          <div
-            role="status"
-            className="rounded-2xl border border-amber-400/20 bg-amber-400/5 p-5 text-sm text-amber-100"
-          >
-            Sua solicitação está em análise. Você poderá acessar os links de indicação após a
-            aprovação.
-          </div>
+          <Card className="border-amber-500/30 bg-amber-500/5">
+            <CardContent className="flex gap-3 p-5">
+              <LoaderCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
+              <div>
+                <h2 className="font-semibold">Solicitação em análise</h2>
+                <p className="mt-1 text-sm text-muted-foreground">Seus dados e documentos foram enviados. O administrador avaliará a solicitação e registrará a aprovação ou a recusa. Os links de indicação serão liberados após a aprovação.</p>
+              </div>
+            </CardContent>
+          </Card>
         )}
-        {state?.status === "rejected" && (
-          <div
-            role="alert"
-            className="rounded-2xl border border-danger/20 bg-danger/5 p-5 text-sm text-danger"
-          >
-            A solicitação anterior não foi aprovada. Revise os dados e envie novamente.
-          </div>
+        {state?.status === "rejected" && !showApplicationForm && (
+          <Card className="border-danger/30 bg-danger/5">
+            <CardContent className="flex gap-3 p-5">
+              <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-danger" />
+              <div><h2 className="font-semibold">Solicitação não aprovada</h2><p className="mt-1 text-sm text-muted-foreground">A avaliação anterior não foi aprovada. Confira os dados e documentos antes de enviar uma nova solicitação.</p></div>
+            </CardContent>
+          </Card>
         )}
-        {state?.status !== "pending_approval" && (
+        {canApply && !showApplicationForm && (
+          <>
+            <div className="grid gap-4 md:grid-cols-3">
+              <Card className="border-primary/20 bg-primary/5">
+                <CardHeader className="pb-2"><div className="mb-1 grid h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary"><BadgeCheck className="h-5 w-5" /></div><CardTitle className="text-base">Comissão recorrente</CardTitle></CardHeader>
+                <CardContent><p className="text-3xl font-bold">20%</p><p className="mt-2 text-sm text-muted-foreground">Percentual padrão atual sobre assinaturas elegíveis, conforme as regras do programa.</p></CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2"><div className="mb-1 grid h-10 w-10 place-items-center rounded-xl bg-muted text-foreground"><Building2 className="h-5 w-5" /></div><CardTitle className="text-base">Indicação profissional</CardTitle></CardHeader>
+                <CardContent><p className="text-sm leading-relaxed text-muted-foreground">Compartilhe links e cupom exclusivos com clientes que possam se beneficiar do controle de caixa.</p></CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2"><div className="mb-1 grid h-10 w-10 place-items-center rounded-xl bg-muted text-foreground"><ShieldCheck className="h-5 w-5" /></div><CardTitle className="text-base">Análise pelo administrador</CardTitle></CardHeader>
+                <CardContent><p className="text-sm leading-relaxed text-muted-foreground">O cadastro é analisado antes da liberação. Seus documentos ficam em área privada e são usados para avaliar a solicitação.</p></CardContent>
+              </Card>
+            </div>
+            <Card>
+              <CardHeader><CardTitle>Como funciona</CardTitle></CardHeader>
+              <CardContent className="space-y-3 text-sm text-muted-foreground">
+                <p>1. Preencha seus dados profissionais e fiscais.</p>
+                <p>2. Envie a comprovação de registro no CRC, um documento de identidade e um comprovante de endereço.</p>
+                <p>3. O administrador analisará o cadastro e registrará a decisão. Se aprovado, você terá acesso ao painel, aos links de indicação e ao acompanhamento das comissões.</p>
+                <p className="border-t pt-3">A comissão padrão atual é de 20% recorrente sobre assinaturas elegíveis. As condições aplicáveis seguem as regras vigentes do programa.</p>
+              </CardContent>
+            </Card>
+            <Button className="h-12 w-full rounded-xl text-base sm:w-auto" onClick={() => setShowApplicationForm(true)}>Quero ser um contador afiliado <ArrowLeft className="ml-2 h-4 w-4 rotate-180" /></Button>
+          </>
+        )}
+        {canApply && showApplicationForm && (
           <Card>
             <CardHeader>
-              <CardTitle>Solicitar parceria</CardTitle>
+              <Button type="button" variant="ghost" className="mb-1 w-fit px-0" onClick={() => setShowApplicationForm(false)}><ArrowLeft className="mr-2 h-4 w-4" />Voltar às informações do programa</Button>
+              <CardTitle>Quero ser um contador afiliado</CardTitle>
+              <p className="text-sm text-muted-foreground">Preencha os dados e anexe os três documentos obrigatórios. Aceitamos PDF, JPG e PNG de até 10 MB por arquivo.</p>
             </CardHeader>
             <CardContent>
-              <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <Label htmlFor="partner-name">Nome completo</Label>
-                  <Input
-                    id="partner-name"
-                    required
-                    minLength={2}
-                    maxLength={160}
-                    value={form.full_name}
-                    onChange={(e) => setForm({ ...form, full_name: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="partner-doc">CPF ou CNPJ</Label>
-                  <Input
-                    id="partner-doc"
-                    required
-                    value={form.tax_id}
-                    onChange={(e) => setForm({ ...form, tax_id: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="partner-crc">CRC</Label>
-                  <Input
-                    id="partner-crc"
-                    required
-                    placeholder="SP-123456/O"
-                    value={form.crc_number}
-                    onChange={(e) => setForm({ ...form, crc_number: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="partner-pix-type">Tipo de chave PIX</Label>
-                  <select
-                    id="partner-pix-type"
-                    className="mt-1.5 h-10 w-full rounded-xl border bg-background px-3 text-sm"
-                    value={form.pix_type}
-                    onChange={(e) => setForm({ ...form, pix_type: e.target.value })}
-                  >
-                    <option value="cpf">CPF</option>
-                    <option value="cnpj">CNPJ</option>
-                    <option value="email">E-mail</option>
-                    <option value="phone">Telefone</option>
-                    <option value="random">Aleatória</option>
-                  </select>
-                </div>
-                <div className="sm:col-span-2">
-                  <Label htmlFor="partner-pix-key">Chave PIX para recebimento</Label>
-                  <Input
-                    id="partner-pix-key"
-                    required
-                    maxLength={180}
-                    value={form.pix_key}
-                    onChange={(e) => setForm({ ...form, pix_key: e.target.value })}
-                  />
-                </div>
-                <Button type="submit" disabled={busy} className="h-11 rounded-xl sm:col-span-2">
-                  {busy && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}Enviar para
-                  análise
-                </Button>
+              <form onSubmit={submit} className="grid gap-5 sm:grid-cols-2">
+                <div className="space-y-1.5"><Label htmlFor="partner-name">Nome completo</Label><Input id="partner-name" required minLength={2} maxLength={160} autoComplete="name" value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} /></div>
+                <div className="space-y-1.5"><Label htmlFor="partner-doc">CPF ou CNPJ</Label><Input id="partner-doc" required autoComplete="off" value={form.tax_id} onChange={(e) => setForm({ ...form, tax_id: e.target.value })} /></div>
+                <div className="space-y-1.5"><Label htmlFor="partner-crc">Número de registro no CRC</Label><Input id="partner-crc" required placeholder="SP-123456/O" value={form.crc_number} onChange={(e) => setForm({ ...form, crc_number: e.target.value })} /><p className="text-xs text-muted-foreground">Formato: UF-123456/O.</p></div>
+                <div className="space-y-1.5"><Label htmlFor="partner-phone"><Phone className="mr-1 inline h-3.5 w-3.5" />Telefone com DDD</Label><Input id="partner-phone" required type="tel" autoComplete="tel" placeholder="(11) 99999-9999" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
+                <div className="space-y-1.5"><Label htmlFor="partner-city"><MapPin className="mr-1 inline h-3.5 w-3.5" />Cidade</Label><Input id="partner-city" required autoComplete="address-level2" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} /></div>
+                <div className="space-y-1.5"><Label htmlFor="partner-state">Estado (UF)</Label><Input id="partner-state" required minLength={2} maxLength={2} placeholder="SP" autoComplete="address-level1" value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value.toUpperCase() })} /></div>
+                <div className="space-y-1.5 sm:col-span-2"><Label htmlFor="partner-office"><Building2 className="mr-1 inline h-3.5 w-3.5" />Escritório contábil (opcional)</Label><Input id="partner-office" maxLength={180} value={form.office_name} onChange={(e) => setForm({ ...form, office_name: e.target.value })} /></div>
+                <div className="space-y-1.5"><Label htmlFor="partner-pix-type">Tipo de chave PIX</Label><select id="partner-pix-type" className="mt-1.5 h-11 w-full rounded-xl border bg-background px-3 text-sm" value={form.pix_type} onChange={(e) => setForm({ ...form, pix_type: e.target.value })}><option value="cpf">CPF</option><option value="cnpj">CNPJ</option><option value="email">E-mail</option><option value="phone">Telefone</option><option value="random">Aleatória</option></select></div>
+                <div className="space-y-1.5"><Label htmlFor="partner-pix-key">Chave PIX para recebimento</Label><Input id="partner-pix-key" required maxLength={180} value={form.pix_key} onChange={(e) => setForm({ ...form, pix_key: e.target.value })} /></div>
+                <div className="space-y-2 rounded-xl border p-4 sm:col-span-2"><Label htmlFor="partner-doc-crc">Comprovação de registro no CRC *</Label><p className="text-xs text-muted-foreground">Certidão de regularidade ou carteira profissional do Conselho Regional de Contabilidade.</p><Input id="partner-doc-crc" type="file" required accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" className="h-auto min-h-11 py-2" onChange={(e) => setDocuments({ ...documents, crc: e.target.files?.[0] ?? null })} />{documents.crc && <p className="text-xs text-success"><FileText className="mr-1 inline h-3.5 w-3.5" />{documents.crc.name}</p>}</div>
+                <div className="space-y-2 rounded-xl border p-4 sm:col-span-2"><Label htmlFor="partner-doc-identity">Documento de identidade com foto *</Label><p className="text-xs text-muted-foreground">RG ou CNH, frente e verso no mesmo arquivo quando aplicável.</p><Input id="partner-doc-identity" type="file" required accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" className="h-auto min-h-11 py-2" onChange={(e) => setDocuments({ ...documents, identity: e.target.files?.[0] ?? null })} />{documents.identity && <p className="text-xs text-success"><FileText className="mr-1 inline h-3.5 w-3.5" />{documents.identity.name}</p>}</div>
+                <div className="space-y-2 rounded-xl border p-4 sm:col-span-2"><Label htmlFor="partner-doc-address">Comprovante de endereço *</Label><p className="text-xs text-muted-foreground">Documento recente que mostre o nome e o endereço informado.</p><Input id="partner-doc-address" type="file" required accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" className="h-auto min-h-11 py-2" onChange={(e) => setDocuments({ ...documents, address: e.target.files?.[0] ?? null })} />{documents.address && <p className="text-xs text-success"><FileText className="mr-1 inline h-3.5 w-3.5" />{documents.address.name}</p>}</div>
+                <p className="text-xs leading-relaxed text-muted-foreground sm:col-span-2"><Mail className="mr-1 inline h-3.5 w-3.5" />A solicitação será vinculada ao e-mail da sua conta. Os arquivos serão armazenados em área privada para avaliação administrativa.</p>
+                <Button type="submit" disabled={busy} className="h-12 rounded-xl sm:col-span-2">{busy && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}Enviar documentação para avaliação</Button>
               </form>
             </CardContent>
           </Card>
