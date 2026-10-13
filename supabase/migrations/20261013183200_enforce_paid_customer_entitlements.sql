@@ -40,6 +40,17 @@ ALTER TABLE public.asaas_processed_payments ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.asaas_processed_payments FROM PUBLIC, anon, authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.asaas_processed_payments TO service_role;
 
+-- Backfill a paid-period end for legacy subscriptions that only had a one-off Asaas payment.
+-- Use the last confirmed payment as the anchor; never extend access from "now".
+UPDATE public.subscriptions
+SET current_period_end = CASE
+  WHEN billing_interval::text = 'year' THEN paid_at + interval '1 year'
+  ELSE paid_at + interval '1 month'
+END
+WHERE status IN ('active', 'past_due')
+  AND paid_at IS NOT NULL
+  AND current_period_end IS NULL;
+
 -- Approved accountants retain the affiliate dashboard, but do not receive a free
 -- trial of the financial-product features. An active paid plan still grants normal access.
 CREATE OR REPLACE FUNCTION public.get_access(_user_id uuid)
@@ -84,20 +95,36 @@ BEGIN
 
   trial_end := p.trial_ends_at;
   plan_name := COALESCE(s.plan::text, s.plan_id);
+  grace_end := CASE
+    WHEN s.current_period_end IS NOT NULL THEN s.current_period_end + interval '3 days'
+    ELSE NULL
+  END;
 
-  IF (
-       s.status IN ('active', 'past_due')
+  IF plan_name IN ('starter', 'pro', 'business')
+     AND (
+       (s.status = 'active' AND s.current_period_end IS NOT NULL AND s.current_period_end > now())
        OR (
-         s.status = 'canceled'
-         AND COALESCE(s.cancel_at_period_end, false)
-         AND s.current_period_end IS NOT NULL
-         AND s.current_period_end > now()
+         s.status IN ('active', 'past_due')
+         AND grace_end IS NOT NULL
+         AND grace_end > now()
        )
-     )
-     AND plan_name IN ('starter', 'pro', 'business') THEN
+     ) THEN
     eff := plan_name::public.plan_tier;
     can_write := true;
-    st := s.status;
+    st := CASE
+      WHEN s.status = 'past_due' OR s.current_period_end <= now() THEN 'past_due'
+      ELSE 'active'
+    END;
+  ELSIF (
+    s.status = 'canceled'
+    AND COALESCE(s.cancel_at_period_end, false)
+    AND s.current_period_end IS NOT NULL
+    AND s.current_period_end > now()
+    AND plan_name IN ('starter', 'pro', 'business')
+  ) THEN
+    eff := plan_name::public.plan_tier;
+    can_write := true;
+    st := 'canceled';
   ELSIF EXISTS (
     SELECT 1
     FROM public.partner_requests pr
@@ -125,6 +152,7 @@ BEGIN
     'trial_ends_at', trial_end,
     'has_subscription', s.id IS NOT NULL,
     'current_period_end', s.current_period_end,
+    'grace_ends_at', grace_end,
     'cancel_at_period_end', COALESCE(s.cancel_at_period_end, false),
     'billing_interval', s.billing_interval,
     'limits', public.plan_limits(eff)
