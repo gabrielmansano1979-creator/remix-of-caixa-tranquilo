@@ -250,3 +250,6 @@ FOR EACH ROW EXECUTE FUNCTION public.enforce_reminder_rule_entitlement();
 REVOKE ALL ON FUNCTION public.enforce_entry_write_entitlement() FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.enforce_profile_finance_entitlement() FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.enforce_reminder_rule_entitlement() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.enforce_entry_write_entitlement() TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.enforce_profile_finance_entitlement() TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.enforce_reminder_rule_entitlement() TO authenticated, service_role;
