@@ -90,6 +90,12 @@ ON storage.objects FOR INSERT TO authenticated
 WITH CHECK (
   bucket_id = 'partner-application-documents'
   AND (storage.foldername(name))[1] = (SELECT auth.uid())::text
+  AND (
+    (lower(name) LIKE '%.pdf' AND COALESCE(metadata->>'mimetype', '') = 'application/pdf')
+    OR (lower(name) LIKE '%.csv' AND COALESCE(metadata->>'mimetype', '') = 'text/csv')
+    OR (lower(name) LIKE '%.xls' AND COALESCE(metadata->>'mimetype', '') = 'application/vnd.ms-excel')
+    OR (lower(name) LIKE '%.xlsx' AND COALESCE(metadata->>'mimetype', '') = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+  )
   AND NOT EXISTS (
     SELECT 1
     FROM public.partner_requests AS pr
