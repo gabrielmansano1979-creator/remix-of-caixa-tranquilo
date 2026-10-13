@@ -76,6 +76,19 @@ export async function getPixQrCode(paymentId: string) {
   return { pixQrCode: qr.encodedImage, pixCopyAndPaste: qr.payload };
 }
 
+export async function findPaymentByExternalReference(externalReference: string) {
+  const result = await asaasFetch<{
+    data?: Array<{
+      id: string;
+      status: string;
+      externalReference?: string | null;
+      value?: number;
+    }>;
+  }>(`/payments?externalReference=${encodeURIComponent(externalReference)}&limit=100`);
+  return (result.data ?? []).find((payment) => payment.externalReference === externalReference) ?? null;
+}
+
+
 export async function deletePayment(paymentId: string) {
   return asaasFetch<{ deleted: boolean }>(`/payments/${paymentId}`, { method: "DELETE" });
 }
