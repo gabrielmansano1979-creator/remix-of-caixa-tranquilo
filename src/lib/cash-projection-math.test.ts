@@ -48,7 +48,7 @@ describe("cash movement arithmetic", () => {
     ]);
   });
 
-  it("matches SQL when a legacy paid entry has no paid_at and is on the snapshot date", () => {
+  it("does not double-count a legacy paid movement already in the date-only opening snapshot", () => {
     const legacyPaid = movement({
       type: "income",
       amount_cents: 10000,
@@ -56,9 +56,9 @@ describe("cash movement arithmetic", () => {
       status: "paid",
       paid_at: null,
     });
-    // Midnight in São Paulo is 03:00 UTC. SQL's due_date fallback equals this snapshot,
-    // so the movement must not be counted as occurring after it.
-    expect(calculateCurrentBalanceCents(7000, "2026-10-13T03:00:00.000Z", [legacyPaid])).toBe(7000);
+    // Legacy snapshots are backfilled to the next São Paulo midnight (03:00 UTC),
+    // so a movement dated on the snapshot day must not be added a second time.
+    expect(calculateCurrentBalanceCents(7000, "2026-10-14T03:00:00.000Z", [legacyPaid])).toBe(7000);
   });
 
   it("does not double-count a payment already included in the opening-balance snapshot", () => {
