@@ -22,6 +22,13 @@
       "when": 1791510467513,
       "tag": "0002_secure_partner_program",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791854719194,
+      "tag": "0003_affiliate_ecosystem",
+      "breakpoints": true
     }
   ]
 }
