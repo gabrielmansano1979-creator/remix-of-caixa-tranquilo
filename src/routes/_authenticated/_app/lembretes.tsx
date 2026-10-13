@@ -25,7 +25,7 @@ const VARS = ["cliente", "valor", "vencimento", "descricao", "empresa", "link_pi
 const offsetLabel = (n: number) => (n < 0 ? `${-n} dia(s) antes` : n === 0 ? "No dia do vencimento" : `${n} dia(s) após`);
 
 function preview(tpl: string, empresa: string) {
-  const v: Record<string, string> = { cliente: "Maria Silva", valor: formatBRL(150000), vencimento: "15/10/2026", descricao: "Consultoria de outubro", empresa };
+  const v: Record<string, string> = { cliente: "Maria Silva", valor: formatBRL(150000), vencimento: "15/10/2026", descricao: "Consultoria de outubro", empresa, link_pix: "Link Pix do cliente" };
   return tpl.replace(/\{\{\s*(\w+)\s*\}\}/g, (_m, k: string) => v[k] ?? `{{${k}}}`);
 }
 
