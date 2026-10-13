@@ -10,6 +10,7 @@ import { track } from "@/lib/analytics";
 import { Button } from "@/components/ui/button";
 import { PixPaymentDialog } from "@/components/pix-payment-dialog";
 import { isValidCpfCnpj } from "@/lib/identity";
+import { supabase } from "@/integrations/supabase/client";
 
 const ORDER: PlanId[] = ["starter", "pro", "business"];
 
@@ -37,6 +38,18 @@ export function PlanPicker({ referralCode }: { referralCode?: string }) {
     if (!isValidCpfCnpj(digits)) return toast.error("Informe um CPF ou CNPJ válido, com dígitos verificadores corretos.");
     setBusy(plan);
     track("upgrade_click", { plan, interval: yearly ? "year" : "month" });
+    const { data: authResult, error: authError } = await supabase.auth.getUser();
+    if (!authError && authResult.user) {
+      const { error: nameError } = await supabase
+        .from("profiles")
+        .update({ full_name: legalName.trim() })
+        .eq("user_id", authResult.user.id);
+      if (nameError) {
+        toast.error("Não foi possível salvar seu nome civil no perfil. Confira o acesso e tente novamente.");
+        setBusy(null);
+        return;
+      }
+    }
     try {
       const r = await checkout({ data: { plan, interval: yearly ? "year" : "month", cpfCnpj: digits, legalName: legalName.trim(), referralCode } });
       if (r.error) {
