@@ -146,14 +146,16 @@ function AccountantPage() {
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     const taxId = form.tax_id.replace(/\D/g, "");
-    if (taxId.length !== 11 && taxId.length !== 14)
-      return toast.error("Informe um CPF ou CNPJ válido.");
+    if (!isValidCpfCnpj(taxId))
+      return toast.error("Informe um CPF ou CNPJ válido, com dígitos verificadores corretos.");
     if (!/^[A-Z]{2}-\d{6}\/[A-Z]$/.test(form.crc_number.toUpperCase()))
       return toast.error("Informe o CRC no formato UF-123456/O.");
     if (form.phone.replace(/\D/g, "").length < 10 || form.phone.replace(/\D/g, "").length > 11)
       return toast.error("Informe um telefone com DDD.");
     if (!form.city.trim() || !/^[A-Za-zÀ-ÿ]{2}$/.test(form.state.trim()))
       return toast.error("Informe a cidade e a UF.");
+    if (Boolean(form.pix_type) !== Boolean(form.pix_key.trim()))
+      return toast.error("Para informar o PIX agora, preencha o tipo e a chave; ou deixe os dois campos vazios para cadastrar depois.");
     if (!documents.crc || !documents.identity || !documents.address)
       return toast.error("Anexe a comprovação do CRC, o documento de identidade e o comprovante de endereço.");
     for (const [label, file] of [
@@ -205,8 +207,8 @@ function AccountantPage() {
         _full_name: form.full_name.trim(),
         _tax_id: taxId,
         _crc_number: form.crc_number.trim().toUpperCase(),
-        _pix_type: form.pix_type,
-        _pix_key: form.pix_key.trim(),
+        _pix_type: form.pix_type || null,
+        _pix_key: form.pix_key.trim() || null,
       });
       if (error) throw error;
       setShowApplicationForm(false);
@@ -271,7 +273,7 @@ function AccountantPage() {
           </p>
           <h1 className="text-3xl font-bold tracking-tight md:text-4xl">Contador Afiliado</h1>
           <p className="max-w-2xl text-base leading-relaxed text-muted-foreground">
-            Indique o Critical Cash aos seus clientes e acompanhe as comissões geradas pelas assinaturas elegíveis.
+            Área exclusiva para contadores com registro profissional válido no CRC. Não é destinada a outros perfis profissionais. A aprovação depende da conferência dos dados e documentos comprobatórios.
           </p>
         </header>
         {state?.status === "pending_approval" && (
@@ -353,6 +355,13 @@ function AccountantPage() {
   }
 
   const links = getPartnerAffiliateLinks(state.coupon?.code ?? "");
+  const confirmedReferrals = dashboard?.totals.referred_clients ?? 0;
+  const referralGoal = confirmedReferrals <= 5
+    ? { target: 5, nextRate: 25, nextCount: 6 }
+    : confirmedReferrals <= 15
+      ? { target: 15, nextRate: 30, nextCount: 16 }
+      : { target: 30, nextRate: 30, nextCount: 30 };
+  const referralProgress = Math.min(100, Math.round((confirmedReferrals / referralGoal.target) * 100));
   const history = dashboard?.commissions ?? [];
   const clientRows = dashboard?.clients ?? [];
   const commissionRows = history.map((item) => ({
@@ -444,19 +453,84 @@ function AccountantPage() {
       </div>
       <Card>
         <CardHeader>
-          <CardTitle>Links de indicação</CardTitle>
+          <CardTitle>Meta de comissão por clientes pagantes</CardTitle>
+          <p className="text-sm text-muted-foreground">Só contam clientes que usaram seu cupom e tiveram o pagamento confirmado pelo sistema.</p>
         </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div><p className="text-3xl font-bold">{state.coupon?.commission_percent ?? 20}%</p><p className="text-sm text-muted-foreground">Comissão recorrente atual</p></div>
+            <p className="text-sm font-medium">{confirmedReferrals} de {referralGoal.target} clientes da faixa</p>
+          </div>
+          <div className="h-3 overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuemin={0} aria-valuemax={referralGoal.target} aria-valuenow={Math.min(confirmedReferrals, referralGoal.target)} aria-label="Progresso da meta de clientes pagantes">
+            <div className="h-full rounded-full bg-primary transition-all duration-300" style={{ width: `${referralProgress}%` }} />
+          </div>
+          {confirmedReferrals <= 5
+            ? <p className="text-sm text-muted-foreground">Faixa inicial: 20% até 5 clientes. Ao confirmar o pagamento do {referralGoal.nextCount}º cliente, a comissão passa para 25%.</p>
+            : confirmedReferrals <= 15
+              ? <p className="text-sm text-muted-foreground">Faixa atual: 25% de 6 a 15 clientes pagantes. Ao confirmar o pagamento do 16º cliente, a comissão passa para 30%.</p>
+              : <p className="text-sm text-muted-foreground">Meta máxima atingida: 30% de comissão recorrente a partir de 16 clientes pagantes.</p>}
+          <p className="text-xs text-muted-foreground">As metas consideram pagamentos confirmados, não apenas cadastros ou cliques no cupom.</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Dados para recebimento das comissões</CardTitle>
+          <p className="text-sm text-muted-foreground">O cupom só fica ativo quando o PIX para recebimento estiver cadastrado.</p>
+        </CardHeader>
+        <CardContent>
+          <form className="grid gap-4 sm:grid-cols-2" onSubmit={savePayout}>
+            <div className="space-y-1.5">
+              <Label htmlFor="payout-pix-type">Tipo de chave PIX</Label>
+              <select id="payout-pix-type" required value={form.pix_type} onChange={(e) => setForm({ ...form, pix_type: e.target.value })} className="h-11 w-full rounded-xl border bg-background px-3 text-sm">
+                <option value="">Selecione</option><option value="cpf">CPF</option><option value="cnpj">CNPJ</option><option value="email">E-mail</option><option value="phone">Telefone</option><option value="random">Aleatória</option>
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="payout-pix-key">Chave PIX</Label>
+              <Input id="payout-pix-key" required maxLength={180} value={form.pix_key} onChange={(e) => setForm({ ...form, pix_key: e.target.value })} />
+            </div>
+            <Button type="submit" disabled={busy} className="sm:col-span-2 sm:w-fit">{busy && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}Salvar dados de recebimento</Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      {state.coupon ? <Card>
+        <CardHeader><CardTitle>Links de indicação</CardTitle></CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
           <LinkCard title="Landing page" value={links.home} onCopy={() => copy(links.home)} />
-          <LinkCard
-            title="Checkout com desconto de 10%"
-            value={links.checkout}
-            onCopy={() => copy(links.checkout)}
-          />
+          <LinkCard title="Checkout com desconto de 10%" value={links.checkout} onCopy={() => copy(links.checkout)} />
           <p className="text-sm text-muted-foreground md:col-span-2">
-            Cupom <strong className="text-foreground">{state.coupon?.code}</strong> · Comissão
-            recorrente atual de {state.coupon?.commission_percent}%.
+            Cupom <strong className="text-foreground">{state.coupon.code}</strong> · Comissão recorrente atual de {state.coupon.commission_percent}%.
           </p>
+        </CardContent>
+      </Card> : <Card>
+        <CardHeader><CardTitle>Cupom ainda não liberado</CardTitle></CardHeader>
+        <CardContent className="text-sm text-muted-foreground">Cadastre sua chave PIX acima para ativar o cupom e liberar os links de indicação.</CardContent>
+      </Card>}
+
+      <Card>
+        <CardHeader><CardTitle>Clientes indicados com pagamento confirmado</CardTitle></CardHeader>
+        <CardContent>
+          <p className="mb-4 text-sm text-muted-foreground">A lista é atualizada automaticamente quando o pagamento do cliente é confirmado.</p>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[720px] text-left text-sm">
+              <thead><tr className="border-b text-xs text-muted-foreground">
+                {["Cliente", "Plano", "Situação", "Indicado em", "Pagamento confirmado"].map((heading) => <th key={heading} className="px-3 py-3 font-medium">{heading}</th>)}
+              </tr></thead>
+              <tbody>
+                {(dashboard?.referrals ?? []).length ? (dashboard?.referrals ?? []).map((item) => (
+                  <tr key={item.user_id} className="border-b last:border-0">
+                    <td className="px-3 py-3 font-medium">{item.client_name || "Cliente"}</td>
+                    <td className="px-3 py-3">{planLabelPt(item.plan)}</td>
+                    <td className="px-3 py-3">{statusLabelPt(item.status)}</td>
+                    <td className="px-3 py-3">{new Date(item.created_at).toLocaleDateString("pt-BR")}</td>
+                    <td className="px-3 py-3">{item.paid_at ? new Date(item.paid_at).toLocaleDateString("pt-BR") : "—"}</td>
+                  </tr>
+                )) : <tr><td colSpan={5} className="px-3 py-8 text-center text-muted-foreground">Nenhum cliente com pagamento confirmado pelo seu cupom ainda.</td></tr>}
+              </tbody>
+            </table>
+          </div>
         </CardContent>
       </Card>
       <Card>
