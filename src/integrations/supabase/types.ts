@@ -290,6 +290,30 @@ export type Database = {
         }
         Relationships: []
       }
+      asaas_processed_payments: {
+        Row: {
+          created_at: string
+          last_error: string | null
+          payment_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          last_error?: string | null
+          payment_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          last_error?: string | null
+          payment_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       pending_billing_changes: {
         Row: {
           affiliate_commission_percent: number | null
