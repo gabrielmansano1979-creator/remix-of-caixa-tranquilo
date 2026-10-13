@@ -212,12 +212,8 @@ BEGIN
   END IF;
   limits_data := access_data->'limits';
 
-  IF TG_OP = 'INSERT' OR TG_OP = 'DELETE' THEN
-    IF NOT COALESCE((limits_data->>'edit_rule_days')::boolean, false)
-       OR NOT COALESCE((limits_data->>'edit_rule_texts')::boolean, false) THEN
-      RAISE EXCEPTION 'PLAN_LIMIT: custom reminder rules require Business' USING ERRCODE = '42501';
-    END IF;
-  ELSE
+  -- New accounts receive four system defaults; only custom edits are tier-gated here.
+  IF TG_OP = 'UPDATE' THEN
     IF (NEW.offset_days IS DISTINCT FROM OLD.offset_days
         OR NEW.active IS DISTINCT FROM OLD.active)
        AND NOT COALESCE((limits_data->>'edit_rule_days')::boolean, false) THEN
