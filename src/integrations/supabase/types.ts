@@ -660,6 +660,7 @@ export type Database = {
           affiliate_payment_amount_cents: number | null
           asaas_customer_id: string | null
           asaas_payment_id: string | null
+          asaas_subscription_id: string | null
           billing_interval:
             | Database["public"]["Enums"]["billing_interval"]
             | null
@@ -682,6 +683,7 @@ export type Database = {
           affiliate_payment_amount_cents?: number | null
           asaas_customer_id?: string | null
           asaas_payment_id?: string | null
+          asaas_subscription_id?: string | null
           billing_interval?:
             | Database["public"]["Enums"]["billing_interval"]
             | null
@@ -704,6 +706,7 @@ export type Database = {
           affiliate_payment_amount_cents?: number | null
           asaas_customer_id?: string | null
           asaas_payment_id?: string | null
+          asaas_subscription_id?: string | null
           billing_interval?:
             | Database["public"]["Enums"]["billing_interval"]
             | null
