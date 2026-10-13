@@ -12,7 +12,7 @@ export type CashProjectionPoint = {
 };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const SP_NOON_UTC_SUFFIX = "T15:00:00.000Z";
+const SP_MIDNIGHT_UTC_SUFFIX = "T03:00:00.000Z";
 
 function signedAmount(entry: Pick<CashMovementForMath, "type" | "amount_cents">): number {
   if (!Number.isSafeInteger(entry.amount_cents) || entry.amount_cents < 0) {
@@ -49,7 +49,7 @@ export function calculateCurrentBalanceCents(
     if (entry.status !== "paid") return balance;
     // Older DATE rows are migrated to noon in São Paulo (15:00 UTC). Keep the
     // same fallback for records without a paid_at value.
-    const paidAt = entry.paid_at ? Date.parse(entry.paid_at) : Date.parse(entry.due_date + SP_NOON_UTC_SUFFIX);
+    const paidAt = entry.paid_at ? Date.parse(entry.paid_at) : Date.parse(entry.due_date + SP_MIDNIGHT_UTC_SUFFIX);
     if (!Number.isFinite(paidAt) || paidAt <= snapshotTime) return balance;
     return balance + signedAmount(entry);
   }, openingBalanceCents);
