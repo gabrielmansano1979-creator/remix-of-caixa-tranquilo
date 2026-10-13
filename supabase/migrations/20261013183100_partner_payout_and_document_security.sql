@@ -482,7 +482,7 @@ BEGIN
         'coupon_code', cp.code,
         'commission_percent', cp.commission_percent,
         'referrals', (
-          SELECT count(*) FROM public.subscriptions s
+          SELECT count(DISTINCT s.user_id) FROM public.subscriptions s
           WHERE s.affiliate_partner_id = pr.user_id AND s.paid_at IS NOT NULL
         )
       ) ORDER BY pr.created_at DESC)
