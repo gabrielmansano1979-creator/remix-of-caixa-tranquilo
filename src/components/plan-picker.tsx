@@ -8,7 +8,7 @@ import { createCheckoutSession } from "@/lib/billing.functions";
 import { useEntitlements } from "@/hooks/use-entitlements";
 import { track } from "@/lib/analytics";
 import { Button } from "@/components/ui/button";
-import { PixPaymentDialog } from "@/components/pix-payment-dialog";
+import { PixPaymentDialog } from "@/components/pix-payment-dialog";\nimport { isValidCpfCnpj } from "@/lib/identity";
 
 const ORDER: PlanId[] = ["starter", "pro", "business"];
 
@@ -17,7 +17,7 @@ export function PlanPicker({ referralCode }: { referralCode?: string }) {
   const checkout = useServerFn(createCheckoutSession);
   const [yearly, setYearly] = useState(ent.access?.billing_interval === "year");
   const [busy, setBusy] = useState<PlanId | null>(null);
-  const [doc, setDoc] = useState("");
+  const [doc, setDoc] = useState("");\n  const [legalName, setLegalName] = useState("");
   const [pixData, setPixData] = useState<{ qrCode?: string; copyPaste?: string; paymentId?: string } | null>(null);
   const subscribed = ent.access?.has_subscription && ["active", "past_due", "canceled", "pending_pix"].includes(ent.access.status);
   const current = subscribed ? ent.access?.plan : null;
@@ -33,7 +33,7 @@ export function PlanPicker({ referralCode }: { referralCode?: string }) {
     setBusy(plan);
     track("upgrade_click", { plan, interval: yearly ? "year" : "month" });
     try {
-      const r = await checkout({ data: { plan, interval: yearly ? "year" : "month", cpfCnpj: digits, referralCode } });
+      const r = await checkout({ data: { plan, interval: yearly ? "year" : "month", cpfCnpj: digits, legalName: legalName.trim(), referralCode } });
       if (r.error) {
         toast.error(r.error);
       } else if (r.qrCode) {
