@@ -283,6 +283,202 @@ BEGIN
 END
 $function$;
 
+-- Maintain explicit customer consent for accountants who want access to clients' financial ledgers.
+CREATE TABLE IF NOT EXISTS public.accountant_access (
+  client_user_id uuid PRIMARY KEY REFERENCES public.profiles(user_id) ON DELETE CASCADE,
+  partner_id uuid NOT NULL REFERENCES public.partner_requests(user_id) ON DELETE CASCADE,
+  granted_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS accountant_access_partner_idx
+  ON public.accountant_access(partner_id, client_user_id);
+GRANT SELECT ON public.accountant_access TO authenticated;
+ALTER TABLE public.accountant_access ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "accountant_access_read_own" ON public.accountant_access;
+CREATE POLICY "accountant_access_read_own" ON public.accountant_access
+FOR SELECT TO authenticated
+USING ((SELECT auth.uid()) = client_user_id OR (SELECT auth.uid()) = partner_id);
+
+CREATE OR REPLACE FUNCTION public.partner_dashboard()
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO public, pg_temp
+AS $function$
+DECLARE
+  uid uuid := auth.uid();
+  result jsonb;
+BEGIN
+  IF uid IS NULL OR NOT EXISTS (
+    SELECT 1 FROM public.partner_requests
+    WHERE user_id = uid AND status = 'approved'
+  ) THEN
+    RAISE EXCEPTION 'approved partner access required';
+  END IF;
+
+  SELECT jsonb_build_object(
+    'coupon', (
+      SELECT jsonb_build_object(
+        'code', c.code,
+        'discount_percent', c.discount_percent,
+        'commission_percent', c.commission_percent
+      )
+      FROM public.coupons c
+      WHERE c.partner_id = uid AND c.is_active
+      LIMIT 1
+    ),
+    'totals', jsonb_build_object(
+      'commission_cents', COALESCE((SELECT sum(c.amount_cents) FROM public.commissions c WHERE c.partner_id = uid), 0),
+      'pending_cents', COALESCE((SELECT sum(c.amount_cents) FROM public.commissions c WHERE c.partner_id = uid AND c.status IN ('pending','available')), 0),
+      'paid_cents', COALESCE((SELECT sum(c.amount_cents) FROM public.commissions c WHERE c.partner_id = uid AND c.status = 'paid'), 0),
+      'referred_clients', (
+        SELECT count(*) FROM public.subscriptions s
+        WHERE s.affiliate_partner_id = uid AND s.status = 'active' AND s.paid_at IS NOT NULL
+      ),
+      'active_clients', (
+        SELECT count(*) FROM public.subscriptions s
+        WHERE s.affiliate_partner_id = uid AND s.status = 'active' AND s.paid_at IS NOT NULL
+      )
+    ),
+    'referrals', COALESCE((
+      SELECT jsonb_agg(jsonb_build_object(
+        'user_id', s.user_id,
+        'client_name', COALESCE(NULLIF(trim(p.full_name), ''), NULLIF(trim(p.business_name), ''), 'Cliente'),
+        'plan', COALESCE(s.plan::text, ''),
+        'status', s.status,
+        'created_at', s.created_at,
+        'paid_at', s.paid_at
+      ) ORDER BY s.paid_at DESC)
+      FROM public.subscriptions s
+      JOIN public.profiles p ON p.user_id = s.user_id
+      WHERE s.affiliate_partner_id = uid
+        AND s.status = 'active'
+        AND s.paid_at IS NOT NULL
+    ), '[]'::jsonb),
+    'commissions', COALESCE((
+      SELECT jsonb_agg(jsonb_build_object(
+        'id', c.id, 'client_name', c.client_name, 'amount_cents', c.amount_cents,
+        'status', c.status, 'created_at', c.created_at, 'paid_at', c.paid_at,
+        'receipt_url', c.receipt_url
+      ) ORDER BY c.created_at DESC)
+      FROM public.commissions c
+      WHERE c.partner_id = uid
+    ), '[]'::jsonb),
+    'clients', COALESCE((
+      SELECT jsonb_agg(jsonb_build_object(
+        'client_name', p.business_name,
+        'plan', s.plan::text,
+        'status', s.status,
+        'entry_count', COALESCE(x.entry_count, 0),
+        'income_cents', COALESCE(x.income_cents, 0),
+        'expense_cents', COALESCE(x.expense_cents, 0),
+        'shared_at', aa.granted_at,
+        'entries', COALESCE((
+          SELECT jsonb_agg(jsonb_build_object(
+            'description', e.description, 'type', e.type, 'amount_cents', e.amount_cents,
+            'due_date', e.due_date, 'status', e.status, 'paid_at', e.paid_at
+          ) ORDER BY e.due_date)
+          FROM public.entries e WHERE e.user_id = aa.client_user_id
+        ), '[]'::jsonb)
+      ) ORDER BY p.business_name)
+      FROM public.accountant_access aa
+      JOIN public.subscriptions s ON s.user_id = aa.client_user_id AND s.affiliate_partner_id = uid
+      JOIN public.profiles p ON p.user_id = aa.client_user_id
+      LEFT JOIN LATERAL (
+        SELECT count(*) AS entry_count,
+          COALESCE(sum(amount_cents) FILTER (WHERE type = 'income'), 0) AS income_cents,
+          COALESCE(sum(amount_cents) FILTER (WHERE type = 'expense'), 0) AS expense_cents
+        FROM public.entries e WHERE e.user_id = aa.client_user_id
+      ) x ON true
+      WHERE aa.partner_id = uid
+    ), '[]'::jsonb)
+  ) INTO result;
+
+  RETURN result;
+END
+$function$;
+
+CREATE OR REPLACE FUNCTION public.admin_partner_overview()
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO public, pg_temp
+AS $function$
+DECLARE
+  result jsonb;
+BEGIN
+  IF auth.uid() IS NULL OR NOT public.has_role(auth.uid(), 'admin'::public.app_role) THEN
+    RAISE EXCEPTION 'admin access required';
+  END IF;
+
+  SELECT jsonb_build_object(
+    'partners', COALESCE((
+      SELECT jsonb_agg(jsonb_build_object(
+        'user_id', pr.user_id,
+        'name', pr.full_name,
+        'email', COALESCE(pr.email, au.email),
+        'status', pr.status,
+        'tax_id', pr.tax_id,
+        'crc_number', pr.crc_number,
+        'pix_type', pr.pix_type,
+        'pix_key', pr.pix_key,
+        'coupon_code', cp.code,
+        'commission_percent', cp.commission_percent,
+        'referrals', (
+          SELECT count(*) FROM public.subscriptions s
+          WHERE s.affiliate_partner_id = pr.user_id AND s.status = 'active' AND s.paid_at IS NOT NULL
+        )
+      ) ORDER BY pr.created_at DESC)
+      FROM public.partner_requests pr
+      LEFT JOIN auth.users au ON au.id = pr.user_id
+      LEFT JOIN public.coupons cp ON cp.partner_id = pr.user_id
+    ), '[]'::jsonb),
+    'commissions', COALESCE((
+      SELECT jsonb_agg(jsonb_build_object(
+        'id', c.id,
+        'partner_id', c.partner_id,
+        'partner_name', pr.full_name,
+        'client_name', c.client_name,
+        'amount', (c.amount_cents::numeric / 100),
+        'status', c.status,
+        'created_at', c.created_at,
+        'paid_at', c.paid_at
+      ) ORDER BY c.created_at DESC)
+      FROM public.commissions c
+      LEFT JOIN public.partner_requests pr ON pr.user_id = c.partner_id
+    ), '[]'::jsonb),
+    'clients', COALESCE((
+      SELECT jsonb_agg(jsonb_build_object(
+        'user_id', s.user_id,
+        'partner_id', s.affiliate_partner_id,
+        'partner_name', pr.full_name,
+        'client_name', COALESCE(NULLIF(trim(p.full_name), ''), NULLIF(trim(p.business_name), ''), 'Cliente'),
+        'client_email', COALESCE(p.email, au.email),
+        'subscription_status', s.status,
+        'created_at', s.created_at,
+        'paid_at', s.paid_at
+      ) ORDER BY s.paid_at DESC)
+      FROM public.subscriptions s
+      JOIN public.partner_requests pr ON pr.user_id = s.affiliate_partner_id
+      JOIN public.profiles p ON p.user_id = s.user_id
+      LEFT JOIN auth.users au ON au.id = s.user_id
+      WHERE s.affiliate_partner_id IS NOT NULL
+        AND s.status = 'active'
+        AND s.paid_at IS NOT NULL
+    ), '[]'::jsonb),
+    'total_commissions', (SELECT count(*) FROM public.commissions),
+    'total_commission_amount', COALESCE((SELECT sum(c.amount_cents)::numeric / 100 FROM public.commissions c), 0),
+    'total_clients', (SELECT count(*) FROM public.subscriptions s WHERE s.affiliate_partner_id IS NOT NULL AND s.status = 'active' AND s.paid_at IS NOT NULL)
+  ) INTO result;
+
+  RETURN result;
+END
+$function$;
+
+REVOKE ALL ON FUNCTION public.partner_dashboard() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.admin_partner_overview() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.partner_dashboard() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.admin_partner_overview() TO authenticated;
+
 -- Only the owner of the document set and genuine administrators may read it.
 DROP POLICY IF EXISTS "Partner applicants can read their own documents" ON public.partner_application_documents;
 CREATE POLICY "Partner applicants can read their own documents"
