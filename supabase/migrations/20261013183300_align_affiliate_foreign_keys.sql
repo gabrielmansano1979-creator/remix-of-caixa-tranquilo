@@ -30,3 +30,20 @@ ALTER TABLE public.commissions
 -- Duplicate user IDs were checked before creating this unique index.
 CREATE UNIQUE INDEX IF NOT EXISTS subscriptions_user_id_unique
   ON public.subscriptions(user_id);
+
+-- Trigger functions are invoked by PostgreSQL triggers, not exposed as RPC endpoints.
+REVOKE ALL ON FUNCTION public.enforce_entry_write_entitlement() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.enforce_profile_finance_entitlement() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.enforce_reminder_rule_entitlement() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.sync_partner_coupon_rate() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.enforce_entry_write_entitlement() TO service_role;
+GRANT EXECUTE ON FUNCTION public.enforce_profile_finance_entitlement() TO service_role;
+GRANT EXECUTE ON FUNCTION public.enforce_reminder_rule_entitlement() TO service_role;
+GRANT EXECUTE ON FUNCTION public.sync_partner_coupon_rate() TO service_role;
+
+CREATE INDEX IF NOT EXISTS accountant_invites_owner_user_id_idx ON public.accountant_invites(owner_user_id);
+CREATE INDEX IF NOT EXISTS commissions_partner_id_idx ON public.commissions(partner_id);
+CREATE INDEX IF NOT EXISTS commissions_subscription_id_idx ON public.commissions(subscription_id);
+CREATE INDEX IF NOT EXISTS subscriptions_partner_id_idx ON public.subscriptions(partner_id);
+CREATE INDEX IF NOT EXISTS reminder_logs_rule_id_idx ON public.reminder_logs(rule_id);
+CREATE INDEX IF NOT EXISTS reminder_logs_stage_rule_id_idx ON public.reminder_logs(stage_rule_id);
