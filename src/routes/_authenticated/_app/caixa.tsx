@@ -278,7 +278,7 @@ function Activation({ hasEntries }: { hasEntries: boolean }) {
   if (steps.every((s) => s.done)) return null;
   return (
     <section className="rounded-2xl border bg-card p-5">
-      <h2 className="text-sm font-semibold">Primeiros passos · {steps.filter((s) => s.done).length}/3</h2>
+      <h2 className="text-sm font-semibold">Primeiros passos · {steps.filter((s) => s.done).length}/2</h2>
       <ol className="mt-3 grid gap-2 sm:grid-cols-2">
         {steps.map((s, i) => (
           <li key={s.label}>
