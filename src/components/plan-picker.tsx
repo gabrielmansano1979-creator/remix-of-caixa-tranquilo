@@ -9,7 +9,7 @@ import { useEntitlements } from "@/hooks/use-entitlements";
 import { track } from "@/lib/analytics";
 import { Button } from "@/components/ui/button";
 import { PixPaymentDialog } from "@/components/pix-payment-dialog";
-import { isValidCpfCnpj } from "@/lib/identity";
+import { isValidCpfCnpj, normalizeCpfCnpj } from "@/lib/identity";
 import { supabase } from "@/integrations/supabase/client";
 
 const ORDER: PlanId[] = ["starter", "pro", "business"];
@@ -31,7 +31,7 @@ export function PlanPicker({ referralCode }: { referralCode?: string }) {
     if (ent.usage && ent.usage.pending_entries > p.limits.pendingEntries) {
       return toast.error(`Você tem ${ent.usage.pending_entries} contas pendentes; o ${p.name} permite ${p.limits.pendingEntries}. Quite ou exclua algumas antes.`);
     }
-    const digits = doc.replace(/\D/g, "");
+    const digits = normalizeCpfCnpj(doc);
     if (legalName.trim().length < 2 || legalName.trim().length > 160) {
       return toast.error("Informe seu nome civil completo, como consta no documento.");
     }
@@ -89,7 +89,7 @@ export function PlanPicker({ referralCode }: { referralCode?: string }) {
       </div>
       <div className="mx-auto mt-3 max-w-xs">
         <label htmlFor="cpf-cnpj" className="text-sm font-medium">CPF ou CNPJ (exigido para o Pix)</label>
-        <input id="cpf-cnpj" inputMode="numeric" value={doc} onChange={(e) => setDoc(e.target.value)} placeholder="000.000.000-00" maxLength={18}
+        <input id="cpf-cnpj" inputMode="text" autoCapitalize="characters" value={doc} onChange={(e) => setDoc(e.target.value.toUpperCase())} placeholder="CPF ou CNPJ (incluindo letras, se houver)" maxLength={18}
           className="mt-1.5 h-11 w-full rounded-xl border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" />
       </div>
       <div className="mt-8 grid gap-4 md:grid-cols-3">
