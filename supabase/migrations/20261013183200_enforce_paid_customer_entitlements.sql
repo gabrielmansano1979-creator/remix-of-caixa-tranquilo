@@ -67,6 +67,7 @@ DECLARE
   can_write boolean := false;
   st text;
   trial_end timestamptz;
+  grace_end timestamptz;
   plan_name text;
 BEGIN
   IF _user_id IS NULL THEN
