@@ -26,7 +26,14 @@ type Risk = { entry_id: string; description: string; counterparty_name: string |
 const projectionQuery = { queryKey: ["projection"], queryFn: async () => {
   const { data, error } = await supabase.rpc("cash_projection", { _days: 30 });
   if (error) throw error;
-  return data as unknown as Projection;
+  if (!data || typeof data !== "object") throw new Error("O banco não retornou uma projeção válida.");
+  const result = data as unknown as Projection;
+  if (!Array.isArray(result.series)) throw new Error("A série do gráfico está inválida.");
+  const moneyValues = [result.current, result.min_balance, result.cushion, ...result.series.map((point) => point.balance)];
+  if (moneyValues.some((value) => !Number.isSafeInteger(value))) {
+    throw new Error("Os valores ultrapassam o limite de cálculo exato. Revise e divida lançamentos muito altos antes de continuar.");
+  }
+  return result;
 } };
 
 function CaixaPage() {
@@ -42,6 +49,7 @@ function CaixaPage() {
       <div className="flex flex-col items-center rounded-2xl border bg-card p-10 text-center">
         <AlertTriangle className="h-8 w-8 text-danger" />
         <p className="mt-3">Não foi possível calcular sua projeção.</p>
+        {proj.error instanceof Error && <p className="mt-2 max-w-xl text-sm text-muted-foreground">{proj.error.message}</p>}
         <Button variant="outline" className="mt-4 h-11 rounded-xl" onClick={() => { proj.refetch(); entries.refetch(); }}><RotateCcw className="mr-2 h-4 w-4" />Tentar novamente</Button>
       </div>
     );
