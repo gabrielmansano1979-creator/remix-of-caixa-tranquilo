@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { calculateCommissionAmountCents } from "@/lib/affiliate-commission";
 
 type PaymentObject = {
   id?: string;
