@@ -78,9 +78,10 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
           return { error: "O Asaas já identificou o pagamento. A ativação está sendo processada; não gere outro Pix." };
         }
 
-        const paymentAlreadyUnavailable = ["DELETED", "REFUNDED", "CANCELED", "CANCELLED"].includes(paymentStatus);
+        const paymentAlreadyUnavailable = ["DELETED", "REFUNDED", "CANCELED", "CANCELLED", "EXPIRED"].includes(paymentStatus);
+        const paymentIsOverdue = paymentStatus === "OVERDUE";
         const sameCheckout = existingCheckout.plan === data.plan && existingCheckout.billing_interval === data.interval;
-        if (!paymentAlreadyUnavailable && sameCheckout) {
+        if (!paymentAlreadyUnavailable && !paymentIsOverdue && sameCheckout) {
           const qr = await asaas.getPixQrCode(existingCheckout.payment_id);
           return { qrCode: qr.pixQrCode, copyPaste: qr.pixCopyAndPaste, paymentId: existingCheckout.payment_id };
         }
