@@ -51,7 +51,11 @@ export function calculateCurrentBalanceCents(
     // due date as midnight in São Paulo (03:00 UTC) for snapshot comparisons.
     const paidAt = entry.paid_at ? Date.parse(entry.paid_at) : Date.parse(entry.due_date + SP_MIDNIGHT_UTC_SUFFIX);
     if (!Number.isFinite(paidAt) || paidAt <= snapshotTime) return balance;
-    return balance + signedAmount(entry);
+    const nextBalance = balance + signedAmount(entry);
+    if (!Number.isSafeInteger(nextBalance)) {
+      throw new RangeError("current balance exceeds exact integer precision");
+    }
+    return nextBalance;
   }, openingBalanceCents);
 }
 
@@ -78,7 +82,11 @@ export function calculateProjectedBalancesCents(
   for (const entry of movements) {
     if (entry.status !== "pending" || entry.due_date > endDate) continue;
     const flowDate = entry.due_date < startDate ? startDate : entry.due_date;
-    flows.set(flowDate, (flows.get(flowDate) ?? 0) + signedAmount(entry));
+    const nextFlow = (flows.get(flowDate) ?? 0) + signedAmount(entry);
+    if (!Number.isSafeInteger(nextFlow)) {
+      throw new RangeError("daily cash flow exceeds exact integer precision");
+    }
+    flows.set(flowDate, nextFlow);
   }
 
   const points: CashProjectionPoint[] = [];
@@ -86,6 +94,9 @@ export function calculateProjectedBalancesCents(
   for (let offset = 0; offset <= days; offset++) {
     const date = datePlusDays(startDate, offset);
     balance += flows.get(date) ?? 0;
+    if (!Number.isSafeInteger(balance)) {
+      throw new RangeError("projected balance exceeds exact integer precision");
+    }
     points.push({ date, balance_cents: balance });
   }
   return points;
