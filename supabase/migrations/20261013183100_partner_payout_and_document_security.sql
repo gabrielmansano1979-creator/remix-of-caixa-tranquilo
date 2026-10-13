@@ -686,9 +686,9 @@ WITH CHECK (
   AND crc_document_path LIKE (SELECT auth.uid())::text || '/crc-%'
   AND identity_document_path LIKE (SELECT auth.uid())::text || '/identidade-%'
   AND address_document_path LIKE (SELECT auth.uid())::text || '/endereco-%'
-  AND lower(crc_document_path) ~ '\\.(pdf|csv|xls|xlsx)$'
-  AND lower(identity_document_path) ~ '\\.(pdf|csv|xls|xlsx)$'
-  AND lower(address_document_path) ~ '\\.(pdf|csv|xls|xlsx)$'
+  AND lower(crc_document_path) ~ '\.(pdf|csv|xls|xlsx)$'
+  AND lower(identity_document_path) ~ '\.(pdf|csv|xls|xlsx)$'
+  AND lower(address_document_path) ~ '\.(pdf|csv|xls|xlsx)$'
   AND public.can_manage_partner_application_documents()
 );
 
@@ -704,9 +704,9 @@ WITH CHECK (
   AND crc_document_path LIKE (SELECT auth.uid())::text || '/crc-%'
   AND identity_document_path LIKE (SELECT auth.uid())::text || '/identidade-%'
   AND address_document_path LIKE (SELECT auth.uid())::text || '/endereco-%'
-  AND lower(crc_document_path) ~ '\\.(pdf|csv|xls|xlsx)$'
-  AND lower(identity_document_path) ~ '\\.(pdf|csv|xls|xlsx)$'
-  AND lower(address_document_path) ~ '\\.(pdf|csv|xls|xlsx)$'
+  AND lower(crc_document_path) ~ '\.(pdf|csv|xls|xlsx)$'
+  AND lower(identity_document_path) ~ '\.(pdf|csv|xls|xlsx)$'
+  AND lower(address_document_path) ~ '\.(pdf|csv|xls|xlsx)$'
   AND public.can_manage_partner_application_documents()
 );
 
