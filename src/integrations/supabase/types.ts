@@ -43,7 +43,7 @@ export type Database = {
             columns: ["partner_id"]
             isOneToOne: false
             referencedRelation: "partner_requests"
-            referencedColumns: ["user_id"]
+            referencedColumns: ["id"]
           },
         ]
       }
