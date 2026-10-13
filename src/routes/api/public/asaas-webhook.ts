@@ -106,6 +106,11 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
               .eq("asaas_payment_id", paymentIdText)
               .maybeSingle();
             if (subError) throw subError;
+            // Do not acknowledge and permanently deduplicate a confirmed payment before its
+            // subscription row exists. Return 500 after cleanup so Asaas can retry delivery.
+            if (!sub?.user_id) {
+              throw new Error("No subscription found for confirmed Asaas payment " + paymentIdText);
+            }
 
             if (sub?.user_id) {
               const paidAt = new Date().toISOString();
