@@ -1,42 +1,57 @@
-# Diagnóstico do login — Critical Cash (sem alterações)
+# Auditoria do login — erro "Unsupported provider: missing OAuth secret"
 
 ## Causa comprovada
 
-1. **O site publicado usa o backend antigo.** O código publicado de critical-cash.lovable.app (`/assets/utils-*.js`) contém apenas o host `c--cd7fdc5c-…-prod.lovable.cloud`, que é o Lovable Cloud `zotsdccggybuufxwgomw`. O host `dygwbadhvwzajordpmst.supabase.co` não aparece em nenhum ponto do código publicado. Por isso, os 2 usuários que estão no Supabase de destino não conseguem entrar: o login consulta outro banco de usuários.
-2. **`vite.config.ts` (linhas 11-20):** quando as variáveis do build estão vazias, os valores reserva apontam para o host antigo, para a chave publicável antiga e para o ID `zotsdccggybuufxwgomw`. Neste ambiente, `.env` tem todas as variáveis `SUPABASE_*` e `VITE_SUPABASE_*` vazias, então esses valores reserva sempre vencem.
-3. **`supabase/config.toml` (linha 1)** já declara `dygwbadhvwzajordpmst`. O resultado é uma configuração dividida: o arquivo aponta para um projeto, mas a conexão real usa outro.
-4. **O login com Google usa a chamada direta do Supabase** (`supabase.auth.signInWithOAuth`) em `src/routes/login.tsx:128` e em `src/components/auth-shell.tsx:41`. O helper gerenciado (`src/integrations/lovable/index.ts`) não é usado. Num backend Lovable Cloud, a chamada direta não usa o Google gerenciado. No Supabase próprio, ela só funciona se o provedor Google estiver configurado lá, com o redirect `https://critical-cash.lovable.app/login` autorizado.
+O erro vem do backend antigo (Lovable Cloud `zotsdccggybuufxwgomw`) e não do Supabase próprio.
 
-## Hipóteses (não comprovadas)
+Fiz um teste somente leitura, abrindo o início do login Google em cada backend, com o redirecionamento para `critical-cash.lovable.app/login`:
 
-- **Servidor:** `src/integrations/supabase/client.server.ts` (linhas 33-34) e `auth-middleware.ts` (linhas 37-38) leem `SUPABASE_URL` e as chaves do ambiente de execução publicado. Provavelmente esse ambiente é injetado com o backend antigo. Se o navegador passar a usar o destino e o servidor continuar no antigo, as funções protegidas vão rejeitar os tokens: o token emitido por um backend é inválido no outro.
-- **Variáveis reinjetadas:** a plataforma pode voltar a preencher `VITE_SUPABASE_*` com o Lovable Cloud a cada publicação. Isso anularia uma troca feita só nos valores reserva.
-- **Esquema do destino:** não sei se o destino tem todas as tabelas, funções (`get_access`, `my_access`, `cash_projection`, `top_risks`, `ensure_user_setup`), triggers, RLS e grants. O login funcionaria mesmo assim, mas o painel pode quebrar logo depois.
-- **Login com e-mail no destino:** não confirmei se o login por e-mail está ativo, se a confirmação de e-mail está ligada nem se o Site URL e os redirects estão corretos.
+| Backend | Resposta |
+|---|---|
+| Antigo (`c--cd7fdc5c-…-prod.lovable.cloud`) | **400 — `Unsupported provider: missing OAuth secret`** (exatamente o erro relatado) |
+| Próprio (`dygwbadhvwzajordpmst.supabase.co`) | **302 → accounts.google.com**: o Google já está configurado e funcionando |
 
-## Outros riscos no código de login
+O caminho que leva ao erro, passo a passo:
+1. O código publicado do site contém só o host antigo. O host próprio não aparece em lugar nenhum.
+2. Esse host vem dos valores reserva em `vite.config.ts`, linhas 11-20. Eles são usados porque as variáveis de conexão estão vazias no build.
+3. `src/integrations/supabase/client.ts` (linhas 37-47) usa esses valores. Ele não tem nenhum host fixo próprio.
+4. Os botões Google chamam o Google direto pelo Supabase (`supabase.auth.signInWithOAuth`) em dois lugares:
+   - `src/routes/login.tsx:128`
+   - `src/components/auth-shell.tsx:41` (`GoogleButton`), usado em `cadastro`, `esqueci-senha`, `redefinir-senha` e `configuracoes`.
+5. No Lovable Cloud, o Google gerenciado só funciona pelo helper `src/integrations/lovable/index.ts`, que nenhuma tela usa. Pela chamada direta, o backend antigo não tem o segredo do Google e recusa o pedido.
 
-- `login.tsx:33`: o acesso de admin é decidido por um e-mail fixo e por `user_metadata.role`, que o próprio usuário pode editar. Isso redireciona para `/admin`. A proteção real precisa estar no servidor (`has_role`).
-- `login.tsx:91`: o cadastro grava `role: 'caixa'` nos metadados. Hoje não causa dano, mas reforça o padrão inseguro acima.
-- `login.tsx:38`: usa `window.location.replace`. Funciona, mas recarrega o app inteiro.
+## Qual backend cada login usa hoje
 
-## Testes que faltam (somente leitura, antes de mudar)
+| Fluxo | Arquivo | Backend no publicado |
+|---|---|---|
+| Login com e-mail e senha | `login.tsx:105` (`signInWithPassword`) | Antigo |
+| Cadastro | `login.tsx:85` e `cadastro.tsx:75` | Antigo |
+| Recuperar senha | `esqueci-senha.tsx:35` | Antigo |
+| Google | `login.tsx:128` e `auth-shell.tsx:41` | Antigo, o que gera o erro |
+| Proteção das telas internas | `_authenticated/route.tsx:8` (`getUser`) | Antigo |
+| Funções do servidor | `auth-middleware.ts:37`, `client.server.ts:33` (`SUPABASE_URL` do servidor) | Provavelmente o antigo (não confirmado) |
+| `src/server.ts` | Só trata erros da página e não acessa o banco | — |
+| `previewAuthStorage.ts` | Só decide onde a sessão fica guardada no preview. Não escolhe backend. | — |
 
-1. Confirmar no ambiente publicado qual `SUPABASE_URL` as funções do servidor usam: por um log de inicialização, ou por uma função de diagnóstico que retorne só o host, nunca chaves.
-2. No destino, conferir: login por e-mail ativo, provedor Google, Site URL e redirects permitidos, e se a confirmação de e-mail está ligada.
-3. Comparar o esquema do destino com as 11 migrations Supabase e as 4 Drizzle (tabelas, funções, policies, grants).
-4. Contar os usuários e dados do backend antigo, para saber se alguém além dos 2 usuários do destino usa o app hoje.
-5. Depois da troca, fazer um teste ponta a ponta com um dos 2 usuários: login, abertura de `/caixa` e uma função protegida respondendo.
+O projeto `dygwbadhvwzajordpmst` aparece no código só em `supabase/config.toml:1`. O host antigo e o ID `zotsdccggybuufxwgomw` aparecem só em `vite.config.ts`.
 
-## Plano em etapas (aguarda sua autorização)
+## Ainda precisa de verificação
 
-1. **Diagnóstico extra (somente leitura):** executar os testes 1 a 4. Sem eles, a troca pode deixar o painel quebrado.
-2. **Alinhar o esquema do destino, se faltar algo:** aplicar só migrations aditivas (criar o que falta), sem apagar nem sobrescrever os 2 usuários, profiles e subscriptions existentes.
-3. **Front:** trocar os valores reserva de `vite.config.ts` para a URL e a chave publicável do destino, e o ID para `dygwbadhvwzajordpmst`.
-4. **Servidor:** registrar nos segredos do ambiente publicado `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` e a chave de serviço do destino. Você precisa inserir essa chave; ela nunca entra no código. Também precisamos confirmar se a plataforma permite sobrepor essas variáveis num projeto com Lovable Cloud ativo. Se não permitir, o caminho é desconectar o Cloud, e isso é uma decisão sua.
-5. **Google:** configurar o OAuth no Supabase de destino e manter a chamada direta já existente.
-6. **Segurança:** trocar o redirecionamento de admin para usar `has_role` em vez de e-mail fixo e metadados.
-7. **Webhooks e cron:** apontar Asaas, Stripe e os lembretes para o novo backend, para que pagamentos não sejam gravados no banco antigo.
-8. **Publicar e testar** o login com os 2 usuários reais. O backend antigo fica intacto como plano de volta.
+- Qual endereço de banco as funções do servidor publicado recebem de fato.
+- Se a plataforma reinjeta as variáveis do Lovable Cloud no build e anula uma troca nos valores reserva.
+- No Supabase próprio: se o endereço `https://critical-cash.lovable.app/login` está na lista de redirecionamentos permitidos (o teste mostrou que ele é aceito no início do fluxo), se o login por e-mail está ativo e se o esquema e as funções do painel existem.
+- Se o backend antigo tem usuários reais que precisariam ser levados.
 
-O menor caminho para o login voltar a funcionar são as etapas 3 e 4, junto com a etapa 5 se você quiser manter o Google. Ainda assim, a etapa 1 deve vir antes, para não trocar um problema de login por um painel quebrado.
+## Menor correção segura (não executada)
+
+**Opção A — usar o Supabase próprio (é o seu objetivo).** O Google já funciona lá.
+1. Você liga o Supabase próprio ao projeto em Configurações → Integrações, para que navegador e servidor troquem juntos.
+2. Na mesma mudança, troco em `vite.config.ts` os três valores reserva para o host, a chave publicável e o ID do projeto próprio.
+3. As telas de login não precisam mudar: a chamada direta do Google é a correta para um Supabase próprio.
+4. Testo no preview com um dos 2 usuários existentes (e-mail e Google) antes de publicar.
+
+Isso não perde dados do destino. O que existir só no backend antigo fica intacto, mas deixa de ser usado.
+
+**Opção B — paliativo enquanto o app continua no Lovable Cloud.** Trocar só os dois botões Google para o helper gerenciado (`lovable.auth.signInWithOAuth`). Isso corrige o erro, mas mantém o login no backend antigo, contrário ao objetivo.
+
+Recomendação: **Opção A**, conferindo antes o esquema e os redirecionamentos do destino.
