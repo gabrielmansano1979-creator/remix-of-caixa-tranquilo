@@ -60,8 +60,38 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       const customerEmail = (claims as { email?: string }).email || `${userId}@criefy.local`;
       const metadata = (claims as { user_metadata?: { full_name?: string; affiliate_referral_code?: string } }).user_metadata;
       const customerName = data.legalName;
+      const { data: existingCheckout, error: existingCheckoutError } = await supabaseAdmin
+        .from("pending_billing_changes")
+        .select("checkout_reference, payment_id, plan, billing_interval, status")
+        .eq("user_id", userId)
+        .eq("status", "pending")
+        .maybeSingle();
+      if (existingCheckoutError) throw existingCheckoutError;
+      if (existingCheckout) {
+        if (existingCheckout.plan !== data.plan || existingCheckout.billing_interval !== data.interval) {
+          return { error: "Você já tem um Pix pendente para outro plano. Pague esse Pix ou aguarde a confirmação antes de trocar de plano." };
+        }
+        if (!existingCheckout.payment_id) {
+          return { error: "Seu Pix está sendo preparado. Aguarde alguns segundos e tente novamente." };
+        }
+        const currentPayment = await asaas.getPayment(existingCheckout.payment_id);
+        const paymentStatus = currentPayment.status.toUpperCase();
+        if (["CONFIRMED", "RECEIVED", "PAID", "SETTLED"].includes(paymentStatus)) {
+          return { error: "O Asaas já identificou o pagamento. A ativação está sendo processada; não gere outro Pix." };
+        }
+        if (["DELETED", "REFUNDED", "CANCELED", "CANCELLED"].includes(paymentStatus)) {
+          const { error } = await supabaseAdmin.from("pending_billing_changes")
+            .update({ status: "failed", updated_at: new Date().toISOString() })
+            .eq("checkout_reference", existingCheckout.checkout_reference);
+          if (error) throw error;
+        } else {
+          const qr = await asaas.getPixQrCode(existingCheckout.payment_id);
+          return { qrCode: qr.pixQrCode, copyPaste: qr.pixCopyAndPaste, paymentId: existingCheckout.payment_id };
+        }
+      }
+
       const { data: prev, error: prevError } = await supabaseAdmin.from("subscriptions")
-        .select("paid_at, affiliate_partner_id, affiliate_coupon_code, affiliate_commission_percent, affiliate_discount_percent")
+        .select("paid_at, affiliate_partner_id, affiliate_coupon_code, affiliate_commission_percent, affiliate_discount_percent, asaas_subscription_id")
         .eq("user_id", userId)
         .maybeSingle();
       if (prevError) throw prevError;
@@ -127,27 +157,69 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
 
       const discountPercent = affiliate?.discountPercent ?? (isFirst ? Math.round(FIRST_PIX_DISCOUNT * 100) : 0);
       const priceCents = Math.round(basePrice * (1 - discountPercent / 100));
+      // The first Pix may receive its one-time promotion. Later recurring charges
+      // return to the normal price, except an affiliate's recurring coupon discount.
+      const recurringDiscountPercent = affiliate?.discountPercent ?? 0;
+      const recurringPriceCents = Math.round(basePrice * (1 - recurringDiscountPercent / 100));
       const customerId = await ensureCustomer(userId, customerEmail, customerName, data.cpfCnpj);
 
-      const externalRef = `sub_${userId}_${Date.now()}`;
-      const discountLabel = affiliate ? ` (cupom ${affiliate.code}: ${discountPercent}% off)` : discountPercent ? ` (${discountPercent}% off 1ª assinatura)` : "";
-      const charge = await asaas.createPixCharge(customerId, priceCents, externalRef, `Critical Cash ${plan.name} ${data.interval === "year" ? "anual" : "mensal"}${discountLabel}`);
-
-      const { error: subscriptionError } = await supabaseAdmin.from("subscriptions").upsert({
+      const checkoutReference = `cc_${userId}_${crypto.randomUUID()}`;
+      const now = new Date().toISOString();
+      const { error: pendingInsertError } = await supabaseAdmin.from("pending_billing_changes").insert({
+        checkout_reference: checkoutReference,
+        payment_id: null,
         user_id: userId,
-        asaas_payment_id: charge.id,
-        asaas_customer_id: customerId,
-        status: "pending_pix",
+        customer_id: customerId,
         plan: data.plan,
         billing_interval: data.interval,
+        initial_amount_cents: priceCents,
+        recurring_amount_cents: recurringPriceCents,
         affiliate_partner_id: affiliate?.partnerId ?? null,
         affiliate_coupon_code: affiliate?.code ?? null,
         affiliate_commission_percent: affiliate?.commissionPercent ?? null,
-        affiliate_discount_percent: affiliate ? discountPercent : null,
-        affiliate_payment_amount_cents: affiliate ? priceCents : null,
-        updated_at: new Date().toISOString()
-      }, { onConflict: "user_id" });
-      if (subscriptionError) throw subscriptionError;
+        affiliate_discount_percent: affiliate?.discountPercent ?? null,
+        previous_asaas_subscription_id: prev?.asaas_subscription_id ?? null,
+        status: "pending",
+        updated_at: now,
+      });
+      if (pendingInsertError) {
+        if (pendingInsertError.code === "23505") {
+          return { error: "Já existe um Pix pendente para esta conta. Reabra o checkout do plano que você escolheu ou aguarde a confirmação." };
+        }
+        throw pendingInsertError;
+      }
+
+      const discountLabel = affiliate
+        ? ` (cupom ${affiliate.code}: ${discountPercent}% off)`
+        : discountPercent ? ` (${discountPercent}% off 1º pagamento)` : "";
+      let charge: Awaited<ReturnType<typeof asaas.createPixCharge>>;
+      try {
+        charge = await asaas.createPixCharge(
+          customerId,
+          priceCents,
+          checkoutReference,
+          `Critical Cash ${plan.name} ${data.interval === "year" ? "anual" : "mensal"}${discountLabel}`,
+        );
+      } catch (error) {
+        await supabaseAdmin.from("pending_billing_changes")
+          .update({ status: "failed", updated_at: new Date().toISOString() })
+          .eq("checkout_reference", checkoutReference);
+        throw error;
+      }
+
+      const { error: paymentLinkError } = await supabaseAdmin.from("pending_billing_changes")
+        .update({ payment_id: charge.id, updated_at: new Date().toISOString() })
+        .eq("checkout_reference", checkoutReference)
+        .eq("status", "pending");
+      if (paymentLinkError) {
+        try { await asaas.deletePayment(charge.id); } catch (cleanupError) {
+          console.error("Asaas pending payment cleanup failed", charge.id, cleanupError);
+        }
+        await supabaseAdmin.from("pending_billing_changes")
+          .update({ status: "failed", updated_at: new Date().toISOString() })
+          .eq("checkout_reference", checkoutReference);
+        throw paymentLinkError;
+      }
 
       return {
         qrCode: charge.pixQrCode,
