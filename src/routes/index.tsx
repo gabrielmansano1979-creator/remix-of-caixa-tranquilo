@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import {
-  ArrowDownRight,
   ArrowRight,
   ArrowUpRight,
   BarChart3,
@@ -15,7 +14,6 @@ import {
   Clock3,
   CreditCard,
   FileSpreadsheet,
-  LockKeyhole,
   Menu,
   ShieldCheck,
   TrendingUp,
@@ -112,7 +110,6 @@ const faqs = [
 function IndexComponent() {
   const [sessionActive, setSessionActive] = useState(false);
   const [userRolePath, setUserRolePath] = useState('/caixa');
-  const [loadingAuth, setLoadingAuth] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -134,7 +131,6 @@ function IndexComponent() {
         setSessionActive(true);
         setUserRolePath('/caixa');
       }
-      if (isMounted) setLoadingAuth(false);
     };
 
     void processAuth();
