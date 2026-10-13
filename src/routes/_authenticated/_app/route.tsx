@@ -1,12 +1,12 @@
 import { createFileRoute, Link, Outlet, redirect, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bell, CreditCard, ListChecks, LogOut, Settings, Wallet, AlertTriangle, Moon, Sun, UserRound } from "lucide-react";
+import { Bell, CreditCard, ListChecks, LogOut, Settings, Wallet, AlertTriangle, Moon, Sun, UserRound, Menu } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Logo } from "@/components/brand";
 import { accessQuery, profileQuery } from "@/lib/app-data";
 import { trialProgress } from "@/lib/plg";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -34,8 +34,20 @@ function AppShell() {
   const navigate = useNavigate();
   const { data: access } = useQuery(accessQuery);
   const { data: profile } = useQuery(profileQuery);
-  const initials = (user.email ?? "?").slice(0, 2).toUpperCase();
+  const metadata = user.user_metadata ?? {};
+  const displayName =
+    (typeof profile?.full_name === "string" ? profile.full_name.trim() : "") ||
+    (typeof metadata.full_name === "string" ? metadata.full_name.trim() : "") ||
+    (typeof metadata.name === "string" ? metadata.name.trim() : "") ||
+    user.email ||
+    "Usuário";
+  const avatarUrl =
+    (typeof metadata.avatar_url === "string" ? metadata.avatar_url : "") ||
+    (typeof metadata.picture === "string" ? metadata.picture : "");
+  const initials = displayName.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "?";
   const [theme, setTheme] = useState<"light" | "dark">("dark");
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [mobileNavExpanded, setMobileNavExpanded] = useState(false);
 
   useEffect(() => {
     const saved = window.localStorage.getItem("critical-cash-theme");
@@ -65,6 +77,29 @@ function AppShell() {
 
   return (
     <div className="min-h-screen bg-background/70 md:flex">
+      {mobileNavOpen && <button type="button" aria-label="Fechar menu" className="fixed inset-0 z-40 bg-black/40 md:hidden" onClick={() => setMobileNavOpen(false)} />}
+      {mobileNavOpen && (
+        <aside className={`fixed left-0 top-0 z-50 flex h-screen flex-col border-r border-sidebar-border/80 bg-sidebar/95 px-3 py-4 shadow-xl backdrop-blur-xl transition-[width] duration-200 ease-out md:hidden ${mobileNavExpanded ? "w-64" : "w-20"}`}>
+          <div className="mb-4 flex items-center justify-between">
+            <Logo to="/caixa" compact={!mobileNavExpanded} />
+            <Button variant="ghost" size="icon" aria-label={mobileNavExpanded ? "Recolher nomes do menu" : "Expandir nomes do menu"} onClick={() => setMobileNavExpanded((expanded) => !expanded)}>
+              <Menu className="h-5 w-5" />
+            </Button>
+          </div>
+          <nav className="flex flex-col gap-1.5" aria-label="Principal no celular">
+            {NAV.map((n) => (
+              <Link key={n.to} to={n.to} title={n.label} aria-label={n.label} onClick={() => setMobileNavOpen(false)} className={linkCls} activeProps={{ className: activeCls }}>
+                <n.icon className="h-[18px] w-[18px] shrink-0" />
+                {mobileNavExpanded && <span className="whitespace-nowrap">{n.label}</span>}
+              </Link>
+            ))}
+          </nav>
+          <div className="mt-auto rounded-2xl border border-sidebar-border/70 bg-background/55 p-3">
+            <Wallet className="mx-auto h-5 w-5 text-primary" />
+            {mobileNavExpanded && <p className="mt-2 text-xs font-semibold">Visão executiva</p>}
+          </div>
+        </aside>
+      )}
       <aside className="group/sidebar fixed left-0 top-0 z-40 hidden h-screen w-20 flex-col border-r border-sidebar-border/80 bg-sidebar/95 px-3 py-4 shadow-xl backdrop-blur-xl transition-[width] duration-200 ease-out hover:w-64 md:flex">
         <div className="overflow-hidden rounded-2xl border border-sidebar-border/70 bg-background/60 px-1 py-3 shadow-sm transition-[padding] group-hover/sidebar:px-3"><Logo to="/caixa" compact /></div>
         <p className="mb-2 mt-8 hidden px-3 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground group-hover/sidebar:block">Gestão financeira</p>
@@ -85,7 +120,12 @@ function AppShell() {
 
       <div className="flex min-w-0 flex-1 flex-col md:pl-20">
         <header className="sticky top-0 z-20 flex h-[4.5rem] items-center justify-between border-b border-border/70 bg-background/75 px-4 backdrop-blur-xl md:px-8">
-          <div className="md:hidden"><Logo to="/caixa" /></div>
+          <div className="md:hidden flex items-center gap-2">
+            <Button variant="ghost" size="icon" aria-label={mobileNavOpen ? (mobileNavExpanded ? "Recolher menu" : "Expandir nomes do menu") : "Abrir menu"} onClick={() => mobileNavOpen ? setMobileNavExpanded((expanded) => !expanded) : setMobileNavOpen(true)}>
+              <Menu className="h-5 w-5" />
+            </Button>
+            <Logo to="/caixa" />
+          </div>
           <div className="hidden items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground md:flex">
             <span className="h-1.5 w-1.5 rounded-full bg-success shadow-[0_0_0_4px_color-mix(in_oklch,var(--color-success)_14%,transparent)]" />
             Ambiente seguro
@@ -105,11 +145,11 @@ function AppShell() {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="h-11 w-11 rounded-full p-0" aria-label="Menu da conta">
-                  <Avatar className="h-9 w-9"><AvatarFallback className="bg-primary text-primary-foreground text-xs">{initials}</AvatarFallback></Avatar>
+                  <Avatar className="h-9 w-9"><AvatarImage src={avatarUrl || undefined} alt={displayName} /><AvatarFallback className="bg-primary text-primary-foreground text-xs">{initials}</AvatarFallback></Avatar>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56 rounded-xl">
-                <DropdownMenuLabel className="truncate font-normal text-muted-foreground">{user.email}</DropdownMenuLabel>
+                <DropdownMenuLabel className="truncate font-medium">{displayName}</DropdownMenuLabel><DropdownMenuLabel className="truncate pt-0 font-normal text-muted-foreground">{user.email}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild><Link to="/configuracoes"><Settings className="mr-2 h-4 w-4" />Configurações</Link></DropdownMenuItem>
                 <DropdownMenuItem asChild><Link to="/assinatura"><CreditCard className="mr-2 h-4 w-4" />Assinatura</Link></DropdownMenuItem>
