@@ -11,13 +11,13 @@ import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 const PUBLIC_BACKEND_URL =
   process.env.VITE_SUPABASE_URL ||
   process.env.SUPABASE_URL ||
-  "https://c--cd7fdc5c-749e-47dc-b6de-47798bc0f3a1-prod.lovable.cloud";
+  "https://dygwbadhvwzajordpmst.supabase.co";
 const PUBLIC_BACKEND_KEY =
   process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
   process.env.SUPABASE_PUBLISHABLE_KEY ||
-  "sb_publishable_5kdu-aGfkm8sXvgY02Vtag_SGOOV8g1";
+  "sb_publishable_Q9AJrQtfx-lcqNy8qaqYyg_-_oJMlWX";
 const PUBLIC_BACKEND_PROJECT_ID =
-  process.env.VITE_SUPABASE_PROJECT_ID || process.env.SUPABASE_PROJECT_ID || "zotsdccggybuufxwgomw";
+  process.env.VITE_SUPABASE_PROJECT_ID || process.env.SUPABASE_PROJECT_ID || "dygwbadhvwzajordpmst";
 
 export default defineConfig({
   tanstackStart: {
