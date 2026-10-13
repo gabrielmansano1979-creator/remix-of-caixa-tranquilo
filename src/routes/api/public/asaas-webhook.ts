@@ -173,8 +173,9 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
                     authResult.user?.email ||
                     "Cliente";
 
-                  const amountCents = Math.floor(
-                    Number(sub.affiliate_payment_amount_cents) * commissionRate / 100,
+                  const amountCents = calculateCommissionAmountCents(
+                    Number(sub.affiliate_payment_amount_cents),
+                    commissionRate as 20 | 25 | 30,
                   );
                   const { error: commissionError } = await db.from("commissions").upsert({
                     partner_id: partnerId,
