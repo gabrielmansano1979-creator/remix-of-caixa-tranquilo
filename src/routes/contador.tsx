@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
-import { isValidCpfCnpj } from "@/lib/identity";
+import { isValidCpfCnpj, isValidCrcNumber } from "@/lib/identity";
 import {
   exportReport,
   formatPixKeyType,
@@ -157,8 +157,8 @@ function AccountantPage() {
     const taxId = form.tax_id.replace(/\D/g, "");
     if (!isValidCpfCnpj(taxId))
       return toast.error("Informe um CPF ou CNPJ válido, com dígitos verificadores corretos.");
-    if (!/^[A-Z]{2}-\d{6}\/[A-Z]$/.test(form.crc_number.toUpperCase()))
-      return toast.error("Informe o CRC no formato UF-123456/O.");
+    if (!isValidCrcNumber(form.crc_number))
+      return toast.error("Informe o CRC completo, por exemplo SP-123456/O-3. Registros transferidos ou secundários podem incluir T-UF ou S-UF.");
     if (form.phone.replace(/\D/g, "").length < 10 || form.phone.replace(/\D/g, "").length > 11)
       return toast.error("Informe um telefone com DDD.");
     if (!form.city.trim() || !/^[A-Za-zÀ-ÿ]{2}$/.test(form.state.trim()))
