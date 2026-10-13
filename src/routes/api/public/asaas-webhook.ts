@@ -21,16 +21,9 @@ function localMidnightTimestamp(date: string): string {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     throw new RangeError("billing date must use YYYY-MM-DD");
   }
-  // Keep the current period valid through the full local billing date.
-  // Store the next local midnight as the exclusive boundary for access checks.
-  const [year, month, day] = date.split("-").map(Number);
-  const nextLocalDate = new Date(Date.UTC(year, month - 1, day + 1));
-  const nextDate = [
-    nextLocalDate.getUTCFullYear(),
-    String(nextLocalDate.getUTCMonth() + 1).padStart(2, "0"),
-    String(nextLocalDate.getUTCDate()).padStart(2, "0"),
-  ].join("-");
-  return new Date(nextDate + "T00:00:00-03:00").toISOString();
+  // Keep the current period valid through the full São Paulo billing date.
+  // Keep the stored local date unchanged because the UI also displays it as the next due date.
+  return new Date(date + "T23:59:59.999-03:00").toISOString();
 }
 
 async function recordAffiliateCommission(
