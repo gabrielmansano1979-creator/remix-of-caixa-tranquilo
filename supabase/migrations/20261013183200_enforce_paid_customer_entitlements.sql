@@ -253,3 +253,59 @@ REVOKE ALL ON FUNCTION public.enforce_reminder_rule_entitlement() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.enforce_entry_write_entitlement() TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.enforce_profile_finance_entitlement() TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.enforce_reminder_rule_entitlement() TO authenticated, service_role;
+
+
+-- Restrict role introspection to the caller's own user ID (service_role remains trusted).
+-- This prevents authenticated users from using has_role to probe other accounts.
+CREATE OR REPLACE FUNCTION public.has_role(_user_id uuid, _role public.app_role)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path TO public, pg_temp
+AS $function$
+  SELECT CASE
+    WHEN _user_id IS NULL THEN false
+    WHEN COALESCE(auth.role(), '') <> 'service_role'
+      AND (auth.uid() IS NULL OR auth.uid() <> _user_id) THEN false
+    ELSE EXISTS (
+      SELECT 1
+      FROM public.user_roles
+      WHERE user_id = _user_id
+        AND role = _role::text
+    )
+  END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.has_role(uuid, public.app_role) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.has_role(uuid, public.app_role) TO authenticated, service_role;
+
+-- Fix legacy admin helper calls to use has_role(user_id, role) in the correct order.
+CREATE OR REPLACE FUNCTION public.admin_mark_commission_paid(_commission_id uuid)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO public, pg_temp
+AS $function$
+BEGIN
+  IF auth.uid() IS NULL
+     OR NOT public.has_role(auth.uid(), 'admin'::public.app_role) THEN
+    RAISE EXCEPTION 'admin access required';
+  END IF;
+
+  UPDATE public.commissions
+  SET status = 'paid', paid_at = now()
+  WHERE id = _commission_id AND status IN ('pending', 'available');
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'commission not found or already paid';
+  END IF;
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.admin_mark_commission_paid(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.admin_mark_commission_paid(uuid) TO authenticated, service_role;
+
+-- Manual commission overrides are obsolete: the tier is calculated from confirmed unique payers.
+REVOKE ALL ON FUNCTION public.admin_update_partner_rate(uuid, integer) FROM PUBLIC, authenticated;
+GRANT EXECUTE ON FUNCTION public.admin_update_partner_rate(uuid, integer) TO service_role;
