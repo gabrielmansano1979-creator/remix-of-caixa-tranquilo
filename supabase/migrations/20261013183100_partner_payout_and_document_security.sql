@@ -57,9 +57,32 @@ ALTER TABLE public.coupons
   ADD CONSTRAINT coupons_commission_percent_check
   CHECK (commission_percent BETWEEN 20 AND 30);
 
-CREATE UNIQUE INDEX IF NOT EXISTS coupons_partner_id_unique
-  ON public.coupons(partner_id)
-  WHERE partner_id IS NOT NULL;
+-- Reuse an existing full or equivalent partial unique index on partner_id.
+DO $migration$
+DECLARE partner_id_attnum smallint;
+BEGIN
+  SELECT attnum INTO partner_id_attnum
+  FROM pg_attribute
+  WHERE attrelid = 'public.coupons'::regclass
+    AND attname = 'partner_id' AND NOT attisdropped;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_index i
+    WHERE i.indrelid = 'public.coupons'::regclass
+      AND i.indisunique AND i.indisvalid
+      AND i.indnkeyatts = 1 AND i.indkey[0] = partner_id_attnum
+      AND (
+        i.indpred IS NULL
+        OR regexp_replace(lower(pg_get_expr(i.indpred, i.indrelid)), '"', '', 'g')
+          IN ('partner_id IS NOT NULL', '(partner_id IS NOT NULL)')
+      )
+  ) THEN
+    CREATE UNIQUE INDEX coupons_partner_id_unique
+      ON public.coupons(partner_id)
+      WHERE partner_id IS NOT NULL;
+  END IF;
+END
+$migration$;
 
 ALTER TABLE public.commissions
   ADD COLUMN IF NOT EXISTS amount numeric NOT NULL DEFAULT 0,
