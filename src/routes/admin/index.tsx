@@ -10,6 +10,8 @@ import {
   UserCheck,
   Wallet,
   Users,
+  FileText,
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -40,6 +42,18 @@ type PartnerRow = {
   coupon_code: string | null;
   commission_percent: number | null;
   referrals: number;
+};
+
+type PartnerApplicationDocument = {
+  user_id: string;
+  phone: string;
+  city: string;
+  state: string;
+  office_name: string | null;
+  crc_document_path: string;
+  identity_document_path: string;
+  address_document_path: string;
+  submitted_at: string;
 };
 
 type CommissionRow = {
@@ -229,6 +243,31 @@ function AdminPage() {
   const partners = data.partners;
   const commissions = data.commissions;
   const clients = data.clients;
+
+  const documentsQuery = useQuery({
+    queryKey: ["admin-partner-application-documents"],
+    enabled: authStatus === "authorized",
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("partner_application_documents")
+        .select("*")
+        .order("submitted_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as PartnerApplicationDocument[];
+    },
+  });
+
+  const openApplicationDocument = async (path: string) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from("partner-application-documents")
+        .createSignedUrl(path, 60);
+      if (error) throw error;
+      window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível abrir o documento.");
+    }
+  };
 
   const pendingCommissions = commissions.filter(
     (item) =>
@@ -438,6 +477,49 @@ function AdminPage() {
           value={String(data.total_clients)}
         />
       </div>
+
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Documentação das solicitações</CardTitle>
+          <p className="text-sm text-muted-foreground">Consulte os documentos privados enviados pelos candidatos antes de aprovar ou recusar a parceria.</p>
+        </CardHeader>
+        <CardContent>
+          {documentsQuery.isLoading ? (
+            <p className="text-sm text-muted-foreground">Carregando documentos...</p>
+          ) : documentsQuery.isError ? (
+            <div className="space-y-2 text-sm text-danger">
+              <p>Não foi possível carregar os documentos dos candidatos.</p>
+              <Button variant="outline" onClick={() => void documentsQuery.refetch()}>Tentar novamente</Button>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[900px] text-left text-sm">
+                <thead><tr className="border-b text-xs text-muted-foreground">
+                  {["Candidato", "Telefone", "Localidade", "Escritório", "Enviada em", "Documentos"].map((title) => <th key={title} className="px-3 py-3 font-medium">{title}</th>)}
+                </tr></thead>
+                <tbody>
+                  {(documentsQuery.data ?? []).length ? documentsQuery.data!.map((item) => {
+                    const partner = partners.find((row) => row.user_id === item.user_id);
+                    return <tr key={item.user_id} className="border-b last:border-0">
+                      <td className="px-3 py-3 font-medium">{partner?.name ?? "Candidato"}</td>
+                      <td className="px-3 py-3">{item.phone}</td>
+                      <td className="px-3 py-3">{item.city} / {item.state}</td>
+                      <td className="px-3 py-3">{item.office_name ?? "—"}</td>
+                      <td className="px-3 py-3">{date(item.submitted_at)}</td>
+                      <td className="px-3 py-3"><div className="flex flex-wrap gap-1">
+                        <Button size="sm" variant="outline" onClick={() => void openApplicationDocument(item.crc_document_path)}><FileText className="mr-1 h-3.5 w-3.5" />CRC</Button>
+                        <Button size="sm" variant="outline" onClick={() => void openApplicationDocument(item.identity_document_path)}><ExternalLink className="mr-1 h-3.5 w-3.5" />Identidade</Button>
+                        <Button size="sm" variant="outline" onClick={() => void openApplicationDocument(item.address_document_path)}><ExternalLink className="mr-1 h-3.5 w-3.5" />Endereço</Button>
+                      </div></td>
+                    </tr>;
+                  }) : <tr><td colSpan={6} className="px-3 py-8 text-center text-muted-foreground">Nenhuma documentação recebida ainda.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <Card className="border-white/10 bg-zinc-900/60 text-zinc-100">
         <CardHeader>
