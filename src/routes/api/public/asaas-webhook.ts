@@ -102,7 +102,7 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
           if (paymentIdText && (isPaidStatus(rawStatus) || confirmedEvent)) {
             const { data: sub, error: subError } = await db
               .from("subscriptions")
-              .select("user_id, plan, affiliate_partner_id, affiliate_commission_percent, affiliate_payment_amount_cents")
+              .select("id, user_id, plan, affiliate_partner_id, affiliate_commission_percent, affiliate_payment_amount_cents")
               .eq("asaas_payment_id", paymentIdText)
               .maybeSingle();
             if (subError) throw subError;
@@ -175,7 +175,7 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
                   );
                   const { error: commissionError } = await db.from("commissions").upsert({
                     partner_id: partnerId,
-                    subscription_id: sub.user_id,
+                    subscription_id: sub.id,
                     payment_id: paymentIdText,
                     client_name: clientName,
                     client_email: profile?.email ?? authResult.user?.email ?? null,
