@@ -48,6 +48,19 @@ describe("cash movement arithmetic", () => {
     ]);
   });
 
+  it("matches SQL when a legacy paid entry has no paid_at and is on the snapshot date", () => {
+    const legacyPaid = movement({
+      type: "income",
+      amount_cents: 10000,
+      due_date: "2026-10-13",
+      status: "paid",
+      paid_at: null,
+    });
+    // Midnight in São Paulo is 03:00 UTC. SQL's due_date fallback equals this snapshot,
+    // so the movement must not be counted as occurring after it.
+    expect(calculateCurrentBalanceCents(7000, "2026-10-13T03:00:00.000Z", [legacyPaid])).toBe(7000);
+  });
+
   it("does not double-count a payment already included in the opening-balance snapshot", () => {
     const entries = [
       movement({ type: "income", amount_cents: 20000, due_date: "2026-10-12", status: "paid", paid_at: "2026-10-12T12:00:00-03:00" }),
