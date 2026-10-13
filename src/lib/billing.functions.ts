@@ -247,27 +247,49 @@ export const cancelSubscription = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ reason: z.string().max(500).optional() }).parse(d))
   .handler(async ({ data, context }): Promise<{ ok: boolean; message: string }> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: sub } = await supabaseAdmin.from("subscriptions")
-      .select("asaas_payment_id, status")
+    const { data: sub, error: lookupError } = await supabaseAdmin.from("subscriptions")
+      .select("asaas_subscription_id, status, current_period_end, cancel_at_period_end")
       .eq("user_id", context.userId)
       .maybeSingle();
 
-    if (!sub) return { ok: false, message: "Nenhuma assinatura ativa." };
+    if (lookupError) {
+      console.error("subscription cancellation lookup failed", lookupError);
+      return { ok: false, message: "Não foi possível verificar sua assinatura." };
+    }
+    if (!sub) return { ok: false, message: "Nenhuma assinatura encontrada." };
+    if (sub.status === "canceled" && sub.cancel_at_period_end) {
+      return { ok: true, message: "A recorrência já foi cancelada; seu acesso termina no fim do período pago." };
+    }
 
     try {
-      await supabaseAdmin.from("subscriptions").update({
-        cancel_at_period_end: true,
-        updated_at: new Date().toISOString()
-      }).eq("user_id", context.userId);
+      if (sub.asaas_subscription_id) {
+        const asaas = await import("./asaas.server");
+        await asaas.cancelAsaasSubscription(sub.asaas_subscription_id);
+      }
 
-      await supabaseAdmin.from("audit_logs").insert({
+      const now = new Date();
+      const hasPaidTimeRemaining = Boolean(
+        sub.current_period_end && Date.parse(sub.current_period_end) > now.getTime(),
+      );
+      const { error: updateError } = await supabaseAdmin.from("subscriptions").update({
+        status: hasPaidTimeRemaining ? "canceled" : "expired",
+        cancel_at_period_end: hasPaidTimeRemaining,
+        updated_at: now.toISOString(),
+      }).eq("user_id", context.userId);
+      if (updateError) throw updateError;
+
+      const { error: auditError } = await supabaseAdmin.from("audit_logs").insert({
         user_id: context.userId,
         action: "subscription_cancel",
-        meta: { reason: data.reason ?? null }
+        meta: { reason: data.reason ?? null, asaas_subscription_id: sub.asaas_subscription_id ?? null },
       });
+      if (auditError) throw auditError;
 
-      return { ok: true, message: "Assinatura cancelada. Você mantém o acesso até o fim do período." };
-    } catch {
-      return { ok: false, message: "Não foi possível cancelar agora." };
+      return hasPaidTimeRemaining
+        ? { ok: true, message: "A recorrência foi cancelada. Você mantém o acesso até o fim do período pago." }
+        : { ok: true, message: "A recorrência foi cancelada e não há período pago restante." };
+    } catch (error) {
+      console.error("subscription cancellation failed", error);
+      return { ok: false, message: "Não foi possível cancelar a recorrência agora. Tente novamente." };
     }
   });
