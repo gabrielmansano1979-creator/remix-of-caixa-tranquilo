@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS public.coupons (
 CREATE TABLE IF NOT EXISTS public.commissions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   partner_id uuid NOT NULL REFERENCES public.partner_requests(user_id) ON DELETE CASCADE,
-  subscription_id uuid REFERENCES public.subscriptions(user_id) ON DELETE SET NULL,
+  subscription_id uuid REFERENCES public.subscriptions(id) ON DELETE SET NULL,
   client_name text,
   amount_cents bigint NOT NULL DEFAULT 0 CHECK (amount_cents >= 0),
   status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'available', 'paid')),
