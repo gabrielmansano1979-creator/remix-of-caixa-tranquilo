@@ -16,8 +16,26 @@ UPDATE public.partner_requests
 SET status = 'pending_approval', updated_at = COALESCE(updated_at, now())
 WHERE status IS NULL OR status = 'pending';
 
-CREATE UNIQUE INDEX IF NOT EXISTS partner_requests_user_id_unique
-  ON public.partner_requests(user_id);
+-- Reuse a UNIQUE constraint/index on user_id when the legacy schema already has one.
+DO $migration$
+DECLARE user_id_attnum smallint;
+BEGIN
+  SELECT attnum INTO user_id_attnum
+  FROM pg_attribute
+  WHERE attrelid = 'public.partner_requests'::regclass
+    AND attname = 'user_id' AND NOT attisdropped;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_index i
+    WHERE i.indrelid = 'public.partner_requests'::regclass
+      AND i.indisunique AND i.indisvalid AND i.indpred IS NULL
+      AND i.indnkeyatts = 1 AND i.indkey[0] = user_id_attnum
+  ) THEN
+    CREATE UNIQUE INDEX partner_requests_user_id_unique
+      ON public.partner_requests(user_id);
+  END IF;
+END
+$migration$;
 
 ALTER TABLE public.coupons
   ADD COLUMN IF NOT EXISTS commission_percent integer DEFAULT 20,
@@ -70,11 +88,28 @@ BEGIN
 END
 $migration$;
 
--- Use a non-partial unique index so the webhook's ON CONFLICT (payment_id)
--- is inferred by PostgreSQL. UNIQUE permits multiple NULL values.
+-- Ensure ON CONFLICT (payment_id) has a non-partial unique index/constraint.
+-- Reuse an existing UNIQUE constraint instead of creating a duplicate index.
 DROP INDEX IF EXISTS public.commissions_payment_id_unique;
-CREATE UNIQUE INDEX commissions_payment_id_unique
-  ON public.commissions(payment_id);
+DO $migration$
+DECLARE payment_id_attnum smallint;
+BEGIN
+  SELECT attnum INTO payment_id_attnum
+  FROM pg_attribute
+  WHERE attrelid = 'public.commissions'::regclass
+    AND attname = 'payment_id' AND NOT attisdropped;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_index i
+    WHERE i.indrelid = 'public.commissions'::regclass
+      AND i.indisunique AND i.indisvalid AND i.indpred IS NULL
+      AND i.indnkeyatts = 1 AND i.indkey[0] = payment_id_attnum
+  ) THEN
+    CREATE UNIQUE INDEX commissions_payment_id_unique
+      ON public.commissions(payment_id);
+  END IF;
+END
+$migration$;
 
 -- A shape-valid CPF/CNPJ is not proof of an active official registration. This only checks
 -- the mathematical digits; official status must be confirmed separately during approval.
