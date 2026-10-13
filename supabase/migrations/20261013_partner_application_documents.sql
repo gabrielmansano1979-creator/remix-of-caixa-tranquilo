@@ -67,7 +67,12 @@ VALUES (
   'partner-application-documents',
   false,
   10485760,
-  ARRAY['application/pdf', 'image/jpeg', 'image/png']
+  ARRAY[
+      'application/pdf',
+      'text/csv',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    ]
 )
 ON CONFLICT (id) DO UPDATE
 SET public = false,
