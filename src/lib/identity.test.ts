@@ -33,6 +33,16 @@ describe("Brazilian CPF/CNPJ shape validation", () => {
     expect(isValidCpfCnpj("12.ABC.345/01D--")).toBe(false);
   });
 
+  it("accepts uppercase and lowercase alphanumeric CNPJ", () => {
+    expect(isValidCpfCnpj("12ABC34501DE35")).toBe(true);
+    expect(isValidCpfCnpj("12.abc.345/01de-35")).toBe(true);
+  });
+
+  it("rejects invalid alphanumeric CNPJ check digits and nonnumeric check-digit positions", () => {
+    expect(isValidCpfCnpj("12ABC34501DE36")).toBe(false);
+    expect(isValidCpfCnpj("12ABC34501DEA5")).toBe(false);
+  });
+
   it("rejects values with unsupported lengths", () => {
     expect(isValidCpfCnpj("1234567890")).toBe(false);
     expect(isValidCpfCnpj("123456789012345")).toBe(false);
