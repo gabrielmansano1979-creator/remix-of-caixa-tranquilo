@@ -79,6 +79,28 @@ const ACCEPTED_DOCUMENT_TYPES = ["application/pdf", "image/jpeg", "image/png"];
 const money = (cents: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100);
 
+const statusLabelPt = (status: string) => ({
+  pending: "Pendente",
+  available: "Disponível",
+  paid: "Paga",
+  active: "Ativa",
+  trialing: "Em período de teste",
+  canceled: "Cancelada",
+  past_due: "Pagamento atrasado",
+  incomplete: "Incompleta",
+  unpaid: "Não paga",
+}[status] ?? status);
+
+const planLabelPt = (plan: string) => ({
+  free: "Gratuito",
+  starter: "Inicial",
+  basic: "Básico",
+  pro: "Profissional",
+  premium: "Premium",
+  business: "Empresarial",
+}[plan.toLowerCase()] ?? plan);
+
+
 function AccountantPage() {
   const queryClient = useQueryClient();
   const [form, setForm] = useState(empty);
@@ -305,7 +327,7 @@ function AccountantPage() {
   const commissionRows = history.map((item) => ({
     cliente: item.client_name ?? "Cliente",
     valor: money(item.amount_cents),
-    situacao: item.status,
+    situacao: statusLabelPt(item.status),
     data: new Date(item.created_at).toLocaleDateString("pt-BR"),
     pago_em: item.paid_at ? new Date(item.paid_at).toLocaleDateString("pt-BR") : "—",
   }));
@@ -441,8 +463,8 @@ function AccountantPage() {
                   clientRows.map((client, index) => (
                     <tr key={`${client.client_name}-${index}`} className="border-b last:border-0">
                       <td className="px-3 py-3 font-medium">{client.client_name ?? "Cliente"}</td>
-                      <td className="px-3 py-3">{client.plan}</td>
-                      <td className="px-3 py-3">{client.status}</td>
+                      <td className="px-3 py-3">{planLabelPt(client.plan)}</td>
+                      <td className="px-3 py-3">{statusLabelPt(client.status)}</td>
                       <td className="num px-3 py-3">{client.entry_count}</td>
                       <td className="num px-3 py-3">{money(client.income_cents)}</td>
                       <td className="num px-3 py-3">{money(client.expense_cents)}</td>
