@@ -82,12 +82,17 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
 
             if (sub.affiliate_partner_id && sub.affiliate_commission_percent && sub.affiliate_payment_amount_cents) {
               const { data: profile } = await db.from("profiles").select("business_name").eq("user_id", sub.user_id).maybeSingle();
+              const commissionCents = Math.floor(
+                sub.affiliate_payment_amount_cents * sub.affiliate_commission_percent / 100,
+              );
               const { error: commissionError } = await db.from("commissions").upsert({
                 partner_id: sub.affiliate_partner_id,
                 subscription_id: sub.user_id,
                 payment_id: paymentIdText,
                 client_name: profile?.business_name ?? "Cliente",
-                amount_cents: Math.floor(sub.affiliate_payment_amount_cents * sub.affiliate_commission_percent / 100),
+                // Keep the legacy currency column populated while cents remain canonical for calculations.
+                amount: commissionCents / 100,
+                amount_cents: commissionCents,
                 status: "pending",
               }, { onConflict: "payment_id", ignoreDuplicates: true });
               if (commissionError) throw commissionError;
