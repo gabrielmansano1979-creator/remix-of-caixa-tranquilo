@@ -90,8 +90,6 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
                 subscription_id: sub.user_id,
                 payment_id: paymentIdText,
                 client_name: profile?.business_name ?? "Cliente",
-                // Keep the legacy currency column populated while cents remain canonical for calculations.
-                amount: commissionCents / 100,
                 amount_cents: commissionCents,
                 status: "pending",
               }, { onConflict: "payment_id", ignoreDuplicates: true });
