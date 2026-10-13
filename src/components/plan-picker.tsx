@@ -39,16 +39,19 @@ export function PlanPicker({ referralCode }: { referralCode?: string }) {
     setBusy(plan);
     track("upgrade_click", { plan, interval: yearly ? "year" : "month" });
     const { data: authResult, error: authError } = await supabase.auth.getUser();
-    if (!authError && authResult.user) {
-      const { error: nameError } = await supabase
-        .from("profiles")
-        .update({ full_name: legalName.trim() })
-        .eq("user_id", authResult.user.id);
-      if (nameError) {
-        toast.error("Não foi possível salvar seu nome civil no perfil. Confira o acesso e tente novamente.");
-        setBusy(null);
-        return;
-      }
+    if (authError || !authResult.user) {
+      toast.error("Entre na sua conta para continuar a assinatura.");
+      setBusy(null);
+      return;
+    }
+    const { error: nameError } = await supabase
+      .from("profiles")
+      .update({ full_name: legalName.trim() })
+      .eq("user_id", authResult.user.id);
+    if (nameError) {
+      toast.error("Não foi possível salvar seu nome civil no perfil. Confira o acesso e tente novamente.");
+      setBusy(null);
+      return;
     }
     try {
       const r = await checkout({ data: { plan, interval: yearly ? "year" : "month", cpfCnpj: digits, legalName: legalName.trim(), referralCode } });
