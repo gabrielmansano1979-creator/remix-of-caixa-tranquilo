@@ -12,9 +12,10 @@ describe("Brazilian CPF/CNPJ shape validation", () => {
     expect(isValidCpfCnpj("111.111.111-11")).toBe(false);
   });
 
-  it("accepts a CNPJ with valid check digits, with or without punctuation", () => {
+  it("continues to accept valid legacy numeric CNPJ with or without punctuation", () => {
     expect(isValidCpfCnpj("11222333000181")).toBe(true);
     expect(isValidCpfCnpj("11.222.333/0001-81")).toBe(true);
+    expect(normalizeCpfCnpj("11.222.333/0001-81")).toBe("11222333000181");
   });
 
   it("rejects a CNPJ with an invalid check digit and repeated digits", () => {
@@ -31,6 +32,12 @@ describe("Brazilian CPF/CNPJ shape validation", () => {
     expect(isValidCpfCnpj("12.ABC.345/01DE-36")).toBe(false);
     expect(isValidCpfCnpj("12.ABC.345/01DE-A5")).toBe(false);
     expect(isValidCpfCnpj("12.ABC.345/01D--")).toBe(false);
+  });
+
+  it("keeps the old numeric CNPJ format valid after the alphanumeric rollout", () => {
+    const legacyCnpj = normalizeCpfCnpj("11.222.333/0001-81");
+    expect(legacyCnpj).toBe("11222333000181");
+    expect(isValidCpfCnpj(legacyCnpj)).toBe(true);
   });
 
   it("accepts uppercase and lowercase alphanumeric CNPJ", () => {
