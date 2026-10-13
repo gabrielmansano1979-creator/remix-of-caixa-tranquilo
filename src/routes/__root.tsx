@@ -85,7 +85,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         name: "description",
         content:
-          "Acompanhe seu caixa, antecipe riscos e prepare cobranças para envio pelo WhatsApp.",
+          "Organize contas a pagar e receber, acompanhe a projeção do fluxo de caixa e planeje os próximos passos do seu negócio com o Critical Cash.",
       },
       { property: "og:site_name", content: "Critical Cash" },
       { property: "og:type", content: "website" },
