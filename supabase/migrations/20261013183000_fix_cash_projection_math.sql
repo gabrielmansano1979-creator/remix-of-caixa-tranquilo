@@ -3,10 +3,12 @@
 ALTER TABLE public.profiles
   ADD COLUMN IF NOT EXISTS balance_updated_at timestamptz;
 
+-- A legacy opening balance was date-only, so conservatively treat it as the end of
+-- that local date. This avoids re-adding receipts/payments likely already in that snapshot.
 UPDATE public.profiles
 SET balance_updated_at = COALESCE(
   balance_updated_at,
-  (balance_date::timestamp AT TIME ZONE 'America/Sao_Paulo')
+  ((balance_date + 1)::timestamp AT TIME ZONE 'America/Sao_Paulo')
 )
 WHERE balance_updated_at IS NULL;
 
@@ -28,7 +30,8 @@ LANGUAGE plpgsql
 SET search_path TO public
 AS $function$
 BEGIN
-  IF NEW.initial_balance_cents IS DISTINCT FROM OLD.initial_balance_cents THEN
+  IF NEW.initial_balance_cents IS DISTINCT FROM OLD.initial_balance_cents
+     OR NEW.balance_date IS DISTINCT FROM OLD.balance_date THEN
     NEW.balance_updated_at := now();
     NEW.balance_date := (now() AT TIME ZONE 'America/Sao_Paulo')::date;
   END IF;
@@ -38,7 +41,7 @@ $function$;
 
 DROP TRIGGER IF EXISTS profiles_capture_balance_snapshot_time ON public.profiles;
 CREATE TRIGGER profiles_capture_balance_snapshot_time
-BEFORE UPDATE OF initial_balance_cents ON public.profiles
+BEFORE UPDATE OF initial_balance_cents, balance_date ON public.profiles
 FOR EACH ROW EXECUTE FUNCTION public.capture_balance_snapshot_time();
 
 CREATE OR REPLACE FUNCTION public.cash_projection(_days integer DEFAULT 30)
