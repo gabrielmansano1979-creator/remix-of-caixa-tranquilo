@@ -1,5 +1,6 @@
 -- Reconcile the deployed affiliate/accountant schema with the application contract.
 -- Additive changes preserve existing financial records.
+-- Validation RPC definitions live in the preceding security migration to avoid overwriting them here.
 ALTER TABLE public.partner_requests
   ADD COLUMN IF NOT EXISTS tax_id text,
   ADD COLUMN IF NOT EXISTS crc_number text,
