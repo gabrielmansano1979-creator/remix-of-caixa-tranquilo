@@ -1,5 +1,9 @@
 # Roadmap — Caixa Crítico
 
+## Login no Supabase próprio (dygwbadhvwzajordpmst)
+- [x] Diagnóstico e levantamento somente leitura (site publicado usa backend antigo)
+- [ ] Trocar navegador e servidor juntos — aguarda autorização do dono e vínculo do Supabase próprio nas configurações do projeto
+
 ## Envio HTTP de WhatsApp
 - [ ] Criar envio seguro por POST no servidor do app — aguarda escolha entre Z-API e Meta Cloud API e credenciais no cofre.
 - [ ] Priorizar alternativa gratuita de WhatsApp — verificar custos e distinguir envio manual de automação.
