@@ -326,7 +326,7 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
               paid_at: paidAt,
               current_period_end: localMidnightTimestamp(nextDueDate),
               cancel_at_period_end: false,
-              plan: pendingCheckout.plan,
+              plan: pendingCheckout.plan as PlanId,
               billing_interval: interval,
               affiliate_partner_id: pendingCheckout.affiliate_partner_id,
               affiliate_coupon_code: pendingCheckout.affiliate_coupon_code,
