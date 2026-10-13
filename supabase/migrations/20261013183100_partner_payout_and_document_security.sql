@@ -57,7 +57,7 @@ ALTER TABLE public.commissions ALTER COLUMN amount SET DEFAULT 0;
 ALTER TABLE public.commissions DROP CONSTRAINT IF EXISTS commissions_subscription_id_fkey;
 ALTER TABLE public.commissions
   ADD CONSTRAINT commissions_subscription_id_fkey
-  FOREIGN KEY (subscription_id) REFERENCES public.subscriptions(id) ON DELETE SET NULL;
+  FOREIGN KEY (subscription_id) REFERENCES public.subscriptions(user_id) ON DELETE SET NULL;
 
 DO $migration$
 BEGIN
