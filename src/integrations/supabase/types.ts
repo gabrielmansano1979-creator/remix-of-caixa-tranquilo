@@ -150,7 +150,9 @@ export type Database = {
       }
       commissions: {
         Row: {
+          amount: number
           amount_cents: number
+          client_email: string | null
           client_name: string | null
           created_at: string
           id: string
@@ -162,7 +164,9 @@ export type Database = {
           subscription_id: string | null
         }
         Insert: {
+          amount?: number
           amount_cents?: number
+          client_email?: string | null
           client_name?: string | null
           created_at?: string
           id?: string
@@ -174,7 +178,9 @@ export type Database = {
           subscription_id?: string | null
         }
         Update: {
+          amount?: number
           amount_cents?: number
+          client_email?: string | null
           client_name?: string | null
           created_at?: string
           id?: string
