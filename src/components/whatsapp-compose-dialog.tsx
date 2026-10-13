@@ -17,13 +17,15 @@ type WhatsAppComposeDialogProps = {
 };
 
 const TEMPLATES: { id: WhatsAppTemplate; label: string }[] = [
-  { id: "due", label: "Lembrete de vencimento" },
+  { id: "pre_due", label: "Lembrete antecipado" },
+  { id: "due", label: "Vence hoje" },
+  { id: "overdue", label: "Cobrança em atraso" },
   { id: "friendly", label: "Cobrança amigável" },
 ];
 
 export function WhatsAppComposeDialog({ entries, open, onOpenChange, initialEntry }: WhatsAppComposeDialogProps) {
   const receivables = useMemo(
-    () => entries.filter((entry) => entry.type === "income" && entry.counterparty_whatsapp),
+    () => entries.filter((entry) => entry.type === "income"),
     [entries],
   );
   const [selectedId, setSelectedId] = useState("");
@@ -88,7 +90,7 @@ export function WhatsAppComposeDialog({ entries, open, onOpenChange, initialEntr
               placeholder="Digite o nome do cliente ou a descrição"
               className="h-11 rounded-xl"
             />
-            <div className="max-h-44 space-y-1 overflow-y-auto rounded-xl border p-1" role="listbox" aria-label="Contas a receber com WhatsApp">
+            <div className="max-h-44 space-y-1 overflow-y-auto rounded-xl border p-1" role="listbox" aria-label="Clientes e contas a receber cadastrados">
               {filteredEntries.length ? filteredEntries.map((entry) => (
                 <button
                   key={entry.id}
@@ -103,7 +105,7 @@ export function WhatsAppComposeDialog({ entries, open, onOpenChange, initialEntr
                 </button>
               )) : (
                 <p className="px-3 py-4 text-center text-sm text-muted-foreground">
-                  {receivables.length ? "Nenhum resultado para essa busca." : "Nenhuma conta a receber tem WhatsApp cadastrado."}
+                  {receivables.length ? "Nenhum resultado para essa busca." : "Nenhuma conta a receber cadastrada."}
                 </p>
               )}
             </div>
@@ -123,9 +125,9 @@ export function WhatsAppComposeDialog({ entries, open, onOpenChange, initialEntr
 
           {selectedEntry && (
             <div className="rounded-2xl border border-primary/10 bg-accent/35 p-4 text-sm">
-              <p className="font-medium">{selectedEntry.counterparty_name || "Cliente sem nome"} · {selectedEntry.counterparty_whatsapp}</p>
+              <p className="font-medium">{selectedEntry.counterparty_name || "Cliente sem nome"} · {selectedEntry.counterparty_whatsapp || "WhatsApp não cadastrado"}</p>
               <p className="mt-1 text-muted-foreground">{selectedEntry.description} · {formatBRL(selectedEntry.amount_cents)} · vence {formatDate(selectedEntry.due_date)}</p>
-              {template === "friendly" && !selectedEntry.pix_url && <p className="mt-1 text-xs text-warning">Esta conta não tem link de pagamento; o modelo indicará “não informado”.</p>}
+              {!selectedEntry.counterparty_whatsapp && <p className="mt-1 text-xs text-warning">Cadastre o WhatsApp deste cliente em Contas para abrir a conversa.</p>}
             </div>
           )}
 
@@ -147,7 +149,7 @@ export function WhatsAppComposeDialog({ entries, open, onOpenChange, initialEntr
 
         <DialogFooter>
           <Button variant="outline" className="h-11 rounded-xl" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button className="h-11 rounded-xl bg-success px-5 text-success-foreground shadow-[0_10px_24px_-14px_var(--color-success)] hover:bg-success/90" disabled={!selectedEntry || !message.trim()} onClick={send}>
+          <Button className="h-11 rounded-xl bg-success px-5 text-success-foreground shadow-[0_10px_24px_-14px_var(--color-success)] hover:bg-success/90" disabled={!selectedEntry || !selectedEntry.counterparty_whatsapp || !message.trim()} onClick={send}>
             <MessageCircle className="mr-2 h-4 w-4" />Enviar via WhatsApp
           </Button>
         </DialogFooter>
