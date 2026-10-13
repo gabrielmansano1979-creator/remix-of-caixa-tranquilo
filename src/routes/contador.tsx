@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
-import { isValidCpfCnpj, isValidCrcNumber } from "@/lib/identity";
+import { isValidCpfCnpj, isValidCrcNumber, normalizeCpfCnpj } from "@/lib/identity";
 import {
   exportReport,
   formatPixKeyType,
@@ -154,7 +154,7 @@ function AccountantPage() {
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
-    const taxId = form.tax_id.replace(/\D/g, "");
+    const taxId = normalizeCpfCnpj(form.tax_id);
     if (!isValidCpfCnpj(taxId))
       return toast.error("Informe um CPF ou CNPJ válido, com dígitos verificadores corretos.");
     if (!isValidCrcNumber(form.crc_number))
