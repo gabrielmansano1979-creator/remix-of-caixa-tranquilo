@@ -13,7 +13,7 @@ export function nextBillingDate(paidAt: string | Date, interval: BillingInterval
   let year: number;
   let month: number;
   let day: number;
-  if (typeof paidAt === "string" && /^\\d{4}-\\d{2}-\\d{2}$/.test(paidAt)) {
+  if (typeof paidAt === "string" && /^\d{4}-\d{2}-\d{2}$/.test(paidAt)) {
     // Database date fields and Asaas dueDate values are local calendar dates, not UTC instants.
     [year, month, day] = paidAt.split("-").map(Number);
     const validDate = new Date(Date.UTC(year, month - 1, day));
