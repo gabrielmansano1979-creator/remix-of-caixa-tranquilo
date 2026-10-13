@@ -56,7 +56,11 @@ function ContasPage() {
   useEffect(() => {
     if (search.novo) setFormOpen(true);
     if (search.importar) setCsvOpen(true);
-    if (search.novo || search.importar) navigate({ search: {}, replace: true });
+    if (search.whatsapp) {
+      setWhatsAppEntry(null);
+      setWhatsAppOpen(true);
+    }
+    if (search.novo || search.importar || search.whatsapp) navigate({ search: {}, replace: true });
   }, [search.novo, search.importar, navigate]);
 
   const onLimit = (_k: LimitKind, msg: string) => setLimit(msg);
