@@ -47,8 +47,8 @@ export function calculateCurrentBalanceCents(
 
   return movements.reduce((balance, entry) => {
     if (entry.status !== "paid") return balance;
-    // Older DATE rows are migrated to noon in São Paulo (15:00 UTC). Keep the
-    // same fallback for records without a paid_at value.
+    // Legacy paid_at values were date-only. If missing, mirror SQL by treating the
+    // due date as midnight in São Paulo (03:00 UTC) for snapshot comparisons.
     const paidAt = entry.paid_at ? Date.parse(entry.paid_at) : Date.parse(entry.due_date + SP_MIDNIGHT_UTC_SUFFIX);
     if (!Number.isFinite(paidAt) || paidAt <= snapshotTime) return balance;
     return balance + signedAmount(entry);
