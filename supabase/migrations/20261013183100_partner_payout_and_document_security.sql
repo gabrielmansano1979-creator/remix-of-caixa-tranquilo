@@ -77,7 +77,7 @@ STRICT
 SET search_path TO public, pg_temp
 AS $function$
 DECLARE
-  digits text := regexp_replace(p_value, '\\D', '', 'g');
+  digits text := regexp_replace(p_value, '\D', '', 'g');
   digit_sum integer := 0;
   remainder integer := 0;
   expected integer := 0;
@@ -116,7 +116,7 @@ BEGIN
 
   digit_sum := 0;
   FOR i IN 1..13 LOOP
-    weight := CASE WHEN i = 1 THEN 5 ELSE CASE WHEN i <= 5 THEN 7 - i ELSE 15 - i END END;
+    weight := CASE WHEN i <= 5 THEN 7 - i ELSE 15 - i END;
     digit_sum := digit_sum + substring(digits, i, 1)::integer * weight;
   END LOOP;
   remainder := digit_sum % 11;
@@ -170,7 +170,7 @@ BEGIN
   VALUES (
     uid,
     trim(_full_name),
-    regexp_replace(_tax_id, '\\D', '', 'g'),
+    regexp_replace(_tax_id, '\D', '', 'g'),
     upper(trim(_crc_number)),
     payout_type,
     payout_key,
@@ -302,9 +302,9 @@ WITH CHECK (
   AND crc_document_path LIKE (SELECT auth.uid())::text || '/crc-%'
   AND identity_document_path LIKE (SELECT auth.uid())::text || '/identidade-%'
   AND address_document_path LIKE (SELECT auth.uid())::text || '/endereco-%'
-  AND lower(crc_document_path) ~ '\\.(pdf|csv|xls|xlsx)$'
-  AND lower(identity_document_path) ~ '\\.(pdf|csv|xls|xlsx)$'
-  AND lower(address_document_path) ~ '\\.(pdf|csv|xls|xlsx)$'
+  AND lower(crc_document_path) ~ '\.(pdf|csv|xls|xlsx)$'
+  AND lower(identity_document_path) ~ '\.(pdf|csv|xls|xlsx)$'
+  AND lower(address_document_path) ~ '\.(pdf|csv|xls|xlsx)$'
   AND NOT EXISTS (
     SELECT 1 FROM public.partner_requests pr
     WHERE pr.user_id = (SELECT auth.uid()) AND pr.status <> 'rejected'
@@ -326,9 +326,9 @@ WITH CHECK (
   AND crc_document_path LIKE (SELECT auth.uid())::text || '/crc-%'
   AND identity_document_path LIKE (SELECT auth.uid())::text || '/identidade-%'
   AND address_document_path LIKE (SELECT auth.uid())::text || '/endereco-%'
-  AND lower(crc_document_path) ~ '\\.(pdf|csv|xls|xlsx)$'
-  AND lower(identity_document_path) ~ '\\.(pdf|csv|xls|xlsx)$'
-  AND lower(address_document_path) ~ '\\.(pdf|csv|xls|xlsx)$'
+  AND lower(crc_document_path) ~ '\.(pdf|csv|xls|xlsx)$'
+  AND lower(identity_document_path) ~ '\.(pdf|csv|xls|xlsx)$'
+  AND lower(address_document_path) ~ '\.(pdf|csv|xls|xlsx)$'
   AND EXISTS (
     SELECT 1 FROM public.partner_requests pr
     WHERE pr.user_id = (SELECT auth.uid()) AND pr.status = 'rejected'
@@ -352,7 +352,7 @@ ON storage.objects FOR INSERT TO authenticated
 WITH CHECK (
   bucket_id = 'partner-application-documents'
   AND (storage.foldername(name))[1] = (SELECT auth.uid())::text
-  AND lower(name) ~ '\\.(pdf|csv|xls|xlsx)$'
+  AND lower(name) ~ '\.(pdf|csv|xls|xlsx)$'
   AND NOT EXISTS (
     SELECT 1 FROM public.partner_requests pr
     WHERE pr.user_id = (SELECT auth.uid()) AND pr.status <> 'rejected'
