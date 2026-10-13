@@ -220,9 +220,9 @@ BEGIN
   IF NOT FOUND THEN RAISE EXCEPTION 'partner request not found'; END IF;
 
   IF partner_status = 'approved' AND payout_type IS NOT NULL AND payout_key IS NOT NULL THEN
-    SELECT count(*)::integer INTO confirmed_referrals
+    SELECT count(DISTINCT s.user_id)::integer INTO confirmed_referrals
     FROM public.subscriptions s
-    WHERE s.affiliate_partner_id = uid AND s.status = 'active' AND s.paid_at IS NOT NULL;
+    WHERE s.affiliate_partner_id = uid AND s.paid_at IS NOT NULL;
     payout_rate := CASE WHEN confirmed_referrals <= 5 THEN 20 WHEN confirmed_referrals <= 15 THEN 25 ELSE 30 END;
 
     UPDATE public.coupons
@@ -264,9 +264,9 @@ BEGIN
 
   IF _status = 'approved' AND NULLIF(trim(partner_pix_type), '') IS NOT NULL
      AND NULLIF(trim(partner_pix_key), '') IS NOT NULL THEN
-    SELECT count(*)::integer INTO confirmed_referrals
+    SELECT count(DISTINCT s.user_id)::integer INTO confirmed_referrals
     FROM public.subscriptions s
-    WHERE s.affiliate_partner_id = _partner_id AND s.status = 'active' AND s.paid_at IS NOT NULL;
+    WHERE s.affiliate_partner_id = _partner_id AND s.paid_at IS NOT NULL;
     payout_rate := CASE WHEN confirmed_referrals <= 5 THEN 20 WHEN confirmed_referrals <= 15 THEN 25 ELSE 30 END;
 
     UPDATE public.coupons
@@ -282,6 +282,65 @@ BEGIN
   END IF;
 END
 $function$;
+
+-- Update the active coupon tier from distinct referred customers whose payment was confirmed.
+-- Historical confirmed payers stay counted even if a subscription later cancels.
+CREATE OR REPLACE FUNCTION public.sync_partner_coupon_rate()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO public, pg_temp
+AS $function$
+DECLARE
+  affected_partner uuid;
+  confirmed_clients integer := 0;
+  payout_rate integer := 20;
+  payout_is_ready boolean := false;
+BEGIN
+  FOR affected_partner IN
+    SELECT affected.partner_id
+    FROM (
+      SELECT CASE WHEN TG_OP = 'UPDATE' THEN OLD.affiliate_partner_id ELSE NULL::uuid END AS partner_id
+      UNION
+      SELECT NEW.affiliate_partner_id AS partner_id
+    ) affected
+    WHERE affected.partner_id IS NOT NULL
+  LOOP
+    SELECT count(DISTINCT s.user_id)::integer INTO confirmed_clients
+    FROM public.subscriptions s
+    WHERE s.affiliate_partner_id = affected_partner
+      AND s.paid_at IS NOT NULL;
+
+    payout_rate := CASE
+      WHEN confirmed_clients <= 5 THEN 20
+      WHEN confirmed_clients <= 15 THEN 25
+      ELSE 30
+    END;
+
+    SELECT
+      pr.status = 'approved'
+      AND NULLIF(trim(pr.pix_type), '') IS NOT NULL
+      AND NULLIF(trim(pr.pix_key), '') IS NOT NULL
+    INTO payout_is_ready
+    FROM public.partner_requests pr
+    WHERE pr.user_id = affected_partner;
+
+    UPDATE public.coupons c
+    SET commission_percent = payout_rate,
+        is_active = COALESCE(payout_is_ready, false),
+        updated_at = now()
+    WHERE c.partner_id = affected_partner;
+  END LOOP;
+
+  RETURN NEW;
+END
+$function$;
+
+DROP TRIGGER IF EXISTS subscriptions_sync_partner_coupon_rate ON public.subscriptions;
+CREATE TRIGGER subscriptions_sync_partner_coupon_rate
+AFTER INSERT OR UPDATE OF status, paid_at, affiliate_partner_id
+ON public.subscriptions
+FOR EACH ROW EXECUTE FUNCTION public.sync_partner_coupon_rate();
 
 -- Maintain explicit customer consent for accountants who want access to clients' financial ledgers.
 CREATE TABLE IF NOT EXISTS public.accountant_access (
@@ -331,8 +390,8 @@ BEGIN
       'pending_cents', COALESCE((SELECT sum(c.amount_cents) FROM public.commissions c WHERE c.partner_id = uid AND c.status IN ('pending','available')), 0),
       'paid_cents', COALESCE((SELECT sum(c.amount_cents) FROM public.commissions c WHERE c.partner_id = uid AND c.status = 'paid'), 0),
       'referred_clients', (
-        SELECT count(*) FROM public.subscriptions s
-        WHERE s.affiliate_partner_id = uid AND s.status = 'active' AND s.paid_at IS NOT NULL
+        SELECT count(DISTINCT s.user_id) FROM public.subscriptions s
+        WHERE s.affiliate_partner_id = uid AND s.paid_at IS NOT NULL
       ),
       'active_clients', (
         SELECT count(*) FROM public.subscriptions s
@@ -351,7 +410,6 @@ BEGIN
       FROM public.subscriptions s
       JOIN public.profiles p ON p.user_id = s.user_id
       WHERE s.affiliate_partner_id = uid
-        AND s.status = 'active'
         AND s.paid_at IS NOT NULL
     ), '[]'::jsonb),
     'commissions', COALESCE((
@@ -425,7 +483,7 @@ BEGIN
         'commission_percent', cp.commission_percent,
         'referrals', (
           SELECT count(*) FROM public.subscriptions s
-          WHERE s.affiliate_partner_id = pr.user_id AND s.status = 'active' AND s.paid_at IS NOT NULL
+          WHERE s.affiliate_partner_id = pr.user_id AND s.paid_at IS NOT NULL
         )
       ) ORDER BY pr.created_at DESC)
       FROM public.partner_requests pr
@@ -462,12 +520,11 @@ BEGIN
       JOIN public.profiles p ON p.user_id = s.user_id
       LEFT JOIN auth.users au ON au.id = s.user_id
       WHERE s.affiliate_partner_id IS NOT NULL
-        AND s.status = 'active'
         AND s.paid_at IS NOT NULL
     ), '[]'::jsonb),
     'total_commissions', (SELECT count(*) FROM public.commissions),
     'total_commission_amount', COALESCE((SELECT sum(c.amount_cents)::numeric / 100 FROM public.commissions c), 0),
-    'total_clients', (SELECT count(*) FROM public.subscriptions s WHERE s.affiliate_partner_id IS NOT NULL AND s.status = 'active' AND s.paid_at IS NOT NULL)
+    'total_clients', (SELECT count(DISTINCT s.user_id) FROM public.subscriptions s WHERE s.affiliate_partner_id IS NOT NULL AND s.paid_at IS NOT NULL)
   ) INTO result;
 
   RETURN result;
@@ -567,6 +624,7 @@ USING (
 );
 
 -- Prevent anonymous access to sensitive RPCs; authorization inside SECURITY DEFINER functions is mandatory.
+REVOKE ALL ON FUNCTION public.sync_partner_coupon_rate() FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.is_valid_cpf_cnpj(text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.submit_partner_request(text, text, text, text, text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.update_partner_payout(text, text) FROM PUBLIC;
