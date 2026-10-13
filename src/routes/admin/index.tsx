@@ -256,13 +256,22 @@ function AdminPage() {
   });
 
   const openApplicationDocument = async (path: string) => {
+    // Open the tab synchronously from the admin's click so popup blockers do not
+    // suppress the tab after the asynchronous authorization/signed-URL request.
+    const tab = window.open("about:blank", "_blank");
+    if (!tab) {
+      toast.error("O navegador bloqueou a nova aba. Permita pop-ups para abrir o documento.");
+      return;
+    }
+    tab.opener = null;
     try {
       const { data, error } = await supabase.storage
         .from("partner-application-documents")
         .createSignedUrl(path, 60);
       if (error) throw error;
-      window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+      tab.location.href = data.signedUrl;
     } catch (error) {
+      tab.close();
       toast.error(error instanceof Error ? error.message : "Não foi possível abrir o documento.");
     }
   };
