@@ -128,7 +128,6 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
                   .from("subscriptions")
                   .select("user_id", { count: "exact", head: true })
                   .eq("affiliate_partner_id", partnerId)
-                  .eq("status", "active")
                   .not("paid_at", "is", null);
                 if (countError) throw countError;
                 const commissionRate = (confirmedClients ?? 0) <= 5 ? 20 : (confirmedClients ?? 0) <= 15 ? 25 : 30;
