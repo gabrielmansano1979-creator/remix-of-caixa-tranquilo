@@ -182,10 +182,11 @@ function AccountantPage() {
     setBusy(true);
     const uploadedPaths: string[] = [];
     let applicationSubmitted = false;
+    let userId: string | null = null;
     try {
       const { data: authData, error: authError } = await supabase.auth.getUser();
       if (authError || !authData.user) throw new Error("Sua sessão expirou. Entre novamente.");
-      const userId = authData.user.id;
+      userId = authData.user.id;
       const uploadDocument = async (file: File, label: string) => {
         const extension = "." + (file.name.split(".").pop()?.toLowerCase() ?? "");
         const safeName = file.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9._-]/g, "-").slice(-100);
@@ -198,11 +199,11 @@ function AccountantPage() {
         uploadedPaths.push(path);
         return path;
       };
-      const [crcPath, identityPath, addressPath] = await Promise.all([
-        uploadDocument(documents.crc, "crc"),
-        uploadDocument(documents.identity, "identidade"),
-        uploadDocument(documents.address, "endereco"),
-      ]);
+      // Upload sequentially so a failed upload cannot leave a Promise.all sibling
+      // completing after the compensating cleanup has already finished.
+      const crcPath = await uploadDocument(documents.crc, "crc");
+      const identityPath = await uploadDocument(documents.identity, "identidade");
+      const addressPath = await uploadDocument(documents.address, "endereco");
       const { error: documentsError } = await supabase.from("partner_application_documents").upsert({
         user_id: userId,
         phone: form.phone.trim(),
@@ -228,12 +229,41 @@ function AccountantPage() {
       await queryClient.invalidateQueries({ queryKey: ["partner-area"] });
       toast.success("Solicitação e documentos enviados para avaliação do administrador.");
     } catch (error) {
-      if (!applicationSubmitted && uploadedPaths.length > 0) {
-        const { error: cleanupError } = await supabase.storage
-          .from("partner-application-documents")
-          .remove(uploadedPaths);
-        if (cleanupError) {
-          console.error("Failed to clean up orphaned partner application documents", cleanupError);
+      if (!applicationSubmitted && userId && uploadedPaths.length > 0) {
+        // Verify what is currently committed before cleanup. A lost RPC response could
+        // mean the application succeeded; deleting those files would break the application.
+        const [{ data: latestStatus, error: statusCheckError }, { data: savedDocuments, error: documentsCheckError }] =
+          await Promise.all([
+            supabase.rpc("my_partner_status"),
+            supabase.from("partner_application_documents")
+              .select("crc_document_path, identity_document_path, address_document_path")
+              .eq("user_id", userId)
+              .maybeSingle(),
+          ]);
+
+        if (statusCheckError || documentsCheckError) {
+          console.error("Document cleanup skipped because commit status could not be verified", {
+            statusCheckError,
+            documentsCheckError,
+          });
+        } else {
+          const status = (latestStatus as PartnerPageData | null)?.status ?? "none";
+          const requestAllowsCleanup = status === "none" || status === "rejected";
+          const savedPaths = new Set([
+            savedDocuments?.crc_document_path,
+            savedDocuments?.identity_document_path,
+            savedDocuments?.address_document_path,
+          ].filter((value): value is string => Boolean(value)));
+          const safeToRemove = requestAllowsCleanup ? uploadedPaths.filter((path) => !savedPaths.has(path)) : [];
+
+          if (safeToRemove.length > 0) {
+            const { error: cleanupError } = await supabase.storage
+              .from("partner-application-documents")
+              .remove(safeToRemove);
+            if (cleanupError) {
+              console.error("Failed to clean up orphaned partner application documents", cleanupError);
+            }
+          }
         }
       }
       toast.error(error instanceof Error ? error.message : "Não foi possível enviar a solicitação.");
