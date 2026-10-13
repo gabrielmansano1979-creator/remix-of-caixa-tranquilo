@@ -70,9 +70,11 @@ BEGIN
 END
 $migration$;
 
-CREATE UNIQUE INDEX IF NOT EXISTS commissions_payment_id_unique
-  ON public.commissions(payment_id)
-  WHERE payment_id IS NOT NULL;
+-- Use a non-partial unique index so the webhook's ON CONFLICT (payment_id)
+-- is inferred by PostgreSQL. UNIQUE permits multiple NULL values.
+DROP INDEX IF EXISTS public.commissions_payment_id_unique;
+CREATE UNIQUE INDEX commissions_payment_id_unique
+  ON public.commissions(payment_id);
 
 -- A shape-valid CPF/CNPJ is not proof of an active official registration. This only checks
 -- the mathematical digits; official status must be confirmed separately during approval.
