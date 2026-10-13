@@ -88,9 +88,10 @@ export function PlanPicker({ referralCode }: { referralCode?: string }) {
           className="mt-1.5 h-11 w-full rounded-xl border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" />
       </div>
       <div className="mx-auto mt-3 max-w-xs">
-        <label htmlFor="cpf-cnpj" className="text-sm font-medium">CPF ou CNPJ (exigido para o Pix)</label>
-        <input id="cpf-cnpj" inputMode="text" autoCapitalize="characters" value={doc} onChange={(e) => setDoc(e.target.value.toUpperCase())} placeholder="CPF ou CNPJ (incluindo letras, se houver)" maxLength={18}
+        <label htmlFor="cpf-cnpj" className="text-sm font-medium">CPF ou CNPJ (obrigatório para o Pix)</label>
+        <input id="cpf-cnpj" inputMode="text" autoCapitalize="characters" autoComplete="off" value={doc} onChange={(e) => setDoc(e.target.value.toUpperCase())} placeholder="CPF ou CNPJ" maxLength={18}
           className="mt-1.5 h-11 w-full rounded-xl border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">Aceita os dois CNPJs válidos: o formato tradicional numérico (11.222.333/0001-81) e o novo alfanumérico (12.ABC.345/01DE-35). O formato antigo continua válido.</p>
       </div>
       <div className="mt-8 grid gap-4 md:grid-cols-3">
         {PLANS.map((p) => {
