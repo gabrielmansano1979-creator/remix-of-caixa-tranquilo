@@ -23,12 +23,10 @@ function IndexComponent() {
       if (session?.user && isMounted) {
         // Acesso administrativo é decidido exclusivamente pela função persistida
         // no banco; e-mail e user_metadata não concedem privilégios.
-        const { data: adminRole, error: roleError } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', session.user.id)
-          .eq('role', 'admin')
-          .maybeSingle();
+        const { data: isAdmin, error: roleError } = await supabase.rpc('has_role', {
+          _user_id: session.user.id,
+          _role: 'admin',
+        });
 
         if (!isMounted) return;
 
@@ -36,7 +34,7 @@ function IndexComponent() {
           console.error('[HOME] Não foi possível verificar a função administrativa:', roleError);
         }
 
-        if (!roleError && adminRole?.role === 'admin') {
+        if (!roleError && isAdmin === true) {
           window.location.replace('/admin');
           return;
         }
