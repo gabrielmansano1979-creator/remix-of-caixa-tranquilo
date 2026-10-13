@@ -112,8 +112,19 @@ END
 $migration$;
 
 -- Ensure ON CONFLICT (payment_id) has a non-partial unique index/constraint.
--- Reuse an existing UNIQUE constraint instead of creating a duplicate index.
-DROP INDEX IF EXISTS public.commissions_payment_id_unique;
+-- Remove the redundant standalone index only when it is not owned by a UNIQUE constraint.
+DO $drop_duplicate_payment_index$
+BEGIN
+  IF to_regclass('public.commissions_payment_id_unique') IS NOT NULL
+     AND NOT EXISTS (
+       SELECT 1 FROM pg_constraint
+       WHERE conindid = 'public.commissions_payment_id_unique'::regclass
+     ) THEN
+    EXECUTE 'DROP INDEX public.commissions_payment_id_unique';
+  END IF;
+END
+$drop_duplicate_payment_index$;
+
 DO $migration$
 DECLARE payment_id_attnum smallint;
 BEGIN
