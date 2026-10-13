@@ -24,19 +24,28 @@ const [loading, setLoading] = useState(false);
 const [isRegistering, setIsRegistering] = useState(false);
 
 const redirectUser = async (sessionUser: any) => {
-if (!sessionUser) return;
+if (!sessionUser?.id) return;
 
-const userEmail = sessionUser.email?.toLowerCase().trim();
-const userRole = sessionUser.user_metadata?.role;
+// A autorização administrativa deve vir do banco, nunca do e-mail ou
+// de user_metadata, que não são uma fonte confiável de permissão.
+let isAdmin = false;
+const { data: adminRole, error: roleError } = await supabase
+  .from('user_roles')
+  .select('role')
+  .eq('user_id', sessionUser.id)
+  .eq('role', 'admin')
+  .maybeSingle();
 
-const isAdmin =
-userEmail === 'gabrielmansano1979@gmail.com' ||
-userRole === 'admin';
+if (roleError) {
+  console.error('[LOGIN] Não foi possível verificar a função administrativa:', roleError);
+} else {
+  isAdmin = adminRole?.role === 'admin';
+}
 
 const targetPath = isAdmin ? '/admin' : '/caixa';
 
 if (window.location.pathname !== targetPath) {
-window.location.replace(targetPath);
+  window.location.replace(targetPath);
 }
 };
 
