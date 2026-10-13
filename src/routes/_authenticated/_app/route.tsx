@@ -89,6 +89,17 @@ function AppShell() {
             Ambiente seguro
           </div>
           <div className="flex items-center gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-11 w-11 rounded-full p-0"
+              onClick={toggleTheme}
+              aria-label={theme === "dark" ? "Ativar tema claro" : "Ativar tema escuro"}
+              title={theme === "dark" ? "Ativar tema claro" : "Ativar tema escuro"}
+              aria-pressed={theme === "dark"}
+            >
+              {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+            </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="h-11 w-11 rounded-full p-0" aria-label="Menu da conta">
