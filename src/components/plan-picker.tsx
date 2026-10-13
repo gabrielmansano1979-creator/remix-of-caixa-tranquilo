@@ -31,7 +31,10 @@ export function PlanPicker({ referralCode }: { referralCode?: string }) {
       return toast.error(`Você tem ${ent.usage.pending_entries} contas pendentes; o ${p.name} permite ${p.limits.pendingEntries}. Quite ou exclua algumas antes.`);
     }
     const digits = doc.replace(/\D/g, "");
-    if (digits.length !== 11 && digits.length !== 14) return toast.error("Informe seu CPF ou CNPJ para gerar o Pix.");
+    if (legalName.trim().length < 2 || legalName.trim().length > 160) {
+      return toast.error("Informe seu nome civil completo, como consta no documento.");
+    }
+    if (!isValidCpfCnpj(digits)) return toast.error("Informe um CPF ou CNPJ válido, com dígitos verificadores corretos.");
     setBusy(plan);
     track("upgrade_click", { plan, interval: yearly ? "year" : "month" });
     try {
