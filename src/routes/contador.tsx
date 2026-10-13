@@ -183,10 +183,28 @@ function AccountantPage() {
     const uploadedPaths: string[] = [];
     let applicationSubmitted = false;
     let userId: string | null = null;
+    let previousDocuments: {
+      user_id: string;
+      phone: string;
+      city: string;
+      state: string;
+      office_name: string | null;
+      crc_document_path: string;
+      identity_document_path: string;
+      address_document_path: string;
+      submitted_at: string;
+    } | null = null;
     try {
       const { data: authData, error: authError } = await supabase.auth.getUser();
       if (authError || !authData.user) throw new Error("Sua sessão expirou. Entre novamente.");
       userId = authData.user.id;
+      const { data: priorDocuments, error: priorDocumentsError } = await supabase
+        .from("partner_application_documents")
+        .select("user_id, phone, city, state, office_name, crc_document_path, identity_document_path, address_document_path, submitted_at")
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (priorDocumentsError) throw priorDocumentsError;
+      previousDocuments = priorDocuments;
       const uploadDocument = async (file: File, label: string) => {
         const extension = "." + (file.name.split(".").pop()?.toLowerCase() ?? "");
         const safeName = file.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9._-]/g, "-").slice(-100);
@@ -230,38 +248,52 @@ function AccountantPage() {
       toast.success("Solicitação e documentos enviados para avaliação do administrador.");
     } catch (error) {
       if (!applicationSubmitted && userId && uploadedPaths.length > 0) {
-        // Verify what is currently committed before cleanup. A lost RPC response could
-        // mean the application succeeded; deleting those files would break the application.
-        const [{ data: latestStatus, error: statusCheckError }, { data: savedDocuments, error: documentsCheckError }] =
-          await Promise.all([
-            supabase.rpc("my_partner_status"),
-            supabase.from("partner_application_documents")
-              .select("crc_document_path, identity_document_path, address_document_path")
-              .eq("user_id", userId)
-              .maybeSingle(),
-          ]);
-
-        if (statusCheckError || documentsCheckError) {
-          console.error("Document cleanup skipped because commit status could not be verified", {
-            statusCheckError,
-            documentsCheckError,
-          });
+        // Do not roll back if the RPC may have committed but its response was lost.
+        const { data: latestStatus, error: statusCheckError } = await supabase.rpc("my_partner_status");
+        if (statusCheckError) {
+          console.error("Document rollback skipped because submission status could not be verified", statusCheckError);
         } else {
           const status = (latestStatus as PartnerPageData | null)?.status ?? "none";
-          const requestAllowsCleanup = status === "none" || status === "rejected";
-          const savedPaths = new Set([
-            savedDocuments?.crc_document_path,
-            savedDocuments?.identity_document_path,
-            savedDocuments?.address_document_path,
-          ].filter((value): value is string => Boolean(value)));
-          const safeToRemove = requestAllowsCleanup ? uploadedPaths.filter((path) => !savedPaths.has(path)) : [];
+          const requestAllowsRollback = status === "none" || status === "rejected";
 
-          if (safeToRemove.length > 0) {
-            const { error: cleanupError } = await supabase.storage
-              .from("partner-application-documents")
-              .remove(safeToRemove);
-            if (cleanupError) {
-              console.error("Failed to clean up orphaned partner application documents", cleanupError);
+          if (requestAllowsRollback) {
+            let metadataRestored = false;
+            if (previousDocuments) {
+              const { error: restoreError } = await supabase
+                .from("partner_application_documents")
+                .upsert(previousDocuments);
+              if (restoreError) {
+                console.error("Failed to restore previous partner document metadata", restoreError);
+              } else {
+                metadataRestored = true;
+              }
+            } else {
+              const { error: deleteMetadataError } = await supabase
+                .from("partner_application_documents")
+                .delete()
+                .eq("user_id", userId);
+              if (deleteMetadataError) {
+                console.error("Failed to remove orphaned partner document metadata", deleteMetadataError);
+              } else {
+                metadataRestored = true;
+              }
+            }
+
+            if (metadataRestored) {
+              const previousPaths = new Set([
+                previousDocuments?.crc_document_path,
+                previousDocuments?.identity_document_path,
+                previousDocuments?.address_document_path,
+              ].filter((value): value is string => Boolean(value)));
+              const pathsToRemove = uploadedPaths.filter((path) => !previousPaths.has(path));
+              if (pathsToRemove.length > 0) {
+                const { error: cleanupError } = await supabase.storage
+                  .from("partner-application-documents")
+                  .remove(pathsToRemove);
+                if (cleanupError) {
+                  console.error("Failed to clean up orphaned partner application documents", cleanupError);
+                }
+              }
             }
           }
         }
