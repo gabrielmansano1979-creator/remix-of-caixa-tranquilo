@@ -72,6 +72,38 @@ type PartnerDashboard = {
 };
 
 const empty = { full_name: "", tax_id: "", crc_number: "", pix_type: "cpf", pix_key: "" };
+
+function formatTaxId(value: string) {
+  const digits = value.replace(/\D/g, "").slice(0, 14);
+  if (digits.length <= 11) {
+    return digits.replace(/^(\d{3})(\d)/, "$1.$2").replace(/^(\d{3})\.(\d{3})(\d)/, "$1.$2.$3").replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+  }
+  return digits.replace(/^(\d{2})(\d)/, "$1.$2").replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3").replace(/\.(\d{3})(\d)/, ".$1/$2").replace(/(\d{4})(\d{1,2})$/, "$1-$2");
+}
+
+function isValidCpfCnpj(value: string) {
+  const digits = value.replace(/\D/g, "");
+  if (/^(\d)\1+$/.test(digits)) return false;
+  if (digits.length === 11) {
+    const calc = (length: number) => {
+      const sum = digits.slice(0, length).split("").reduce((total, digit, index) => total + Number(digit) * (length + 1 - index), 0);
+      const remainder = (sum * 10) % 11;
+      return remainder === 10 ? 0 : remainder;
+    };
+    return calc(9) === Number(digits[9]) && calc(10) === Number(digits[10]);
+  }
+  if (digits.length === 14) {
+    const calc = (length: number) => {
+      const weights = length === 12 ? [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2] : [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+      const sum = digits.slice(0, length).split("").reduce((total, digit, index) => total + Number(digit) * weights[index], 0);
+      const remainder = sum % 11;
+      return remainder < 2 ? 0 : 11 - remainder;
+    };
+    return calc(12) === Number(digits[12]) && calc(13) === Number(digits[13]);
+  }
+  return false;
+}
+
 const money = (cents: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100);
 
@@ -111,8 +143,8 @@ function AccountantPage() {
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     const taxId = form.tax_id.replace(/\D/g, "");
-    if (taxId.length !== 11 && taxId.length !== 14)
-      return toast.error("Informe um CPF ou CNPJ válido.");
+    if (!isValidCpfCnpj(taxId))
+      return toast.error("Informe um CPF válido ou um CNPJ válido no formato numérico tradicional.");
     if (!/^[A-Z]{2}-\d{6}\/[A-Z]$/.test(form.crc_number.toUpperCase()))
       return toast.error("Informe o CRC no formato UF-123456/O.");
     setBusy(true);
@@ -225,8 +257,8 @@ function AccountantPage() {
                 </div>
                 <div>
                   <Label htmlFor="partner-doc">CPF ou CNPJ</Label>
-                  <Input id="partner-doc" required autoComplete="off" value={form.tax_id}
-                    onChange={(e) => setForm({ ...form, tax_id: e.target.value })} />
+                  <Input id="partner-doc" required autoComplete="off" inputMode="numeric" maxLength={18} placeholder="CPF: 000.000.000-00 ou CNPJ: 00.000.000/0000-00" value={form.tax_id}
+                    onChange={(e) => setForm({ ...form, tax_id: formatTaxId(e.target.value) })} />
                 </div>
                 <div>
                   <Label htmlFor="partner-crc">Registro profissional no CRC</Label>
