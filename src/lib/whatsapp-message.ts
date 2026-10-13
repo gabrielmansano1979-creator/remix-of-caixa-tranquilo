@@ -31,6 +31,26 @@ export function buildWhatsAppMessage(entry: WhatsAppEntry, template: WhatsAppTem
   }
 }
 
+/**
+ * Renders a saved reminder template with the same placeholders used by the Lembretes preview.
+ * The returned string is also what the WhatsApp composer previews and encodes for sending.
+ */
+export function buildCustomWhatsAppMessage(
+  entry: WhatsAppEntry,
+  bodyTemplate: string,
+  companyName: string,
+): string {
+  const values: Record<string, string> = {
+    cliente: entry.counterparty_name?.trim() || "cliente",
+    valor: formatBRL(entry.amount_cents),
+    vencimento: formatDate(entry.due_date),
+    descricao: entry.description.trim() || "o valor combinado",
+    empresa: companyName.trim() || "Seu negócio",
+    link_pix: entry.pix_url?.trim() || "",
+  };
+  return bodyTemplate.replace(/\{\{\s*(\w+)\s*\}\}/g, (_match, key: string) => values[key] ?? `{{${key}}}`);
+}
+
 export function createWhatsAppUrl(entry: WhatsAppEntry, message: string) {
   const phone = toE164(entry.counterparty_whatsapp ?? "");
   if (!phone || !message.trim()) return null;
