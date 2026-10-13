@@ -2,7 +2,7 @@ ALTER TABLE public.partner_requests
   ADD COLUMN IF NOT EXISTS email text;
 
 ALTER TABLE public.subscriptions
-  ADD COLUMN IF NOT EXISTS affiliate_partner_id uuid REFERENCES public.partner_requests(id),
+  ADD COLUMN IF NOT EXISTS affiliate_partner_id uuid REFERENCES public.partner_requests(user_id) ON DELETE SET NULL,
   ADD COLUMN IF NOT EXISTS affiliate_coupon_code text,
   ADD COLUMN IF NOT EXISTS affiliate_commission_percent integer,
   ADD COLUMN IF NOT EXISTS affiliate_discount_percent integer,
@@ -26,14 +26,22 @@ CREATE UNIQUE INDEX IF NOT EXISTS commissions_payment_id_unique
 
 CREATE TABLE IF NOT EXISTS public.accountant_access (
   client_user_id uuid PRIMARY KEY REFERENCES public.profiles(user_id) ON DELETE CASCADE,
-  partner_id uuid NOT NULL REFERENCES public.partner_requests(id) ON DELETE CASCADE,
+  partner_id uuid NOT NULL REFERENCES public.partner_requests(user_id) ON DELETE CASCADE,
   granted_at timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS accountant_access_partner_idx
   ON public.accountant_access(partner_id, client_user_id);
 
+GRANT SELECT ON public.accountant_access TO authenticated;
+GRANT ALL ON public.accountant_access TO service_role;
+
 ALTER TABLE public.accountant_access ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "accountant_access_read_own" ON public.accountant_access;
+CREATE POLICY "accountant_access_read_own" ON public.accountant_access
+  FOR SELECT TO authenticated
+  USING (auth.uid() = client_user_id OR auth.uid() = partner_id);
 
 CREATE OR REPLACE FUNCTION public.submit_partner_request(
   _full_name text,
@@ -231,7 +239,7 @@ SECURITY DEFINER
 SET search_path TO 'public'
 AS $function$
 BEGIN
-  IF NOT public.has_role('admin'::public.app_role, auth.uid()) THEN RAISE EXCEPTION 'admin access required'; END IF;
+  IF NOT public.has_role(auth.uid(), 'admin'::public.app_role) THEN RAISE EXCEPTION 'admin access required'; END IF;
   IF _status NOT IN ('pending_approval', 'approved', 'rejected') THEN RAISE EXCEPTION 'invalid status'; END IF;
   UPDATE public.partner_requests SET status = _status WHERE user_id = _partner_id;
   IF NOT FOUND THEN RAISE EXCEPTION 'partner not found'; END IF;
@@ -255,7 +263,7 @@ SECURITY DEFINER
 SET search_path TO 'public'
 AS $function$
 BEGIN
-  IF NOT public.has_role('admin'::public.app_role, auth.uid()) THEN RAISE EXCEPTION 'admin access required'; END IF;
+  IF NOT public.has_role(auth.uid(), 'admin'::public.app_role) THEN RAISE EXCEPTION 'admin access required'; END IF;
   IF _percent NOT BETWEEN 20 AND 30 THEN RAISE EXCEPTION 'commission must be between 20 and 30 percent'; END IF;
   UPDATE public.coupons SET commission_percent = _percent WHERE partner_id = _partner_id;
   IF NOT FOUND THEN RAISE EXCEPTION 'partner coupon not found'; END IF;
@@ -269,7 +277,7 @@ SECURITY DEFINER
 SET search_path TO 'public'
 AS $function$
 BEGIN
-  IF NOT public.has_role('admin'::public.app_role, auth.uid()) THEN RAISE EXCEPTION 'admin access required'; END IF;
+  IF NOT public.has_role(auth.uid(), 'admin'::public.app_role) THEN RAISE EXCEPTION 'admin access required'; END IF;
   UPDATE public.commissions SET status = 'paid', paid_at = now()
   WHERE id = _commission_id AND status IN ('pending', 'available');
   IF NOT FOUND THEN RAISE EXCEPTION 'commission not found or already paid'; END IF;
@@ -284,7 +292,7 @@ SET search_path TO 'public'
 AS $function$
 DECLARE result jsonb;
 BEGIN
-  IF NOT public.has_role('admin'::public.app_role, auth.uid()) THEN RAISE EXCEPTION 'admin access required'; END IF;
+  IF NOT public.has_role(auth.uid(), 'admin'::public.app_role) THEN RAISE EXCEPTION 'admin access required'; END IF;
   SELECT jsonb_build_object(
     'partners', COALESCE((
       SELECT jsonb_agg(jsonb_build_object(
