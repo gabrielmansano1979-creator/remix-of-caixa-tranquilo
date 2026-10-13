@@ -197,7 +197,7 @@ export type Database = {
             columns: ["partner_id"]
             isOneToOne: false
             referencedRelation: "partner_requests"
-            referencedColumns: ["user_id"]
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -235,7 +235,7 @@ export type Database = {
             columns: ["partner_id"]
             isOneToOne: true
             referencedRelation: "partner_requests"
-            referencedColumns: ["user_id"]
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -726,7 +726,7 @@ export type Database = {
             columns: ["affiliate_partner_id"]
             isOneToOne: false
             referencedRelation: "partner_requests"
-            referencedColumns: ["user_id"]
+            referencedColumns: ["id"]
           },
         ]
       }
