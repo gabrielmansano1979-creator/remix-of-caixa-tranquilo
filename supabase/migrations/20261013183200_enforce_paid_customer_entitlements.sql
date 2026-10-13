@@ -345,3 +345,6 @@ GRANT EXECUTE ON FUNCTION public.admin_mark_commission_paid(uuid) TO authenticat
 -- Manual commission overrides are obsolete: the tier is calculated from confirmed unique payers.
 REVOKE ALL ON FUNCTION public.admin_update_partner_rate(uuid, integer) FROM PUBLIC, authenticated;
 GRANT EXECUTE ON FUNCTION public.admin_update_partner_rate(uuid, integer) TO service_role;
+
+-- This is an event-trigger function, not an API for signed-in users.
+REVOKE ALL ON FUNCTION public.rls_auto_enable() FROM PUBLIC, anon, authenticated;
