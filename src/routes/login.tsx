@@ -24,29 +24,23 @@ const [loading, setLoading] = useState(false);
 const [isRegistering, setIsRegistering] = useState(false);
 
 const redirectUser = async (sessionUser: any) => {
-if (!sessionUser?.id) return;
+  if (!sessionUser?.id) return;
 
-// A autorização administrativa deve vir do banco, nunca do e-mail ou
-// de user_metadata, que não são uma fonte confiável de permissão.
-let isAdmin = false;
-const { data: adminRole, error: roleError } = await supabase
-  .from('user_roles')
-  .select('role')
-  .eq('user_id', sessionUser.id)
-  .eq('role', 'admin')
-  .maybeSingle();
+  // Somente a função persistida no banco pode autorizar o painel admin.
+  // O RPC has_role permite verificar apenas o próprio usuário autenticado.
+  const { data: isAdmin, error } = await supabase.rpc('has_role', {
+    _user_id: sessionUser.id,
+    _role: 'admin',
+  });
 
-if (roleError) {
-  console.error('[LOGIN] Não foi possível verificar a função administrativa:', roleError);
-} else {
-  isAdmin = adminRole?.role === 'admin';
-}
+  if (error) {
+    console.error('[LOGIN] Falha ao verificar função administrativa:', error);
+  }
 
-const targetPath = isAdmin ? '/admin' : '/caixa';
-
-if (window.location.pathname !== targetPath) {
-  window.location.replace(targetPath);
-}
+  const targetPath = !error && isAdmin === true ? '/admin' : '/caixa';
+  if (window.location.pathname !== targetPath) {
+    window.location.replace(targetPath);
+  }
 };
 
 useEffect(() => {
