@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { CartesianGrid, Line, LineChart, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import {
@@ -72,7 +72,7 @@ function CaixaPage() {
             <Button asChild className="h-11 rounded-xl"><Link to="/contas" search={{ novo: 1 }}>Cadastrar conta</Link></Button>
             <Button asChild variant="outline" className="h-11 rounded-xl"><Link to="/contas" search={{ importar: 1 }}>Importar CSV</Link></Button>
           </div>
-          <div className="mt-8 w-full max-w-sm text-left"><BalanceCard current={p.current} /></div>
+          <div className="mt-8 w-full max-w-sm text-left"><BalanceCard current={p.current} canWrite={access.data?.can_write ?? false} /></div>
         </div>
       ) : (
         <>
@@ -109,11 +109,12 @@ function Semaphore({ p }: { p: Projection }) {
   );
 }
 
-function BalanceCard({ current }: { current: number }) {
+function BalanceCard({ current, canWrite }: { current: number; canWrite: boolean }) {
   const qc = useQueryClient();
   const profile = useQuery(profileQuery);
   const [edit, setEdit] = useState(false);
   const [v, setV] = useState(current);
+  useEffect(() => { if (!canWrite) setEdit(false); }, [canWrite]);
   const save = useMutation({
     mutationFn: async () => {
       if (!profile.data) throw new Error("Perfil indisponível");
@@ -130,9 +131,9 @@ function BalanceCard({ current }: { current: number }) {
           <span className="grid h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary"><Wallet className="h-5 w-5" /></span>
           <div><p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Saldo atual</p><p className="mt-0.5 text-xs text-muted-foreground">Posição de caixa</p></div>
         </div>
-        {!edit && <Button variant="ghost" size="sm" className="h-10 rounded-xl" onClick={() => { setV(current); setEdit(true); }}><Pencil className="mr-1 h-3.5 w-3.5" />Editar</Button>}
+        {!edit && canWrite && <Button variant="ghost" size="sm" className="h-10 rounded-xl" onClick={() => { setV(current); setEdit(true); }}><Pencil className="mr-1 h-3.5 w-3.5" />Editar</Button>}
       </div>
-      {edit ? (
+      {edit && canWrite ? (
         <form className="mt-1" onSubmit={(e) => { e.preventDefault(); save.mutate(); }}>
           <label htmlFor="bal" className="sr-only">Saldo atual</label>
           <MoneyInput id="bal" value={v} onChange={setV} allowNegative />
