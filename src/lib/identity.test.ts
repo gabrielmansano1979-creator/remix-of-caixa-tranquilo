@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isValidCpfCnpj, isValidCrcNumber } from "./identity";
+import { isValidCpfCnpj, isValidCrcNumber, normalizeCpfCnpj } from "./identity";
 
 describe("Brazilian CPF/CNPJ shape validation", () => {
   it("accepts a CPF with valid check digits, with or without punctuation", () => {
@@ -20,6 +20,17 @@ describe("Brazilian CPF/CNPJ shape validation", () => {
   it("rejects a CNPJ with an invalid check digit and repeated digits", () => {
     expect(isValidCpfCnpj("11222333000180")).toBe(false);
     expect(isValidCpfCnpj("11.111.111/1111-11")).toBe(false);
+  });
+
+  it("accepts Receita Federal's alphanumeric CNPJ and preserves letters during normalization", () => {
+    expect(isValidCpfCnpj("12.ABC.345/01DE-35")).toBe(true);
+    expect(normalizeCpfCnpj("12.abc.345/01de-35")).toBe("12ABC34501DE35");
+  });
+
+  it("rejects alphanumeric CNPJ with invalid check digits or letters in the check-digit positions", () => {
+    expect(isValidCpfCnpj("12.ABC.345/01DE-36")).toBe(false);
+    expect(isValidCpfCnpj("12.ABC.345/01DE-A5")).toBe(false);
+    expect(isValidCpfCnpj("12.ABC.345/01D--")).toBe(false);
   });
 
   it("rejects values with unsupported lengths", () => {
