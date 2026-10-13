@@ -74,7 +74,7 @@ BEGIN
       AND (
         i.indpred IS NULL
         OR regexp_replace(lower(pg_get_expr(i.indpred, i.indrelid)), '"', '', 'g')
-          IN ('partner_id IS NOT NULL', '(partner_id IS NOT NULL)')
+          IN ('partner_id is not null', '(partner_id is not null)')
       )
   ) THEN
     CREATE UNIQUE INDEX coupons_partner_id_unique
