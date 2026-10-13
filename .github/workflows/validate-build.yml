@@ -24,6 +24,26 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install PostgreSQL SQL parser
+        run: python -m pip install --disable-pip-version-check pglast
+      - name: Validate top-level SQL migration syntax
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from pglast import parse_sql
+
+          files = sorted(Path("supabase/migrations").glob("*.sql"))
+          if not files:
+              raise SystemExit("No Supabase migrations were found.")
+          for path in files:
+              parse_sql(path.read_text(encoding="utf-8"))
+              print(f"SQL syntax OK: {path}")
+          print(f"Validated {len(files)} Supabase migration files.")
+          PY
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
