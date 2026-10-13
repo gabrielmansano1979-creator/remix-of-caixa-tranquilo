@@ -47,3 +47,7 @@ CREATE INDEX IF NOT EXISTS commissions_subscription_id_idx ON public.commissions
 CREATE INDEX IF NOT EXISTS subscriptions_partner_id_idx ON public.subscriptions(partner_id);
 CREATE INDEX IF NOT EXISTS reminder_logs_rule_id_idx ON public.reminder_logs(rule_id);
 CREATE INDEX IF NOT EXISTS reminder_logs_stage_rule_id_idx ON public.reminder_logs(stage_rule_id);
+
+-- Payout changes require an authenticated user; do not expose this SECURITY DEFINER RPC to anon.
+REVOKE ALL ON FUNCTION public.update_partner_payout(text, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.update_partner_payout(text, text) TO authenticated, service_role;
