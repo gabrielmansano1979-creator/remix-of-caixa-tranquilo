@@ -480,7 +480,7 @@ FOR EACH ROW EXECUTE FUNCTION public.sync_partner_coupon_rate();
 -- Maintain explicit customer consent for accountants who want access to clients' financial ledgers.
 CREATE TABLE IF NOT EXISTS public.accountant_access (
   client_user_id uuid PRIMARY KEY REFERENCES public.profiles(user_id) ON DELETE CASCADE,
-  partner_id uuid NOT NULL REFERENCES public.partner_requests(user_id) ON DELETE CASCADE,
+  partner_id uuid NOT NULL REFERENCES public.partner_requests(id) ON DELETE CASCADE,
   granted_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS accountant_access_partner_idx
@@ -490,7 +490,13 @@ ALTER TABLE public.accountant_access ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "accountant_access_read_own" ON public.accountant_access;
 CREATE POLICY "accountant_access_read_own" ON public.accountant_access
 FOR SELECT TO authenticated
-USING ((SELECT auth.uid()) = client_user_id OR (SELECT auth.uid()) = partner_id);
+USING (
+  (SELECT auth.uid()) = client_user_id
+  OR EXISTS (
+    SELECT 1 FROM public.partner_requests pr
+    WHERE pr.id = accountant_access.partner_id AND pr.user_id = (SELECT auth.uid())
+  )
+);
 
 CREATE OR REPLACE FUNCTION public.partner_dashboard()
 RETURNS jsonb
@@ -589,7 +595,7 @@ BEGIN
           COALESCE(sum(amount_cents) FILTER (WHERE type = 'expense'), 0) AS expense_cents
         FROM public.entries e WHERE e.user_id = aa.client_user_id
       ) x ON true
-      WHERE aa.partner_id = uid
+      WHERE aa.partner_id = partner_record_id
     ), '[]'::jsonb)
   ) INTO result;
 
@@ -820,6 +826,7 @@ SET search_path TO public, pg_temp
 AS $function$
 DECLARE
   uid uuid := auth.uid();
+  partner_record_id uuid;
   partner_user_id uuid;
 BEGIN
   IF uid IS NULL THEN RAISE EXCEPTION 'not authenticated'; END IF;
@@ -836,16 +843,16 @@ BEGIN
     RAISE EXCEPTION 'paid subscription required';
   END IF;
 
-  SELECT pr.user_id INTO partner_user_id
+  SELECT pr.id, pr.user_id INTO partner_record_id, partner_user_id
   FROM public.coupons c
   JOIN public.partner_requests pr ON pr.id = c.partner_id AND pr.status = 'approved'
   WHERE upper(c.code) = upper(trim(_coupon_code)) AND c.is_active;
 
-  IF partner_user_id IS NULL THEN RAISE EXCEPTION 'invalid or inactive partner code'; END IF;
+  IF partner_record_id IS NULL THEN RAISE EXCEPTION 'invalid or inactive partner code'; END IF;
   IF partner_user_id = uid THEN RAISE EXCEPTION 'self sharing is not allowed'; END IF;
 
   INSERT INTO public.accountant_access(client_user_id, partner_id)
-  VALUES (uid, partner_user_id)
+  VALUES (uid, partner_record_id)
   ON CONFLICT (client_user_id) DO UPDATE
   SET partner_id = EXCLUDED.partner_id, granted_at = now();
 END
@@ -863,7 +870,7 @@ AS $function$
     'granted_at', aa.granted_at
   ), '{}'::jsonb)
   FROM public.accountant_access aa
-  JOIN public.partner_requests pr ON pr.user_id = aa.partner_id
+  JOIN public.partner_requests pr ON pr.id = aa.partner_id
   LEFT JOIN public.coupons c ON c.partner_id = pr.id AND c.is_active
   WHERE aa.client_user_id = auth.uid()
   LIMIT 1
