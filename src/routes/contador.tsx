@@ -180,6 +180,8 @@ function AccountantPage() {
         return toast.error("O arquivo de " + label + " deve ter no máximo 10 MB.");
     }
     setBusy(true);
+    const uploadedPaths: string[] = [];
+    let applicationSubmitted = false;
     try {
       const { data: authData, error: authError } = await supabase.auth.getUser();
       if (authError || !authData.user) throw new Error("Sua sessão expirou. Entre novamente.");
@@ -193,6 +195,7 @@ function AccountantPage() {
           upsert: false,
         });
         if (error) throw error;
+        uploadedPaths.push(path);
         return path;
       };
       const [crcPath, identityPath, addressPath] = await Promise.all([
@@ -220,10 +223,19 @@ function AccountantPage() {
         _pix_key: form.pix_key.trim() || null,
       });
       if (error) throw error;
+      applicationSubmitted = true;
       setShowApplicationForm(false);
       await queryClient.invalidateQueries({ queryKey: ["partner-area"] });
       toast.success("Solicitação e documentos enviados para avaliação do administrador.");
     } catch (error) {
+      if (!applicationSubmitted && uploadedPaths.length > 0) {
+        const { error: cleanupError } = await supabase.storage
+          .from("partner-application-documents")
+          .remove(uploadedPaths);
+        if (cleanupError) {
+          console.error("Failed to clean up orphaned partner application documents", cleanupError);
+        }
+      }
       toast.error(error instanceof Error ? error.message : "Não foi possível enviar a solicitação.");
     } finally {
       setBusy(false);
