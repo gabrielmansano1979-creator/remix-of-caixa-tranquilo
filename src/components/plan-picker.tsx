@@ -9,6 +9,8 @@ import { useEntitlements } from "@/hooks/use-entitlements";
 import { track } from "@/lib/analytics";
 import { Button } from "@/components/ui/button";
 import { PixPaymentDialog } from "@/components/pix-payment-dialog";
+import { isValidCpfCnpj, normalizeCpfCnpj } from "@/lib/identity";
+import { supabase } from "@/integrations/supabase/client";
 
 const ORDER: PlanId[] = ["starter", "pro", "business"];
 
@@ -18,8 +20,9 @@ export function PlanPicker({ referralCode }: { referralCode?: string }) {
   const [yearly, setYearly] = useState(ent.access?.billing_interval === "year");
   const [busy, setBusy] = useState<PlanId | null>(null);
   const [doc, setDoc] = useState("");
+  const [legalName, setLegalName] = useState("");
   const [pixData, setPixData] = useState<{ qrCode?: string; copyPaste?: string; paymentId?: string } | null>(null);
-  const subscribed = ent.access?.has_subscription && ["active", "past_due", "canceled", "pending_pix"].includes(ent.access.status);
+  const subscribed = ent.access?.has_subscription && ["active", "past_due", "pending_pix"].includes(ent.access.status);
   const current = subscribed ? ent.access?.plan : null;
 
   const go = async (plan: PlanId) => {
@@ -28,12 +31,30 @@ export function PlanPicker({ referralCode }: { referralCode?: string }) {
     if (ent.usage && ent.usage.pending_entries > p.limits.pendingEntries) {
       return toast.error(`Você tem ${ent.usage.pending_entries} contas pendentes; o ${p.name} permite ${p.limits.pendingEntries}. Quite ou exclua algumas antes.`);
     }
-    const digits = doc.replace(/\D/g, "");
-    if (digits.length !== 11 && digits.length !== 14) return toast.error("Informe seu CPF ou CNPJ para gerar o Pix.");
+    const digits = normalizeCpfCnpj(doc);
+    if (legalName.trim().length < 2 || legalName.trim().length > 160) {
+      return toast.error("Informe seu nome civil completo, como consta no documento.");
+    }
+    if (!isValidCpfCnpj(digits)) return toast.error("Informe um CPF ou CNPJ válido, com dígitos verificadores corretos.");
     setBusy(plan);
     track("upgrade_click", { plan, interval: yearly ? "year" : "month" });
+    const { data: authResult, error: authError } = await supabase.auth.getUser();
+    if (authError || !authResult.user) {
+      toast.error("Entre na sua conta para continuar a assinatura.");
+      setBusy(null);
+      return;
+    }
+    const { error: nameError } = await supabase
+      .from("profiles")
+      .update({ full_name: legalName.trim() })
+      .eq("user_id", authResult.user.id);
+    if (nameError) {
+      toast.error("Não foi possível salvar seu nome civil no perfil. Confira o acesso e tente novamente.");
+      setBusy(null);
+      return;
+    }
     try {
-      const r = await checkout({ data: { plan, interval: yearly ? "year" : "month", cpfCnpj: digits, referralCode } });
+      const r = await checkout({ data: { plan, interval: yearly ? "year" : "month", cpfCnpj: digits, legalName: legalName.trim(), referralCode } });
       if (r.error) {
         toast.error(r.error);
       } else if (r.qrCode) {
@@ -62,9 +83,15 @@ export function PlanPicker({ referralCode }: { referralCode?: string }) {
         {referralCode ? "Cupom de parceiro com 10% de desconto aplicado. Não cumulativo com outras ofertas." : "Primeiro pagamento via Pix com 20% de desconto e confirmação automática em poucos segundos."}
       </div>
       <div className="mx-auto mt-6 max-w-xs">
-        <label htmlFor="cpf-cnpj" className="text-sm font-medium">CPF ou CNPJ (exigido para o Pix)</label>
-        <input id="cpf-cnpj" inputMode="numeric" value={doc} onChange={(e) => setDoc(e.target.value)} placeholder="000.000.000-00" maxLength={18}
+        <label htmlFor="legal-name" className="text-sm font-medium">Nome civil completo (como consta no documento)</label>
+        <input id="legal-name" autoComplete="name" required minLength={2} maxLength={160} value={legalName} onChange={(e) => setLegalName(e.target.value)} placeholder="Nome completo do titular"
           className="mt-1.5 h-11 w-full rounded-xl border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+      </div>
+      <div className="mx-auto mt-3 max-w-xs">
+        <label htmlFor="cpf-cnpj" className="text-sm font-medium">CPF ou CNPJ (obrigatório para o Pix)</label>
+        <input id="cpf-cnpj" inputMode="text" autoCapitalize="characters" autoComplete="off" value={doc} onChange={(e) => setDoc(e.target.value.toUpperCase())} placeholder="CPF ou CNPJ" maxLength={18}
+          className="mt-1.5 h-11 w-full rounded-xl border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">Aceita os dois CNPJs válidos: o formato tradicional numérico (11.222.333/0001-81) e o novo alfanumérico (12.ABC.345/01DE-35). O formato antigo continua válido.</p>
       </div>
       <div className="mt-8 grid gap-4 md:grid-cols-3">
         {PLANS.map((p) => {
@@ -84,7 +111,7 @@ export function PlanPicker({ referralCode }: { referralCode?: string }) {
           );
         })}
       </div>
-      <p className="mt-4 text-center text-xs text-muted-foreground">Pagamento seguro via Pix (Asaas). Confirmação automática em segundos.</p>
+      <p className="mx-auto mt-4 max-w-2xl text-center text-xs leading-relaxed text-muted-foreground">Pagamento inicial via Pix com confirmação automática do Asaas. Depois da confirmação, as próximas cobranças serão geradas conforme o plano mensal ou anual, mas cada Pix deverá ser pago manualmente. Não é débito automático via Pix.</p>
 
       <PixPaymentDialog
         open={!!pixData}

@@ -25,7 +25,7 @@ const VARS = ["cliente", "valor", "vencimento", "descricao", "empresa", "link_pi
 const offsetLabel = (n: number) => (n < 0 ? `${-n} dia(s) antes` : n === 0 ? "No dia do vencimento" : `${n} dia(s) após`);
 
 function preview(tpl: string, empresa: string) {
-  const v: Record<string, string> = { cliente: "Maria Silva", valor: formatBRL(150000), vencimento: "15/10/2026", descricao: "Consultoria de outubro", empresa };
+  const v: Record<string, string> = { cliente: "Maria Silva", valor: formatBRL(150000), vencimento: "15/10/2026", descricao: "Consultoria de outubro", empresa, link_pix: "Link Pix do cliente" };
   return tpl.replace(/\{\{\s*(\w+)\s*\}\}/g, (_m, k: string) => v[k] ?? `{{${k}}}`);
 }
 
@@ -44,7 +44,7 @@ function LembretesPage() {
         <h1 className="text-2xl font-semibold tracking-tight">Lembretes</h1>
         <p className="text-sm text-muted-foreground">Organize os modelos da régua. Cada cobrança é revisada e enviada manualmente pelo WhatsApp.</p>
       </div>
-      <Button asChild className="h-11 rounded-xl"><Link to="/contas"><MessageCircle className="mr-2 h-4 w-4" />Escolher conta e enviar via WhatsApp</Link></Button>
+      <Button asChild className="h-11 rounded-xl"><Link to="/contas" search={{ whatsapp: 1 }}><MessageCircle className="mr-2 h-4 w-4" />Escolher conta e enviar via WhatsApp</Link></Button>
 
       {!ent.limits?.edit_rule_days && (
         <p className="flex items-center gap-2 rounded-xl bg-muted p-3 text-sm text-muted-foreground"><Lock className="h-4 w-4" />No plano Starter a régua é fixa. <Link to="/planos" className="font-medium text-primary underline">Faça upgrade</Link> para editar dias e etapas.</p>

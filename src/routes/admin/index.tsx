@@ -10,6 +10,8 @@ import {
   UserCheck,
   Wallet,
   Users,
+  FileText,
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -21,6 +23,7 @@ import {
 } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { exportReport, type ReportFormat } from "@/lib/reporting";
+import { normalizeCpfCnpj } from "@/lib/identity";
 
 export const Route = createFileRoute("/admin/")({
   head: () => ({
@@ -37,9 +40,25 @@ type PartnerRow = {
   name: string | null;
   email: string | null;
   status: string | null;
+  tax_id: string | null;
+  crc_number: string | null;
+  pix_type: string | null;
+  pix_key: string | null;
   coupon_code: string | null;
   commission_percent: number | null;
   referrals: number;
+};
+
+type PartnerApplicationDocument = {
+  user_id: string;
+  phone: string;
+  city: string;
+  state: string;
+  office_name: string | null;
+  crc_document_path: string;
+  identity_document_path: string;
+  address_document_path: string;
+  submitted_at: string;
 };
 
 type CommissionRow = {
@@ -142,17 +161,10 @@ function AdminPage() {
           return;
         }
 
-        const userEmail = session.user.email
-          ?.toLowerCase()
-          .trim();
-
-        const userRole = session.user.user_metadata?.role;
-
-        const isAdmin =
-          userEmail === "gabrielmansano1979@gmail.com" ||
-          userRole === "admin";
-
-        if (!isAdmin) {
+        // A autorização real vem do banco, nunca de user_metadata alterável pelo usuário.
+        const { error: adminCheckError } = await supabase.rpc("admin_partner_overview");
+        if (!active) return;
+        if (adminCheckError) {
           window.location.replace("/caixa");
           return;
         }
@@ -223,12 +235,47 @@ function AdminPage() {
         total_clients: Number(result.total_clients ?? 0),
       };
     },
+    refetchInterval: 15_000,
   });
 
   const data = query.data ?? emptyOverview;
   const partners = data.partners;
   const commissions = data.commissions;
   const clients = data.clients;
+
+  const documentsQuery = useQuery({
+    queryKey: ["admin-partner-application-documents"],
+    enabled: authStatus === "authorized",
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("partner_application_documents")
+        .select("*")
+        .order("submitted_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as PartnerApplicationDocument[];
+    },
+  });
+
+  const openApplicationDocument = async (path: string) => {
+    // Open the tab synchronously from the admin's click so popup blockers do not
+    // suppress the tab after the asynchronous authorization/signed-URL request.
+    const tab = window.open("about:blank", "_blank");
+    if (!tab) {
+      toast.error("O navegador bloqueou a nova aba. Permita pop-ups para abrir o documento.");
+      return;
+    }
+    tab.opener = null;
+    try {
+      const { data, error } = await supabase.storage
+        .from("partner-application-documents")
+        .createSignedUrl(path, 60);
+      if (error) throw error;
+      tab.location.href = data.signedUrl;
+    } catch (error) {
+      tab.close();
+      toast.error(error instanceof Error ? error.message : "Não foi possível abrir o documento.");
+    }
+  };
 
   const pendingCommissions = commissions.filter(
     (item) =>
@@ -439,6 +486,59 @@ function AdminPage() {
         />
       </div>
 
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Documentação das solicitações</CardTitle>
+          <p className="text-sm text-muted-foreground">Consulte os documentos privados enviados pelos candidatos antes de aprovar ou recusar a parceria.</p>
+          <p className="text-xs leading-relaxed text-muted-foreground">A validação automática confere os dígitos do CPF/CNPJ e o formato informado do CRC. A situação cadastral e a regularidade profissional precisam ser confirmadas manualmente nos portais oficiais; o formulário não declara uma validação oficial automática.</p>
+        </CardHeader>
+        <CardContent>
+          {documentsQuery.isLoading ? (
+            <p className="text-sm text-muted-foreground">Carregando documentos...</p>
+          ) : documentsQuery.isError ? (
+            <div className="space-y-2 text-sm text-danger">
+              <p>Não foi possível carregar os documentos dos candidatos.</p>
+              <Button variant="outline" onClick={() => void documentsQuery.refetch()}>Tentar novamente</Button>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[900px] text-left text-sm">
+                <thead><tr className="border-b text-xs text-muted-foreground">
+                  {["Candidato e credenciais", "Telefone", "Localidade", "Escritório", "Enviada em", "Documentos"].map((title) => <th key={title} className="px-3 py-3 font-medium">{title}</th>)}
+                </tr></thead>
+                <tbody>
+                  {(documentsQuery.data ?? []).length ? documentsQuery.data!.map((item) => {
+                    const partner = partners.find((row) => row.user_id === item.user_id);
+                    return <tr key={item.user_id} className="border-b last:border-0">
+                      <td className="px-3 py-3">
+                        <p className="font-medium">{partner?.name ?? "Candidato"}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">CPF/CNPJ: {partner?.tax_id ?? "—"}</p>
+                        <p className="text-xs text-muted-foreground">CRC: {partner?.crc_number ?? "—"}</p>
+                        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs">
+                          {partner?.tax_id && normalizeCpfCnpj(partner.tax_id).length === 11 && <a className="text-primary underline" href="https://www.gov.br/pt-br/servicos/consultar-cadastro-de-pessoas-fisicas" target="_blank" rel="noreferrer">Consultar CPF na Receita</a>}
+                          {partner?.tax_id && normalizeCpfCnpj(partner.tax_id).length === 14 && <a className="text-primary underline" href="https://www.gov.br/pt-br/servicos/consultar-cadastro-nacional-de-pessoas-juridicas" target="_blank" rel="noreferrer">Consultar CNPJ na Receita</a>}
+                          {partner?.crc_number && <a className="text-primary underline" href="https://cfc.org.br/conselhos/" target="_blank" rel="noreferrer">Localizar CRC oficial</a>}
+                        </div>
+                      </td>
+                      <td className="px-3 py-3">{item.phone}</td>
+                      <td className="px-3 py-3">{item.city} / {item.state}</td>
+                      <td className="px-3 py-3">{item.office_name ?? "—"}</td>
+                      <td className="px-3 py-3">{date(item.submitted_at)}</td>
+                      <td className="px-3 py-3"><div className="flex flex-wrap gap-1">
+                        <Button size="sm" variant="outline" onClick={() => void openApplicationDocument(item.crc_document_path)}><FileText className="mr-1 h-3.5 w-3.5" />CRC</Button>
+                        <Button size="sm" variant="outline" onClick={() => void openApplicationDocument(item.identity_document_path)}><ExternalLink className="mr-1 h-3.5 w-3.5" />Identidade</Button>
+                        <Button size="sm" variant="outline" onClick={() => void openApplicationDocument(item.address_document_path)}><ExternalLink className="mr-1 h-3.5 w-3.5" />Endereço</Button>
+                      </div></td>
+                    </tr>;
+                  }) : <tr><td colSpan={6} className="px-3 py-8 text-center text-muted-foreground">Nenhuma documentação recebida ainda.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <Card className="border-white/10 bg-zinc-900/60 text-zinc-100">
         <CardHeader>
           <CardTitle>Gestão de contadores parceiros</CardTitle>
@@ -456,8 +556,10 @@ function AdminPage() {
                   {[
                     "Nome",
                     "E-mail",
+                    "CPF/CNPJ e CRC",
+                    "PIX para recebimento",
                     "Status",
-                    "Indicações",
+                    "Indicações pagantes",
                     "Ações",
                   ].map((title) => (
                     <th
@@ -483,6 +585,15 @@ function AdminPage() {
 
                       <td className="px-3 py-3">
                         {partner.email ?? "—"}
+                      </td>
+
+                      <td className="px-3 py-3">
+                        <div>{partner.tax_id ?? "—"}</div>
+                        <div className="text-xs text-muted-foreground">CRC: {partner.crc_number ?? "—"}</div>
+                      </td>
+
+                      <td className="px-3 py-3">
+                        {partner.pix_type && partner.pix_key ? <><span className="font-medium">{partner.pix_type.toUpperCase()}</span><div className="break-all text-xs text-muted-foreground">{partner.pix_key}</div></> : "Ainda não informado"}
                       </td>
 
                       <td className="px-3 py-3">
@@ -540,7 +651,7 @@ function AdminPage() {
                   ))
                 ) : (
                   <EmptyRow
-                    colSpan={5}
+                    colSpan={7}
                     message="Nenhuma solicitação de contador encontrada."
                   />
                 )}

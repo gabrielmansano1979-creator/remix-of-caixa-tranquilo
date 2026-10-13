@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import appIcon from "@/assets/app-icon-v2.png.asset.json";
 
-export function Logo({ to = "/" }: { to?: "/" | "/caixa" }) {
+export function Logo({ to = "/", compact = false }: { to?: "/" | "/caixa"; compact?: boolean }) {
   return (
     <Link to={to} className="flex items-center gap-2 font-semibold tracking-tight">
       <img
@@ -11,7 +11,7 @@ export function Logo({ to = "/" }: { to?: "/" | "/caixa" }) {
         height={512}
         className="h-10 w-10 shrink-0 object-contain"
       />
-      <span className="text-[15px] font-bold tracking-tight">Critical Cash</span>
+      <span className={`text-[15px] font-bold tracking-tight ${compact ? "hidden whitespace-nowrap group-hover/sidebar:inline-flex" : ""}`}>Critical Cash</span>
     </Link>
   );
 }

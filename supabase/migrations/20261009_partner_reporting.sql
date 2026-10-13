@@ -3,7 +3,7 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 CREATE TABLE IF NOT EXISTS public.coupons (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   code text NOT NULL UNIQUE,
-  partner_id uuid NOT NULL REFERENCES public.partner_requests(user_id) ON DELETE CASCADE,
+  partner_id uuid NOT NULL REFERENCES public.partner_requests(id) ON DELETE CASCADE,
   discount_percent integer NOT NULL DEFAULT 10 CHECK (discount_percent = 10),
   commission_percent integer NOT NULL DEFAULT 20 CHECK (commission_percent BETWEEN 20 AND 30),
   is_active boolean NOT NULL DEFAULT true,
@@ -13,8 +13,8 @@ CREATE TABLE IF NOT EXISTS public.coupons (
 
 CREATE TABLE IF NOT EXISTS public.commissions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  partner_id uuid NOT NULL REFERENCES public.partner_requests(user_id) ON DELETE CASCADE,
-  subscription_id uuid REFERENCES public.subscriptions(user_id) ON DELETE SET NULL,
+  partner_id uuid NOT NULL REFERENCES public.partner_requests(id) ON DELETE CASCADE,
+  subscription_id uuid REFERENCES public.subscriptions(id) ON DELETE SET NULL,
   client_name text,
   amount_cents bigint NOT NULL DEFAULT 0 CHECK (amount_cents >= 0),
   status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'available', 'paid')),

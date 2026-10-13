@@ -23,6 +23,12 @@ export function CsvImportDialog({ open, onOpenChange, onLimit }: { open: boolean
   const onFile = async (f?: File) => {
     if (!f) return;
     if (f.size > 20_000_000) return setFileErr("Arquivo muito grande (máx. 20 MB).");
+    const extension = "." + (f.name.split(".").pop()?.toLowerCase() ?? "");
+    if (![".csv", ".xlsx", ".pdf"].includes(extension)) {
+      setFileErr("Formato não suportado. Envie somente PDF, CSV ou Excel (.xlsx).");
+      setRows(null);
+      return;
+    }
     setFileErr(null);
     setFileWarning(null);
     setRows(null);
@@ -67,7 +73,7 @@ export function CsvImportDialog({ open, onOpenChange, onLimit }: { open: boolean
         if (extracted.ocrPages) setFileWarning((current) => `${current ? `${current} ` : ""}${extracted.ocrPages} página(s) precisaram de OCR. Confira cada valor com o PDF original.`);
         return;
       }
-      throw new Error("Formato não suportado. Escolha um arquivo CSV, Excel ou PDF.");
+      throw new Error("Formato não suportado. Envie somente PDF, CSV ou Excel (.xlsx).");
     } catch (error) {
       setFileErr(error instanceof Error ? error.message : "Não foi possível ler o arquivo.");
       setRows(null);
@@ -114,7 +120,7 @@ export function CsvImportDialog({ open, onOpenChange, onLimit }: { open: boolean
               <Upload className="h-8 w-8 text-primary" />
               <span className="font-medium">Escolher arquivo CSV, Excel ou PDF</span>
               <span className="text-xs text-muted-foreground">Planilhas: colunas descricao, valor, vencimento, tipo e nome. PDFs passam por revisão antes de gravar.</span>
-              <input type="file" accept=".csv,.xlsx,.pdf,text/csv,application/pdf" className="sr-only" onChange={(e) => onFile(e.target.files?.[0])} />
+              <input type="file" accept=".csv,.xlsx,.pdf,text/csv,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="sr-only" onChange={(e) => onFile(e.target.files?.[0])} />
             </label>
             {fileErr && <p className="flex items-center gap-2 rounded-xl bg-danger/10 p-3 text-sm text-danger" role="alert"><AlertCircle className="h-4 w-4" />{fileErr}</p>}
             {fileWarning && <p className="flex items-center gap-2 rounded-xl bg-warning/10 p-3 text-sm text-warning" role="status"><AlertCircle className="h-4 w-4" />{fileWarning}</p>}

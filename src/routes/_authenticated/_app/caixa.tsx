@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { CartesianGrid, Line, LineChart, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import {
@@ -26,7 +26,14 @@ type Risk = { entry_id: string; description: string; counterparty_name: string |
 const projectionQuery = { queryKey: ["projection"], queryFn: async () => {
   const { data, error } = await supabase.rpc("cash_projection", { _days: 30 });
   if (error) throw error;
-  return data as unknown as Projection;
+  if (!data || typeof data !== "object") throw new Error("O banco não retornou uma projeção válida.");
+  const result = data as unknown as Projection;
+  if (!Array.isArray(result.series)) throw new Error("A série do gráfico está inválida.");
+  const moneyValues = [result.current, result.min_balance, result.cushion, ...result.series.map((point) => point.balance)];
+  if (moneyValues.some((value) => !Number.isSafeInteger(value))) {
+    throw new Error("Os valores ultrapassam o limite de cálculo exato. Revise e divida lançamentos muito altos antes de continuar.");
+  }
+  return result;
 } };
 
 function CaixaPage() {
@@ -42,6 +49,7 @@ function CaixaPage() {
       <div className="flex flex-col items-center rounded-2xl border bg-card p-10 text-center">
         <AlertTriangle className="h-8 w-8 text-danger" />
         <p className="mt-3">Não foi possível calcular sua projeção.</p>
+        {proj.error instanceof Error && <p className="mt-2 max-w-xl text-sm text-muted-foreground">{proj.error.message}</p>}
         <Button variant="outline" className="mt-4 h-11 rounded-xl" onClick={() => { proj.refetch(); entries.refetch(); }}><RotateCcw className="mr-2 h-4 w-4" />Tentar novamente</Button>
       </div>
     );
@@ -72,13 +80,13 @@ function CaixaPage() {
             <Button asChild className="h-11 rounded-xl"><Link to="/contas" search={{ novo: 1 }}>Cadastrar conta</Link></Button>
             <Button asChild variant="outline" className="h-11 rounded-xl"><Link to="/contas" search={{ importar: 1 }}>Importar CSV</Link></Button>
           </div>
-          <div className="mt-8 w-full max-w-sm text-left"><BalanceCard current={p.current} /></div>
+          <div className="mt-8 w-full max-w-sm text-left"><BalanceCard current={p.current} canWrite={access.data?.can_write ?? false} /></div>
         </div>
       ) : (
         <>
           <Semaphore p={p} />
           <div className="grid gap-5 md:grid-cols-3">
-            <BalanceCard current={p.current} />
+            <BalanceCard current={p.current} canWrite={access.data?.can_write ?? false} />
             <ProjCard label="Saldo projetado em 15 dias" value={p.series[15]?.balance ?? p.current} current={p.current} />
             <ProjCard label="Saldo projetado em 30 dias" value={p.series[30]?.balance ?? p.current} current={p.current} />
           </div>
@@ -109,11 +117,12 @@ function Semaphore({ p }: { p: Projection }) {
   );
 }
 
-function BalanceCard({ current }: { current: number }) {
+function BalanceCard({ current, canWrite }: { current: number; canWrite: boolean }) {
   const qc = useQueryClient();
   const profile = useQuery(profileQuery);
   const [edit, setEdit] = useState(false);
   const [v, setV] = useState(current);
+  useEffect(() => { if (!canWrite) setEdit(false); }, [canWrite]);
   const save = useMutation({
     mutationFn: async () => {
       if (!profile.data) throw new Error("Perfil indisponível");
@@ -130,9 +139,9 @@ function BalanceCard({ current }: { current: number }) {
           <span className="grid h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary"><Wallet className="h-5 w-5" /></span>
           <div><p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Saldo atual</p><p className="mt-0.5 text-xs text-muted-foreground">Posição de caixa</p></div>
         </div>
-        {!edit && <Button variant="ghost" size="sm" className="h-10 rounded-xl" onClick={() => { setV(current); setEdit(true); }}><Pencil className="mr-1 h-3.5 w-3.5" />Editar</Button>}
+        {!edit && canWrite && <Button variant="ghost" size="sm" className="h-10 rounded-xl" onClick={() => { setV(current); setEdit(true); }}><Pencil className="mr-1 h-3.5 w-3.5" />Editar</Button>}
       </div>
-      {edit ? (
+      {edit && canWrite ? (
         <form className="mt-1" onSubmit={(e) => { e.preventDefault(); save.mutate(); }}>
           <label htmlFor="bal" className="sr-only">Saldo atual</label>
           <MoneyInput id="bal" value={v} onChange={setV} allowNegative />
@@ -269,7 +278,7 @@ function Activation({ hasEntries }: { hasEntries: boolean }) {
   if (steps.every((s) => s.done)) return null;
   return (
     <section className="rounded-2xl border bg-card p-5">
-      <h2 className="text-sm font-semibold">Primeiros passos · {steps.filter((s) => s.done).length}/3</h2>
+      <h2 className="text-sm font-semibold">Primeiros passos · {steps.filter((s) => s.done).length}/2</h2>
       <ol className="mt-3 grid gap-2 sm:grid-cols-2">
         {steps.map((s, i) => (
           <li key={s.label}>

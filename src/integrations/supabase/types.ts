@@ -43,7 +43,7 @@ export type Database = {
             columns: ["partner_id"]
             isOneToOne: false
             referencedRelation: "partner_requests"
-            referencedColumns: ["user_id"]
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -150,7 +150,9 @@ export type Database = {
       }
       commissions: {
         Row: {
+          amount: number
           amount_cents: number
+          client_email: string | null
           client_name: string | null
           created_at: string
           id: string
@@ -162,7 +164,9 @@ export type Database = {
           subscription_id: string | null
         }
         Insert: {
+          amount?: number
           amount_cents?: number
+          client_email?: string | null
           client_name?: string | null
           created_at?: string
           id?: string
@@ -174,7 +178,9 @@ export type Database = {
           subscription_id?: string | null
         }
         Update: {
+          amount?: number
           amount_cents?: number
+          client_email?: string | null
           client_name?: string | null
           created_at?: string
           id?: string
@@ -191,7 +197,7 @@ export type Database = {
             columns: ["partner_id"]
             isOneToOne: false
             referencedRelation: "partner_requests"
-            referencedColumns: ["user_id"]
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -229,7 +235,7 @@ export type Database = {
             columns: ["partner_id"]
             isOneToOne: true
             referencedRelation: "partner_requests"
-            referencedColumns: ["user_id"]
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -284,8 +290,98 @@ export type Database = {
         }
         Relationships: []
       }
+      asaas_processed_payments: {
+        Row: {
+          created_at: string
+          last_error: string | null
+          payment_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          last_error?: string | null
+          payment_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          last_error?: string | null
+          payment_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      pending_billing_changes: {
+        Row: {
+          affiliate_commission_percent: number | null
+          affiliate_coupon_code: string | null
+          affiliate_discount_percent: number | null
+          affiliate_partner_id: string | null
+          checkout_reference: string
+          created_at: string
+          customer_id: string
+          initial_amount_cents: number
+          paid_at: string | null
+          payment_id: string | null
+          plan: string
+          previous_asaas_subscription_id: string | null
+          recurring_amount_cents: number
+          status: string
+          updated_at: string
+          user_id: string
+          billing_interval: string
+        }
+        Insert: {
+          affiliate_commission_percent?: number | null
+          affiliate_coupon_code?: string | null
+          affiliate_discount_percent?: number | null
+          affiliate_partner_id?: string | null
+          checkout_reference: string
+          created_at?: string
+          customer_id: string
+          initial_amount_cents: number
+          paid_at?: string | null
+          payment_id?: string | null
+          plan: string
+          previous_asaas_subscription_id?: string | null
+          recurring_amount_cents: number
+          status?: string
+          updated_at?: string
+          user_id: string
+          billing_interval: string
+        }
+        Update: {
+          affiliate_commission_percent?: number | null
+          affiliate_coupon_code?: string | null
+          affiliate_discount_percent?: number | null
+          affiliate_partner_id?: string | null
+          checkout_reference?: string
+          created_at?: string
+          customer_id?: string
+          initial_amount_cents?: number
+          paid_at?: string | null
+          payment_id?: string | null
+          plan?: string
+          previous_asaas_subscription_id?: string | null
+          recurring_amount_cents?: number
+          status?: string
+          updated_at?: string
+          user_id?: string
+          billing_interval?: string
+        }
+        Relationships: []
+      }
       partner_requests: {
         Row: {
+          id: string
+          company_name: string | null
+          phone: string | null
+          commission_rate: number | null
+          commission_percent: number | null
+          updated_at: string
           crc_number: string
           created_at: string
           email: string | null
@@ -297,6 +393,12 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          id?: string
+          company_name?: string | null
+          phone?: string | null
+          commission_rate?: number | null
+          commission_percent?: number | null
+          updated_at?: string
           crc_number: string
           created_at?: string
           email?: string | null
@@ -308,6 +410,12 @@ export type Database = {
           user_id: string
         }
         Update: {
+          id?: string
+          company_name?: string | null
+          phone?: string | null
+          commission_rate?: number | null
+          commission_percent?: number | null
+          updated_at?: string
           crc_number?: string
           created_at?: string
           email?: string | null
@@ -330,6 +438,8 @@ export type Database = {
       }
       profiles: {
         Row: {
+          id: string
+          email: string | null
           balance_date: string
           business_name: string | null
           created_at: string
@@ -348,6 +458,8 @@ export type Database = {
           welcome_sent: boolean
         }
         Insert: {
+          id?: string
+          email?: string | null
           balance_date?: string
           business_name?: string | null
           created_at?: string
@@ -366,6 +478,8 @@ export type Database = {
           welcome_sent?: boolean
         }
         Update: {
+          id?: string
+          email?: string | null
           balance_date?: string
           business_name?: string | null
           created_at?: string
@@ -494,6 +608,48 @@ export type Database = {
         }
         Relationships: []
       }
+      partner_application_documents: {
+        Row: {
+          address_document_path: string
+          city: string
+          created_at: string
+          crc_document_path: string
+          identity_document_path: string
+          office_name: string | null
+          phone: string
+          state: string
+          submitted_at: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          address_document_path: string
+          city: string
+          created_at?: string
+          crc_document_path: string
+          identity_document_path: string
+          office_name?: string | null
+          phone: string
+          state: string
+          submitted_at?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          address_document_path?: string
+          city?: string
+          created_at?: string
+          crc_document_path?: string
+          identity_document_path?: string
+          office_name?: string | null
+          phone?: string
+          state?: string
+          submitted_at?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       stripe_events: {
         Row: {
           id: string
@@ -514,6 +670,7 @@ export type Database = {
       }
       subscriptions: {
         Row: {
+          id: string
           affiliate_commission_percent: number | null
           affiliate_coupon_code: string | null
           affiliate_discount_percent: number | null
@@ -521,6 +678,7 @@ export type Database = {
           affiliate_payment_amount_cents: number | null
           asaas_customer_id: string | null
           asaas_payment_id: string | null
+          asaas_subscription_id: string | null
           billing_interval:
             | Database["public"]["Enums"]["billing_interval"]
             | null
@@ -535,6 +693,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          id?: string
           affiliate_commission_percent?: number | null
           affiliate_coupon_code?: string | null
           affiliate_discount_percent?: number | null
@@ -542,6 +701,7 @@ export type Database = {
           affiliate_payment_amount_cents?: number | null
           asaas_customer_id?: string | null
           asaas_payment_id?: string | null
+          asaas_subscription_id?: string | null
           billing_interval?:
             | Database["public"]["Enums"]["billing_interval"]
             | null
@@ -556,6 +716,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          id?: string
           affiliate_commission_percent?: number | null
           affiliate_coupon_code?: string | null
           affiliate_discount_percent?: number | null
@@ -563,6 +724,7 @@ export type Database = {
           affiliate_payment_amount_cents?: number | null
           asaas_customer_id?: string | null
           asaas_payment_id?: string | null
+          asaas_subscription_id?: string | null
           billing_interval?:
             | Database["public"]["Enums"]["billing_interval"]
             | null
@@ -582,7 +744,7 @@ export type Database = {
             columns: ["affiliate_partner_id"]
             isOneToOne: false
             referencedRelation: "partner_requests"
-            referencedColumns: ["user_id"]
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -699,11 +861,19 @@ export type Database = {
         Args: {
           _crc_number: string
           _full_name: string
-          _pix_key: string
-          _pix_type: string
+          _pix_key: string | null
+          _pix_type: string | null
           _tax_id: string
         }
         Returns: undefined
+      }
+      update_partner_payout: {
+        Args: { _pix_key: string; _pix_type: string }
+        Returns: undefined
+      }
+      is_valid_cpf_cnpj: {
+        Args: { p_value: string }
+        Returns: boolean
       }
       top_risks: {
         Args: { _limit?: number }

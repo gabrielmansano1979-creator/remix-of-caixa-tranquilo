@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { getPlan, FIRST_PIX_DISCOUNT } from "@/config/plans";
+import { isValidCpfCnpj, normalizeCpfCnpj } from "@/lib/identity";
 
 type Out = { url?: string; error?: string; qrCode?: string; copyPaste?: string; paymentId?: string };
 const origin = async () => {
@@ -11,41 +12,18 @@ const origin = async () => {
   return new URL(getRequest().url).origin;
 };
 
-function isValidCpfCnpj(value: string) {
-  const digits = value.replace(/\D/g, "");
-  if (/^(\d)\1+$/.test(digits)) return false;
-  if (digits.length === 11) {
-    const digitAt = (length: number) => {
-      const sum = digits.slice(0, length).split("").reduce((total, digit, index) => total + Number(digit) * (length + 1 - index), 0);
-      const remainder = (sum * 10) % 11;
-      return remainder === 10 ? 0 : remainder;
-    };
-    return digitAt(9) === Number(digits[9]) && digitAt(10) === Number(digits[10]);
-  }
-  if (digits.length === 14) {
-    const checkDigit = (length: number) => {
-      const weights = length === 12 ? [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2] : [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
-      const sum = digits.slice(0, length).split("").reduce((total, digit, index) => total + Number(digit) * weights[index], 0);
-      const remainder = sum % 11;
-      return remainder < 2 ? 0 : 11 - remainder;
-    };
-    return checkDigit(12) === Number(digits[12]) && checkDigit(13) === Number(digits[13]);
-  }
-  return false;
-}
-
 async function ensureCustomer(userId: string, email: string | undefined, fullName: string | undefined, doc: string) {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const asaas = await import("./asaas.server");
 
   const { data: sub } = await supabaseAdmin.from("subscriptions").select("asaas_customer_id").eq("user_id", userId).maybeSingle();
   if (sub?.asaas_customer_id) {
-    await asaas.updateCustomerDoc(sub.asaas_customer_id, doc);
+    await asaas.updateCustomerDoc(sub.asaas_customer_id, doc, fullName);
     return sub.asaas_customer_id;
   }
 
   let customer: { id: string } | null = email ? await asaas.getCustomerByEmail(email) : null;
-  if (customer) await asaas.updateCustomerDoc(customer.id, doc);
+  if (customer) await asaas.updateCustomerDoc(customer.id, doc, fullName);
   else customer = await asaas.createCustomer(email || `${userId}@criticalcash.app`, fullName || (email ?? "Cliente").split("@")[0], doc);
 
   await supabaseAdmin.from("subscriptions").upsert({
@@ -62,7 +40,8 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({
     plan: z.enum(["starter", "pro", "business"]),
     interval: z.enum(["month", "year"]),
-    cpfCnpj: z.string().transform((v) => v.replace(/\D/g, "")).refine(isValidCpfCnpj, "CPF ou CNPJ inválido"),
+    legalName: z.string().trim().min(2, "Informe seu nome civil completo").max(160),
+    cpfCnpj: z.string().transform(normalizeCpfCnpj).refine(isValidCpfCnpj, "CPF ou CNPJ inválido"),
     referralCode: z.string().trim().max(80).optional(),
   }).parse(d))
   .handler(async ({ data, context }): Promise<Out> => {
@@ -80,9 +59,76 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
       const customerEmail = (claims as { email?: string }).email || `${userId}@criefy.local`;
       const metadata = (claims as { user_metadata?: { full_name?: string; affiliate_referral_code?: string } }).user_metadata;
-      const customerName = metadata?.full_name;
+      const customerName = data.legalName;
+      const { data: existingCheckout, error: existingCheckoutError } = await supabaseAdmin
+        .from("pending_billing_changes")
+        .select("checkout_reference, payment_id, plan, billing_interval, status, updated_at")
+        .eq("user_id", userId)
+        .eq("status", "pending")
+        .maybeSingle();
+      if (existingCheckoutError) throw existingCheckoutError;
+      if (existingCheckout) {
+        let existingPaymentId = existingCheckout.payment_id;
+        if (!existingPaymentId) {
+          // If the process lost the Asaas response after creating a charge, recover
+          // it using the same externalReference before deciding to create anything new.
+          const recoveredPayment = await asaas.findPaymentByExternalReference(existingCheckout.checkout_reference);
+          if (recoveredPayment) {
+            existingPaymentId = recoveredPayment.id;
+            const { error: relinkError } = await supabaseAdmin.from("pending_billing_changes")
+              .update({ payment_id: existingPaymentId, updated_at: new Date().toISOString() })
+              .eq("checkout_reference", existingCheckout.checkout_reference)
+              .eq("status", "pending");
+            if (relinkError) throw relinkError;
+          } else {
+            const lastUpdate = Date.parse(existingCheckout.updated_at);
+            const requestStillInFlight = Number.isFinite(lastUpdate) && Date.now() - lastUpdate < 5 * 60 * 1000;
+            if (requestStillInFlight) {
+              return { error: "Seu Pix está sendo preparado. Aguarde alguns segundos e tente novamente." };
+            }
+            // The checkout record is stale and Asaas has no matching charge, so allow recovery.
+            const { error: staleCheckoutError } = await supabaseAdmin.from("pending_billing_changes")
+              .update({ status: "failed", updated_at: new Date().toISOString() })
+              .eq("checkout_reference", existingCheckout.checkout_reference)
+              .eq("status", "pending");
+            if (staleCheckoutError) throw staleCheckoutError;
+          }
+        }
+
+        if (existingPaymentId) {
+          const currentPayment = await asaas.getPayment(existingPaymentId);
+          const paymentStatus = currentPayment.status.toUpperCase();
+          if (["CONFIRMED", "RECEIVED", "PAID", "SETTLED"].includes(paymentStatus)) {
+            return { error: "O Asaas já identificou o pagamento. A ativação está sendo processada; não gere outro Pix." };
+          }
+
+          const paymentAlreadyUnavailable = ["DELETED", "REFUNDED", "CANCELED", "CANCELLED", "EXPIRED"].includes(paymentStatus);
+          const paymentIsOverdue = paymentStatus === "OVERDUE";
+          const sameCheckout = existingCheckout.plan === data.plan && existingCheckout.billing_interval === data.interval;
+          if (!paymentAlreadyUnavailable && !paymentIsOverdue && sameCheckout) {
+            const qr = await asaas.getPixQrCode(existingPaymentId);
+            return { qrCode: qr.pixQrCode, copyPaste: qr.pixCopyAndPaste, paymentId: existingPaymentId };
+          }
+
+          if (!paymentAlreadyUnavailable) {
+            // Delete an unpaid old charge before replacing it so two Pix codes cannot both activate a plan.
+            try {
+              await asaas.deletePayment(existingPaymentId);
+            } catch (error) {
+              if (!(error instanceof Error) || !error.message.startsWith("ASAAS_404")) throw error;
+            }
+          }
+
+          const { error: stalePaymentError } = await supabaseAdmin.from("pending_billing_changes")
+            .update({ status: "failed", updated_at: new Date().toISOString() })
+            .eq("checkout_reference", existingCheckout.checkout_reference)
+            .eq("status", "pending");
+          if (stalePaymentError) throw stalePaymentError;
+        }
+      }
+
       const { data: prev, error: prevError } = await supabaseAdmin.from("subscriptions")
-        .select("paid_at, affiliate_partner_id, affiliate_coupon_code, affiliate_commission_percent, affiliate_discount_percent")
+        .select("paid_at, affiliate_partner_id, affiliate_coupon_code, affiliate_commission_percent, affiliate_discount_percent, asaas_subscription_id")
         .eq("user_id", userId)
         .maybeSingle();
       if (prevError) throw prevError;
@@ -124,21 +170,21 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
 
           const { data: partner, error: partnerError } = await supabaseAdmin
             .from("partner_requests")
-            .select("user_id, email, tax_id, status")
-            .eq("user_id", coupon.partner_id)
+            .select("id, user_id, email, tax_id, status")
+            .eq("id", coupon.partner_id)
             .maybeSingle();
           if (partnerError) throw partnerError;
           if (!partner || partner.status !== "approved") return { error: "O cupom de indicação não está disponível." };
 
           const buyerEmail = customerEmail.trim().toLowerCase();
           const partnerEmail = (partner.email ?? "").trim().toLowerCase();
-          const buyerDoc = data.cpfCnpj.replace(/\D/g, "");
-          const partnerDoc = partner.tax_id.replace(/\D/g, "");
+          const buyerDoc = normalizeCpfCnpj(data.cpfCnpj);
+          const partnerDoc = normalizeCpfCnpj(partner.tax_id);
           if (partner.user_id === userId || (partnerEmail && partnerEmail === buyerEmail) || (partnerDoc && partnerDoc === buyerDoc)) {
             return { error: "Você não pode utilizar seu próprio cupom de indicação para assinar um plano." };
           }
           affiliate = {
-            partnerId: partner.user_id,
+            partnerId: coupon.partner_id,
             code: coupon.code,
             commissionPercent: coupon.commission_percent,
             discountPercent: coupon.discount_percent,
@@ -148,27 +194,71 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
 
       const discountPercent = affiliate?.discountPercent ?? (isFirst ? Math.round(FIRST_PIX_DISCOUNT * 100) : 0);
       const priceCents = Math.round(basePrice * (1 - discountPercent / 100));
+      // The first Pix may receive its one-time promotion. Later recurring charges
+      // return to the normal price, except an affiliate's recurring coupon discount.
+      const recurringDiscountPercent = affiliate?.discountPercent ?? 0;
+      const recurringPriceCents = Math.round(basePrice * (1 - recurringDiscountPercent / 100));
       const customerId = await ensureCustomer(userId, customerEmail, customerName, data.cpfCnpj);
 
-      const externalRef = `sub_${userId}_${Date.now()}`;
-      const discountLabel = affiliate ? ` (cupom ${affiliate.code}: ${discountPercent}% off)` : discountPercent ? ` (${discountPercent}% off 1ª assinatura)` : "";
-      const charge = await asaas.createPixCharge(customerId, priceCents, externalRef, `Critical Cash ${plan.name} ${data.interval === "year" ? "anual" : "mensal"}${discountLabel}`);
-
-      const { error: subscriptionError } = await supabaseAdmin.from("subscriptions").upsert({
+      const checkoutReference = `cc_${userId}_${crypto.randomUUID()}`;
+      const now = new Date().toISOString();
+      const { error: pendingInsertError } = await supabaseAdmin.from("pending_billing_changes").insert({
+        checkout_reference: checkoutReference,
+        payment_id: null,
         user_id: userId,
-        asaas_payment_id: charge.id,
-        asaas_customer_id: customerId,
-        status: "pending_pix",
+        customer_id: customerId,
         plan: data.plan,
         billing_interval: data.interval,
+        initial_amount_cents: priceCents,
+        recurring_amount_cents: recurringPriceCents,
         affiliate_partner_id: affiliate?.partnerId ?? null,
         affiliate_coupon_code: affiliate?.code ?? null,
         affiliate_commission_percent: affiliate?.commissionPercent ?? null,
-        affiliate_discount_percent: affiliate ? discountPercent : null,
-        affiliate_payment_amount_cents: affiliate ? priceCents : null,
-        updated_at: new Date().toISOString()
-      }, { onConflict: "user_id" });
-      if (subscriptionError) throw subscriptionError;
+        affiliate_discount_percent: affiliate?.discountPercent ?? null,
+        previous_asaas_subscription_id: prev?.asaas_subscription_id ?? null,
+        status: "pending",
+        updated_at: now,
+      });
+      if (pendingInsertError) {
+        if (pendingInsertError.code === "23505") {
+          return { error: "Já existe um Pix pendente para esta conta. Reabra o checkout do plano que você escolheu ou aguarde a confirmação." };
+        }
+        throw pendingInsertError;
+      }
+
+      const discountLabel = affiliate
+        ? ` (cupom ${affiliate.code}: ${discountPercent}% off)`
+        : discountPercent ? ` (${discountPercent}% off 1º pagamento)` : "";
+      let charge: Awaited<ReturnType<typeof asaas.createPixCharge>>;
+      try {
+        charge = await asaas.createPixCharge(
+          customerId,
+          priceCents,
+          checkoutReference,
+          `Critical Cash ${plan.name} ${data.interval === "year" ? "anual" : "mensal"}${discountLabel}`,
+        );
+      } catch (error) {
+        // The request may have reached Asaas even when the network response was lost.
+        // Keep the stable checkout reference pending so a retry can recover that payment
+        // instead of creating a second PIX charge. Stale empty references are retired after
+        // the recovery window by the next checkout attempt.
+        console.error("Asaas PIX creation result is ambiguous; keeping checkout reference for recovery", checkoutReference, error);
+        throw new Error("PIX_CREATE_STATUS_UNKNOWN:Não foi possível confirmar se o Pix foi criado. Reabra o checkout em alguns minutos; o sistema verificará a cobrança existente antes de gerar outra.");
+      }
+
+      const { error: paymentLinkError } = await supabaseAdmin.from("pending_billing_changes")
+        .update({ payment_id: charge.id, updated_at: new Date().toISOString() })
+        .eq("checkout_reference", checkoutReference)
+        .eq("status", "pending");
+      if (paymentLinkError) {
+        try { await asaas.deletePayment(charge.id); } catch (cleanupError) {
+          console.error("Asaas pending payment cleanup failed", charge.id, cleanupError);
+        }
+        await supabaseAdmin.from("pending_billing_changes")
+          .update({ status: "failed", updated_at: new Date().toISOString() })
+          .eq("checkout_reference", checkoutReference);
+        throw paymentLinkError;
+      }
 
       return {
         qrCode: charge.pixQrCode,
@@ -196,27 +286,49 @@ export const cancelSubscription = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ reason: z.string().max(500).optional() }).parse(d))
   .handler(async ({ data, context }): Promise<{ ok: boolean; message: string }> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: sub } = await supabaseAdmin.from("subscriptions")
-      .select("asaas_payment_id, status")
+    const { data: sub, error: lookupError } = await supabaseAdmin.from("subscriptions")
+      .select("asaas_subscription_id, status, current_period_end, cancel_at_period_end")
       .eq("user_id", context.userId)
       .maybeSingle();
 
-    if (!sub) return { ok: false, message: "Nenhuma assinatura ativa." };
+    if (lookupError) {
+      console.error("subscription cancellation lookup failed", lookupError);
+      return { ok: false, message: "Não foi possível verificar sua assinatura." };
+    }
+    if (!sub) return { ok: false, message: "Nenhuma assinatura encontrada." };
+    if (sub.status === "canceled" && sub.cancel_at_period_end) {
+      return { ok: true, message: "A recorrência já foi cancelada; seu acesso termina no fim do período pago." };
+    }
 
     try {
-      await supabaseAdmin.from("subscriptions").update({
-        cancel_at_period_end: true,
-        updated_at: new Date().toISOString()
-      }).eq("user_id", context.userId);
+      if (sub.asaas_subscription_id) {
+        const asaas = await import("./asaas.server");
+        await asaas.cancelAsaasSubscription(sub.asaas_subscription_id);
+      }
 
-      await supabaseAdmin.from("audit_logs").insert({
+      const now = new Date();
+      const hasPaidTimeRemaining = Boolean(
+        sub.current_period_end && Date.parse(sub.current_period_end) > now.getTime(),
+      );
+      const { error: updateError } = await supabaseAdmin.from("subscriptions").update({
+        status: hasPaidTimeRemaining ? "canceled" : "expired",
+        cancel_at_period_end: hasPaidTimeRemaining,
+        updated_at: now.toISOString(),
+      }).eq("user_id", context.userId);
+      if (updateError) throw updateError;
+
+      const { error: auditError } = await supabaseAdmin.from("audit_logs").insert({
         user_id: context.userId,
         action: "subscription_cancel",
-        meta: { reason: data.reason ?? null }
+        meta: { reason: data.reason ?? null, asaas_subscription_id: sub.asaas_subscription_id ?? null },
       });
+      if (auditError) throw auditError;
 
-      return { ok: true, message: "Assinatura cancelada. Você mantém o acesso até o fim do período." };
-    } catch {
-      return { ok: false, message: "Não foi possível cancelar agora." };
+      return hasPaidTimeRemaining
+        ? { ok: true, message: "A recorrência foi cancelada. Você mantém o acesso até o fim do período pago." }
+        : { ok: true, message: "A recorrência foi cancelada e não há período pago restante." };
+    } catch (error) {
+      console.error("subscription cancellation failed", error);
+      return { ok: false, message: "Não foi possível cancelar a recorrência agora. Tente novamente." };
     }
   });

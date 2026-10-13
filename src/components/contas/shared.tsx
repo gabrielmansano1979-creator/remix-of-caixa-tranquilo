@@ -14,7 +14,7 @@ export function useMarkPaid() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, paid }: { id: string; paid: boolean }) => {
-      const { error } = await supabase.from("entries").update(paid ? { status: "paid", paid_at: todaySP() } : { status: "pending", paid_at: null }).eq("id", id);
+      const { error } = await supabase.from("entries").update(paid ? { status: "paid", paid_at: new Date().toISOString() } : { status: "pending", paid_at: null }).eq("id", id);
       if (error) throw error;
     },
     onMutate: async ({ id, paid }) => {

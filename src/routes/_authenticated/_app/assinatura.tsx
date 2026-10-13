@@ -4,11 +4,11 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
-import { AlertTriangle, CheckCircle2, Clock, CreditCard, Loader2, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, Loader2, XCircle } from "lucide-react";
 import { useEntitlements } from "@/hooks/use-entitlements";
 import { getPlan } from "@/config/plans";
 import { formatDate } from "@/lib/format";
-import { cancelSubscription, createPortalSession } from "@/lib/billing.functions";
+import { cancelSubscription } from "@/lib/billing.functions";
 import { track } from "@/lib/analytics";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -38,7 +38,6 @@ function AssinaturaPage() {
   const { sucesso } = Route.useSearch();
   const ent = useEntitlements();
   const qc = useQueryClient();
-  const portal = useServerFn(createPortalSession);
   const cancel = useServerFn(cancelSubscription);
   const [busy, setBusy] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
@@ -55,15 +54,6 @@ function AssinaturaPage() {
   const st = STATUS[a.status];
   const plan = getPlan(a.plan);
 
-  const openPortal = async () => {
-    setBusy(true);
-    try {
-      const r = await portal();
-      if (r.url) window.location.href = r.url;
-      else toast.error(r.error ?? "Erro");
-    } catch { toast.error("Sem conexão."); }
-    setBusy(false);
-  };
   const doCancel = async () => {
     setBusy(true);
     try {
@@ -85,8 +75,8 @@ function AssinaturaPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold tracking-tight">Assinatura</h1>
-      <div className="rounded-2xl border border-success/30 bg-success/5 px-4 py-3 text-sm text-success">
-        Pagamentos via Pix com confirmação automática do Asaas. Primeiro pagamento com 20% de desconto em planos mensais e anuais.
+      <div className="rounded-2xl border bg-card px-4 py-3 text-sm leading-relaxed text-muted-foreground">
+        O Pix inicial é confirmado automaticamente pelo Asaas. Depois disso, as renovações mensais ou anuais geram novas cobranças Pix; cada cobrança precisa ser paga manualmente e não configura débito automático.
       </div>
       <section className="rounded-2xl border bg-card p-6 shadow-[var(--shadow-soft)]">
         <p className="text-sm text-muted-foreground">Plano {a.status === "trialing" ? "(nível do teste)" : "atual"}</p>
@@ -100,8 +90,7 @@ function AssinaturaPage() {
         </dl>
         <div className="mt-6 flex flex-wrap gap-2">
           <Button asChild className="h-11 rounded-xl"><Link to="/planos">{a.has_subscription ? "Trocar de plano" : "Escolher plano"}</Link></Button>
-          {a.has_subscription && <Button variant="outline" className="h-11 rounded-xl" disabled={busy} onClick={openPortal}>{busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />}Gerenciar pagamento</Button>}
-          {a.has_subscription && a.status === "active" && !a.cancel_at_period_end && <Button variant="ghost" className="h-11 rounded-xl text-danger" onClick={() => setCancelOpen(true)}>Cancelar assinatura</Button>}
+          {a.has_subscription && ["active", "past_due"].includes(a.status) && !a.cancel_at_period_end && <Button variant="ghost" className="h-11 rounded-xl text-danger" onClick={() => setCancelOpen(true)}>Cancelar assinatura</Button>}
         </div>
       </section>
 

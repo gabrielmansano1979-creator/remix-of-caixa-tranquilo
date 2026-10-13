@@ -25,7 +25,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 export const Route = createFileRoute("/_authenticated/_app/contas")({
-  validateSearch: z.object({ novo: z.number().optional(), importar: z.number().optional() }),
+  validateSearch: z.object({ novo: z.number().optional(), importar: z.number().optional(), whatsapp: z.number().optional() }),
   head: () => ({ meta: [{ title: "Contas — Critical Cash" }, { name: "description", content: "Acompanhe suas contas, vencimentos e envios de cobrança." }, { property: "og:title", content: "Contas — Critical Cash" }, { property: "og:description", content: "Acompanhe suas contas, vencimentos e envios de cobrança." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }, { name: "robots", content: "noindex" }] }),
   component: ContasPage,
 });
@@ -37,7 +37,7 @@ function ContasPage() {
   const navigate = useNavigate({ from: "/contas" });
   const qc = useQueryClient();
   const { data, isLoading, isError, refetch } = useQuery(entriesQuery);
-  const { data: access } = useQuery(accessQuery);
+  const { data: access, isLoading: accessLoading } = useQuery(accessQuery);
   const { data: profile } = useQuery(profileQuery);
   const [tab, setTab] = useState<"all" | "income" | "expense">("all");
   const [status, setStatus] = useState<Status>("all");
@@ -54,10 +54,22 @@ function ContasPage() {
   const canWrite = access?.can_write ?? true;
 
   useEffect(() => {
-    if (search.novo) setFormOpen(true);
-    if (search.importar) setCsvOpen(true);
-    if (search.novo || search.importar) navigate({ search: {}, replace: true });
-  }, [search.novo, search.importar, navigate]);
+    const requestedAction = Boolean(search.novo || search.importar || search.whatsapp);
+    if (!requestedAction || accessLoading) return;
+
+    if (!access?.can_write) {
+      setLimit("Seu acesso de edição está pausado. Assine um plano para cadastrar contas, importar arquivos ou enviar cobranças.");
+    } else {
+      if (search.novo) setFormOpen(true);
+      if (search.importar) setCsvOpen(true);
+      if (search.whatsapp) {
+        setWhatsAppEntry(null);
+        setWhatsAppOpen(true);
+      }
+    }
+
+    navigate({ search: {}, replace: true });
+  }, [search.novo, search.importar, search.whatsapp, navigate, access?.can_write, accessLoading]);
 
   const onLimit = (_k: LimitKind, msg: string) => setLimit(msg);
   const guard = (fn: () => void) => () => (canWrite ? fn() : setLimit("Seu teste grátis terminou e a conta está em modo somente leitura."));
