@@ -21,11 +21,20 @@ function IndexComponent() {
       // 1. Verifica se há sessão ativa e redireciona direto se for admin
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user && isMounted) {
-        const userEmail = session.user.email?.toLowerCase().trim();
-        const userRole = session.user.user_metadata?.role;
-        const isAdmin = userEmail === 'gabrielmansano1979@gmail.com' || userRole === 'admin';
+        // Acesso administrativo é decidido exclusivamente pela função persistida
+        // no banco; e-mail e user_metadata não concedem privilégios.
+        const { data: isAdmin, error: roleError } = await supabase.rpc('has_role', {
+          _user_id: session.user.id,
+          _role: 'admin',
+        });
 
-        if (isAdmin) {
+        if (!isMounted) return;
+
+        if (roleError) {
+          console.error('[HOME] Não foi possível verificar a função administrativa:', roleError);
+        }
+
+        if (!roleError && isAdmin === true) {
           window.location.replace('/admin');
           return;
         }
