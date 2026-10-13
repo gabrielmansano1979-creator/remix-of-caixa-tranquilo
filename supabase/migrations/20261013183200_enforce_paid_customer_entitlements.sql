@@ -27,6 +27,19 @@ CREATE UNIQUE INDEX IF NOT EXISTS pending_billing_changes_one_pending_per_user
   ON public.pending_billing_changes(user_id)
   WHERE status = 'pending';
 
+-- Payment-level idempotency complements event-level idempotency because one Asaas
+-- payment can emit multiple distinct events (for example CONFIRMED and RECEIVED).
+CREATE TABLE IF NOT EXISTS public.asaas_processed_payments (
+  payment_id text PRIMARY KEY,
+  status text NOT NULL DEFAULT 'processing' CHECK (status IN ('processing', 'processed', 'failed')),
+  last_error text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE public.asaas_processed_payments ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.asaas_processed_payments FROM PUBLIC, anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.asaas_processed_payments TO service_role;
+
 -- Approved accountants retain the affiliate dashboard, but do not receive a free
 -- trial of the financial-product features. An active paid plan still grants normal access.
 CREATE OR REPLACE FUNCTION public.get_access(_user_id uuid)
