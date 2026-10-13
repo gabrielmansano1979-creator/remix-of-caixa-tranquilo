@@ -144,5 +144,13 @@ export async function createOrGetPixSubscription(
  * application's current_period_end timestamp.
  */
 export async function cancelAsaasSubscription(subscriptionId: string) {
-  return asaasFetch<{ deleted: boolean }>(`/subscriptions/${subscriptionId}`, { method: "DELETE" });
+  try {
+    return await asaasFetch<{ deleted: boolean }>(`/subscriptions/${subscriptionId}`, { method: "DELETE" });
+  } catch (error) {
+    // A webhook retry may reach this after the previous attempt already removed the old recurrence.
+    if (error instanceof Error && error.message.startsWith("ASAAS_404")) {
+      return { deleted: true, alreadyRemoved: true };
+    }
+    throw error;
+  }
 }
