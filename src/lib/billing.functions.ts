@@ -62,44 +62,69 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       const customerName = data.legalName;
       const { data: existingCheckout, error: existingCheckoutError } = await supabaseAdmin
         .from("pending_billing_changes")
-        .select("checkout_reference, payment_id, plan, billing_interval, status")
+        .select("checkout_reference, payment_id, plan, billing_interval, status, updated_at")
         .eq("user_id", userId)
         .eq("status", "pending")
         .maybeSingle();
       if (existingCheckoutError) throw existingCheckoutError;
       if (existingCheckout) {
-        if (!existingCheckout.payment_id) {
-          return { error: "Seu Pix está sendo preparado. Aguarde alguns segundos e tente novamente." };
-        }
-
-        const currentPayment = await asaas.getPayment(existingCheckout.payment_id);
-        const paymentStatus = currentPayment.status.toUpperCase();
-        if (["CONFIRMED", "RECEIVED", "PAID", "SETTLED"].includes(paymentStatus)) {
-          return { error: "O Asaas já identificou o pagamento. A ativação está sendo processada; não gere outro Pix." };
-        }
-
-        const paymentAlreadyUnavailable = ["DELETED", "REFUNDED", "CANCELED", "CANCELLED", "EXPIRED"].includes(paymentStatus);
-        const paymentIsOverdue = paymentStatus === "OVERDUE";
-        const sameCheckout = existingCheckout.plan === data.plan && existingCheckout.billing_interval === data.interval;
-        if (!paymentAlreadyUnavailable && !paymentIsOverdue && sameCheckout) {
-          const qr = await asaas.getPixQrCode(existingCheckout.payment_id);
-          return { qrCode: qr.pixQrCode, copyPaste: qr.pixCopyAndPaste, paymentId: existingCheckout.payment_id };
-        }
-
-        if (!paymentAlreadyUnavailable) {
-          // Switching plan first removes the previous unpaid PIX so a customer cannot
-          // accidentally pay two checkouts and create two active recurring subscriptions.
-          try {
-            await asaas.deletePayment(existingCheckout.payment_id);
-          } catch (error) {
-            if (!(error instanceof Error) || !error.message.startsWith("ASAAS_404")) throw error;
+        let existingPaymentId = existingCheckout.payment_id;
+        if (!existingPaymentId) {
+          // If the process lost the Asaas response after creating a charge, recover
+          // it using the same externalReference before deciding to create anything new.
+          const recoveredPayment = await asaas.findPaymentByExternalReference(existingCheckout.checkout_reference);
+          if (recoveredPayment) {
+            existingPaymentId = recoveredPayment.id;
+            const { error: relinkError } = await supabaseAdmin.from("pending_billing_changes")
+              .update({ payment_id: existingPaymentId, updated_at: new Date().toISOString() })
+              .eq("checkout_reference", existingCheckout.checkout_reference)
+              .eq("status", "pending");
+            if (relinkError) throw relinkError;
+          } else {
+            const lastUpdate = Date.parse(existingCheckout.updated_at);
+            const requestStillInFlight = Number.isFinite(lastUpdate) && Date.now() - lastUpdate < 5 * 60 * 1000;
+            if (requestStillInFlight) {
+              return { error: "Seu Pix está sendo preparado. Aguarde alguns segundos e tente novamente." };
+            }
+            // The checkout record is stale and Asaas has no matching charge, so allow recovery.
+            const { error: staleCheckoutError } = await supabaseAdmin.from("pending_billing_changes")
+              .update({ status: "failed", updated_at: new Date().toISOString() })
+              .eq("checkout_reference", existingCheckout.checkout_reference)
+              .eq("status", "pending");
+            if (staleCheckoutError) throw staleCheckoutError;
           }
         }
 
-        const { error } = await supabaseAdmin.from("pending_billing_changes")
-          .update({ status: "failed", updated_at: new Date().toISOString() })
-          .eq("checkout_reference", existingCheckout.checkout_reference);
-        if (error) throw error;
+        if (existingPaymentId) {
+          const currentPayment = await asaas.getPayment(existingPaymentId);
+          const paymentStatus = currentPayment.status.toUpperCase();
+          if (["CONFIRMED", "RECEIVED", "PAID", "SETTLED"].includes(paymentStatus)) {
+            return { error: "O Asaas já identificou o pagamento. A ativação está sendo processada; não gere outro Pix." };
+          }
+
+          const paymentAlreadyUnavailable = ["DELETED", "REFUNDED", "CANCELED", "CANCELLED", "EXPIRED"].includes(paymentStatus);
+          const paymentIsOverdue = paymentStatus === "OVERDUE";
+          const sameCheckout = existingCheckout.plan === data.plan && existingCheckout.billing_interval === data.interval;
+          if (!paymentAlreadyUnavailable && !paymentIsOverdue && sameCheckout) {
+            const qr = await asaas.getPixQrCode(existingPaymentId);
+            return { qrCode: qr.pixQrCode, copyPaste: qr.pixCopyAndPaste, paymentId: existingPaymentId };
+          }
+
+          if (!paymentAlreadyUnavailable) {
+            // Delete an unpaid old charge before replacing it so two Pix codes cannot both activate a plan.
+            try {
+              await asaas.deletePayment(existingPaymentId);
+            } catch (error) {
+              if (!(error instanceof Error) || !error.message.startsWith("ASAAS_404")) throw error;
+            }
+          }
+
+          const { error: stalePaymentError } = await supabaseAdmin.from("pending_billing_changes")
+            .update({ status: "failed", updated_at: new Date().toISOString() })
+            .eq("checkout_reference", existingCheckout.checkout_reference)
+            .eq("status", "pending");
+          if (stalePaymentError) throw stalePaymentError;
+        }
       }
 
       const { data: prev, error: prevError } = await supabaseAdmin.from("subscriptions")
