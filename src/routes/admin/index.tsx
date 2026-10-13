@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { exportReport, type ReportFormat } from "@/lib/reporting";
+import { normalizeCpfCnpj } from "@/lib/identity";
 
 export const Route = createFileRoute("/admin/")({
   head: () => ({
@@ -515,8 +516,8 @@ function AdminPage() {
                         <p className="mt-1 text-xs text-muted-foreground">CPF/CNPJ: {partner?.tax_id ?? "—"}</p>
                         <p className="text-xs text-muted-foreground">CRC: {partner?.crc_number ?? "—"}</p>
                         <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs">
-                          {partner?.tax_id && partner.tax_id.replace(/\D/g, "").length === 11 && <a className="text-primary underline" href="https://www.gov.br/pt-br/servicos/consultar-cadastro-de-pessoas-fisicas" target="_blank" rel="noreferrer">Consultar CPF na Receita</a>}
-                          {partner?.tax_id && partner.tax_id.replace(/\D/g, "").length === 14 && <a className="text-primary underline" href="https://www.gov.br/pt-br/servicos/consultar-cadastro-nacional-de-pessoas-juridicas" target="_blank" rel="noreferrer">Consultar CNPJ na Receita</a>}
+                          {partner?.tax_id && normalizeCpfCnpj(partner.tax_id).length === 11 && <a className="text-primary underline" href="https://www.gov.br/pt-br/servicos/consultar-cadastro-de-pessoas-fisicas" target="_blank" rel="noreferrer">Consultar CPF na Receita</a>}
+                          {partner?.tax_id && normalizeCpfCnpj(partner.tax_id).length === 14 && <a className="text-primary underline" href="https://www.gov.br/pt-br/servicos/consultar-cadastro-nacional-de-pessoas-juridicas" target="_blank" rel="noreferrer">Consultar CNPJ na Receita</a>}
                           {partner?.crc_number && <a className="text-primary underline" href="https://cfc.org.br/conselhos/" target="_blank" rel="noreferrer">Localizar CRC oficial</a>}
                         </div>
                       </td>
