@@ -37,7 +37,7 @@ function ContasPage() {
   const navigate = useNavigate({ from: "/contas" });
   const qc = useQueryClient();
   const { data, isLoading, isError, refetch } = useQuery(entriesQuery);
-  const { data: access } = useQuery(accessQuery);
+  const { data: access, isLoading: accessLoading } = useQuery(accessQuery);
   const { data: profile } = useQuery(profileQuery);
   const [tab, setTab] = useState<"all" | "income" | "expense">("all");
   const [status, setStatus] = useState<Status>("all");
@@ -54,14 +54,22 @@ function ContasPage() {
   const canWrite = access?.can_write ?? true;
 
   useEffect(() => {
-    if (search.novo) setFormOpen(true);
-    if (search.importar) setCsvOpen(true);
-    if (search.whatsapp) {
-      setWhatsAppEntry(null);
-      setWhatsAppOpen(true);
+    const requestedAction = Boolean(search.novo || search.importar || search.whatsapp);
+    if (!requestedAction || accessLoading) return;
+
+    if (!access?.can_write) {
+      setLimit("Seu acesso de edição está pausado. Assine um plano para cadastrar contas, importar arquivos ou enviar cobranças.");
+    } else {
+      if (search.novo) setFormOpen(true);
+      if (search.importar) setCsvOpen(true);
+      if (search.whatsapp) {
+        setWhatsAppEntry(null);
+        setWhatsAppOpen(true);
+      }
     }
-    if (search.novo || search.importar || search.whatsapp) navigate({ search: {}, replace: true });
-  }, [search.novo, search.importar, navigate]);
+
+    navigate({ search: {}, replace: true });
+  }, [search.novo, search.importar, search.whatsapp, navigate, access?.can_write, accessLoading]);
 
   const onLimit = (_k: LimitKind, msg: string) => setLimit(msg);
   const guard = (fn: () => void) => () => (canWrite ? fn() : setLimit("Seu teste grátis terminou e a conta está em modo somente leitura."));
