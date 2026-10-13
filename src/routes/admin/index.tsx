@@ -234,6 +234,7 @@ function AdminPage() {
         total_clients: Number(result.total_clients ?? 0),
       };
     },
+    refetchInterval: 15_000,
   });
 
   const data = query.data ?? emptyOverview;
@@ -640,7 +641,7 @@ function AdminPage() {
                   ))
                 ) : (
                   <EmptyRow
-                    colSpan={5}
+                    colSpan={7}
                     message="Nenhuma solicitação de contador encontrada."
                   />
                 )}
