@@ -1,5 +1,96 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { calculateCommissionAmountCents } from "@/lib/affiliate-commission";
+import { getPlan, type PlanId } from "@/config/plans";
+import { nextBillingDate, type BillingInterval } from "@/lib/billing-cycle";
+
+type AdminDb = typeof import("@/integrations/supabase/client.server")["supabaseAdmin"];
+
+function amountToCents(value: unknown): number {
+  const amount = Number(value);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    throw new RangeError("Asaas returned an invalid payment amount");
+  }
+  const cents = Math.round(amount * 100);
+  if (!Number.isSafeInteger(cents) || cents <= 0) {
+    throw new RangeError("Asaas payment amount exceeds exact integer precision");
+  }
+  return cents;
+}
+
+function localMidnightTimestamp(date: string): string {
+  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(date)) {
+    throw new RangeError("billing date must use YYYY-MM-DD");
+  }
+  return new Date(date + "T00:00:00-03:00").toISOString();
+}
+
+async function recordAffiliateCommission(
+  db: AdminDb,
+  input: {
+    partnerId: string | null;
+    userId: string;
+    subscriptionId: string;
+    paymentId: string;
+    paymentAmountCents: number;
+  },
+) {
+  if (!input.partnerId || input.paymentAmountCents <= 0) return;
+
+  const { data: partner, error: partnerError } = await db.from("partner_requests")
+    .select("status, pix_type, pix_key")
+    .eq("user_id", input.partnerId)
+    .maybeSingle();
+  if (partnerError) throw partnerError;
+  if (partner?.status !== "approved" || !partner.pix_type || !partner.pix_key) return;
+
+  const { data: coupon, error: couponError } = await db.from("coupons")
+    .select("commission_percent, is_active")
+    .eq("partner_id", input.partnerId)
+    .maybeSingle();
+  if (couponError) throw couponError;
+  const commissionRate = Number(coupon?.commission_percent ?? 0);
+  if (!coupon?.is_active || ![20, 25, 30].includes(commissionRate)) return;
+
+  const { error: rateError } = await db.from("subscriptions")
+    .update({ affiliate_commission_percent: commissionRate })
+    .eq("user_id", input.userId);
+  if (rateError) throw rateError;
+
+  const { data: profile, error: profileError } = await db.from("profiles")
+    .select("full_name, business_name, email")
+    .eq("user_id", input.userId)
+    .maybeSingle();
+  if (profileError) throw profileError;
+  const { data: authResult } = await db.auth.admin.getUserById(input.userId);
+  const metadata = authResult.user?.user_metadata ?? {};
+  const metadataName = typeof metadata.full_name === "string"
+    ? metadata.full_name
+    : typeof metadata.name === "string" ? metadata.name : "";
+  const clientName =
+    (profile?.full_name ?? "").trim() ||
+    (profile?.business_name ?? "").trim() ||
+    metadataName.trim() ||
+    profile?.email ||
+    authResult.user?.email ||
+    "Cliente";
+
+  const amountCents = calculateCommissionAmountCents(
+    input.paymentAmountCents,
+    commissionRate as 20 | 25 | 30,
+  );
+  const { error: commissionError } = await db.from("commissions").upsert({
+    partner_id: input.partnerId,
+    subscription_id: input.subscriptionId,
+    payment_id: input.paymentId,
+    client_name: clientName,
+    client_email: profile?.email ?? authResult.user?.email ?? null,
+    amount: amountCents / 100,
+    amount_cents: amountCents,
+    status: "pending",
+  }, { onConflict: "payment_id", ignoreDuplicates: true });
+  if (commissionError) throw commissionError;
+}
+
 
 type PaymentObject = {
   id?: string;
@@ -84,121 +175,230 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
             event.data?.id,
           );
           const paymentIdText = paymentId === null ? null : String(paymentId);
-          const rawStatus = firstDefined(
-            event.status,
-            event.payment && typeof event.payment === "object" ? event.payment.status : null,
-            event.data?.status,
-            event.data?.payment && typeof event.data.payment === "object" ? event.data.payment.status : null,
-            event.data?.object?.status,
-          );
           const eventName = normalizeStatus(firstDefined(event.event, event.type));
+          if (!paymentIdText) return Response.json({ received: true });
+          if (eventName === "PAYMENT_DELETED" || eventName === "PAYMENT_REFUNDED") {
+            return Response.json({ received: true });
+          }
+
+          const asaas = await import("@/lib/asaas.server");
+          const payment = await asaas.getPayment(paymentIdText);
+          const paymentStatus = normalizeStatus(payment.status);
           const confirmedEvent = [
             "PAYMENT_CONFIRMED",
             "PAYMENT_RECEIVED",
             "PAYMENT_APPROVED",
             "PAYMENT_SETTLED",
           ].includes(eventName);
+          const asaasSubscriptionId = payment.subscription ?? null;
 
-          if (paymentIdText && (isPaidStatus(rawStatus) || confirmedEvent)) {
-            const { data: sub, error: subError } = await db
-              .from("subscriptions")
-              .select("id, user_id, plan, affiliate_partner_id, affiliate_commission_percent, affiliate_payment_amount_cents")
-              .eq("asaas_payment_id", paymentIdText)
+          if (!isPaidStatus(paymentStatus)) {
+            if (confirmedEvent) {
+              throw new Error("Asaas reported a confirmed event but the payment API has not confirmed the payment yet");
+            }
+            if (eventName === "PAYMENT_OVERDUE" && asaasSubscriptionId) {
+              const { error: overdueError } = await db.from("subscriptions")
+                .update({ status: "past_due", updated_at: new Date().toISOString() })
+                .eq("asaas_subscription_id", asaasSubscriptionId);
+              if (overdueError) throw overdueError;
+            }
+            return Response.json({ received: true });
+          }
+
+          const paymentAmountCents = amountToCents(payment.value);
+          const paidAt = new Date().toISOString();
+
+          const { data: pendingCheckout, error: pendingCheckoutError } = await db
+            .from("pending_billing_changes")
+            .select("*")
+            .eq("payment_id", paymentIdText)
+            .maybeSingle();
+          if (pendingCheckoutError) throw pendingCheckoutError;
+
+          // The first Pix is intentionally a one-off so the one-time introductory
+          // discount does not accidentally reduce every later monthly/yearly charge.
+          if (pendingCheckout?.status === "processed") {
+            return Response.json({ received: true, duplicatePayment: true });
+          }
+
+          if (pendingCheckout && pendingCheckout.status !== "processed") {
+            const { data: before, error: beforeError } = await db.from("subscriptions")
+              .select("id, asaas_subscription_id")
+              .eq("user_id", pendingCheckout.user_id)
+              .maybeSingle();
+            if (beforeError) throw beforeError;
+
+            const interval: BillingInterval = pendingCheckout.billing_interval === "year" ? "year" : "month";
+            const nextDueDate = nextBillingDate(paidAt, interval);
+            const plan = getPlan(pendingCheckout.plan as PlanId);
+            const externalReference = "cc-renewal-" + pendingCheckout.checkout_reference;
+            const recurring = await asaas.createOrGetPixSubscription(
+              pendingCheckout.customer_id,
+              Number(pendingCheckout.recurring_amount_cents),
+              nextDueDate,
+              interval === "year" ? "YEARLY" : "MONTHLY",
+              externalReference,
+              "Critical Cash " + plan.name + (interval === "year" ? " anual" : " mensal") + " — renovação",
+            );
+
+            const previousSubscriptionId =
+              pendingCheckout.previous_asaas_subscription_id || before?.asaas_subscription_id || null;
+            if (previousSubscriptionId && previousSubscriptionId !== recurring.id) {
+              await asaas.cancelAsaasSubscription(previousSubscriptionId);
+            }
+
+            const { data: activeSub, error: activationError } = await db.from("subscriptions").upsert({
+              user_id: pendingCheckout.user_id,
+              asaas_customer_id: pendingCheckout.customer_id,
+              asaas_payment_id: paymentIdText,
+              asaas_subscription_id: recurring.id,
+              status: "active",
+              paid_at: paidAt,
+              current_period_end: localMidnightTimestamp(nextDueDate),
+              cancel_at_period_end: false,
+              plan: pendingCheckout.plan,
+              billing_interval: interval,
+              affiliate_partner_id: pendingCheckout.affiliate_partner_id,
+              affiliate_coupon_code: pendingCheckout.affiliate_coupon_code,
+              affiliate_commission_percent: pendingCheckout.affiliate_commission_percent,
+              affiliate_discount_percent: pendingCheckout.affiliate_discount_percent,
+              affiliate_payment_amount_cents: pendingCheckout.recurring_amount_cents,
+              updated_at: paidAt,
+            }, { onConflict: "user_id" })
+              .select("id, user_id, plan")
+              .single();
+            if (activationError) throw activationError;
+
+            await recordAffiliateCommission(db, {
+              partnerId: pendingCheckout.affiliate_partner_id,
+              userId: activeSub.user_id,
+              subscriptionId: activeSub.id,
+              paymentId: paymentIdText,
+              paymentAmountCents,
+            });
+
+            const { error: auditError } = await db.from("audit_logs").insert({
+              user_id: activeSub.user_id,
+              action: "subscription_start",
+              meta: {
+                plan: activeSub.plan,
+                gateway: "asaas_pix",
+                payment_id: paymentIdText,
+                asaas_subscription_id: recurring.id,
+              },
+            });
+            if (auditError) throw auditError;
+
+            const { error: completedError } = await db.from("pending_billing_changes")
+              .update({ status: "processed", paid_at: paidAt, updated_at: paidAt })
+              .eq("checkout_reference", pendingCheckout.checkout_reference);
+            if (completedError) throw completedError;
+          } else if (asaasSubscriptionId) {
+            // Every recurring charge has its own payment ID but references the same Asaas subscription.
+            const { data: sub, error: subError } = await db.from("subscriptions")
+              .select("id, user_id, plan, billing_interval, affiliate_partner_id, affiliate_payment_amount_cents, asaas_subscription_id, current_period_end")
+              .eq("asaas_subscription_id", asaasSubscriptionId)
               .maybeSingle();
             if (subError) throw subError;
-            // Do not acknowledge and permanently deduplicate a confirmed payment before its
-            // subscription row exists. Return 500 after cleanup so Asaas can retry delivery.
             if (!sub?.user_id) {
-              throw new Error("No subscription found for confirmed Asaas payment " + paymentIdText);
+              throw new Error("No Critical Cash subscription found for Asaas recurrence " + asaasSubscriptionId);
             }
 
-            if (sub?.user_id) {
-              const paidAt = new Date().toISOString();
-              const { error: updateError } = await db
-                .from("subscriptions")
-                .update({ status: "active", paid_at: paidAt, updated_at: paidAt })
-                .eq("asaas_payment_id", paymentIdText);
-              if (updateError) throw updateError;
+            const interval: BillingInterval = sub.billing_interval === "year" ? "year" : "month";
+            const cycleBaseDate = sub.current_period_end ?? payment.dueDate ?? paidAt;
+            const nextDueDate = nextBillingDate(cycleBaseDate, interval);
+            const { data: renewedSub, error: renewalError } = await db.from("subscriptions")
+              .update({
+                status: "active",
+                paid_at: paidAt,
+                current_period_end: localMidnightTimestamp(nextDueDate),
+                updated_at: paidAt,
+              })
+              .eq("id", sub.id)
+              .select("id, user_id")
+              .single();
+            if (renewalError) throw renewalError;
 
-              if (sub.affiliate_partner_id && sub.affiliate_payment_amount_cents) {
-                const partnerId = sub.affiliate_partner_id;
-                const { data: partner, error: partnerError } = await db
-                  .from("partner_requests")
-                  .select("status, pix_type, pix_key")
-                  .eq("user_id", partnerId)
-                  .maybeSingle();
-                if (partnerError) throw partnerError;
+            await recordAffiliateCommission(db, {
+              partnerId: sub.affiliate_partner_id,
+              userId: renewedSub.user_id,
+              subscriptionId: renewedSub.id,
+              paymentId: paymentIdText,
+              paymentAmountCents,
+            });
 
-                // The payment update above runs sync_partner_coupon_rate() in PostgreSQL.
-                // Read the tier after that trigger so distinct user IDs, not subscription rows,
-                // determine the commission thresholds.
-                const { data: coupon, error: couponError } = await db
-                  .from("coupons")
-                  .select("commission_percent, is_active")
-                  .eq("partner_id", partnerId)
-                  .maybeSingle();
-                if (couponError) throw couponError;
-                const commissionRate = Number(coupon?.commission_percent ?? 0);
-
-                if (
-                  partner?.status === "approved" &&
-                  partner.pix_type &&
-                  partner.pix_key &&
-                  coupon?.is_active &&
-                  [20, 25, 30].includes(commissionRate)
-                ) {
-
-                  const { error: rateError } = await db
-                    .from("subscriptions")
-                    .update({ affiliate_commission_percent: commissionRate })
-                    .eq("user_id", sub.user_id);
-                  if (rateError) throw rateError;
-
-                  const { data: profile, error: profileError } = await db
-                    .from("profiles")
-                    .select("full_name, business_name, email")
-                    .eq("user_id", sub.user_id)
-                    .maybeSingle();
-                  if (profileError) throw profileError;
-                  const { data: authResult } = await db.auth.admin.getUserById(sub.user_id);
-                  const metadata = authResult.user?.user_metadata ?? {};
-                  const metadataName = typeof metadata.full_name === "string"
-                    ? metadata.full_name
-                    : typeof metadata.name === "string" ? metadata.name : "";
-                  const clientName =
-                    (profile?.full_name ?? "").trim() ||
-                    (profile?.business_name ?? "").trim() ||
-                    metadataName.trim() ||
-                    profile?.email ||
-                    authResult.user?.email ||
-                    "Cliente";
-
-                  const amountCents = calculateCommissionAmountCents(
-                    Number(sub.affiliate_payment_amount_cents),
-                    commissionRate as 20 | 25 | 30,
-                  );
-                  const { error: commissionError } = await db.from("commissions").upsert({
-                    partner_id: partnerId,
-                    subscription_id: sub.id,
-                    payment_id: paymentIdText,
-                    client_name: clientName,
-                    client_email: profile?.email ?? authResult.user?.email ?? null,
-                    // Keep the legacy numeric column populated while newer reports use integer cents.
-                    amount: amountCents / 100,
-                    amount_cents: amountCents,
-                    status: "pending",
-                  }, { onConflict: "payment_id", ignoreDuplicates: true });
-                  if (commissionError) throw commissionError;
-                }
-              }
-
-              const { error: auditError } = await db.from("audit_logs").insert({
-                user_id: sub.user_id,
-                action: "subscription_start",
-                meta: { plan: sub.plan, gateway: "asaas_pix" },
-              });
-              if (auditError) throw auditError;
+            const { error: auditError } = await db.from("audit_logs").insert({
+              user_id: renewedSub.user_id,
+              action: "subscription_renewal",
+              meta: { gateway: "asaas_pix", payment_id: paymentIdText, asaas_subscription_id: asaasSubscriptionId },
+            });
+            if (auditError) throw auditError;
+          } else {
+            // Compatibility for a Pix issued by the previous version before pending checkouts
+            // were stored separately. We still activate it and install the new recurring cycle.
+            const { data: legacySub, error: legacyError } = await db.from("subscriptions")
+              .select("id, user_id, plan, billing_interval, status, paid_at, affiliate_partner_id, affiliate_coupon_code, affiliate_commission_percent, affiliate_discount_percent, affiliate_payment_amount_cents, asaas_customer_id, asaas_subscription_id")
+              .eq("asaas_payment_id", paymentIdText)
+              .maybeSingle();
+            if (legacyError) throw legacyError;
+            if (!legacySub?.user_id) {
+              throw new Error("No Critical Cash subscription found for confirmed Asaas payment " + paymentIdText);
             }
+            if (legacySub.status === "active" && legacySub.asaas_subscription_id) {
+              return Response.json({ received: true, duplicatePayment: true });
+            }
+            if (!legacySub.asaas_customer_id || !legacySub.plan) {
+              throw new Error("Legacy pending payment is missing its customer or plan");
+            }
+
+            const interval: BillingInterval = legacySub.billing_interval === "year" ? "year" : "month";
+            const plan = getPlan(legacySub.plan as PlanId);
+            const recurringDiscount = legacySub.affiliate_discount_percent ?? 0;
+            const recurringAmountCents = Math.round(
+              (interval === "year" ? plan.priceYearCents : plan.priceMonthCents) * (1 - recurringDiscount / 100),
+            );
+            const nextDueDate = nextBillingDate(paidAt, interval);
+            const recurring = await asaas.createOrGetPixSubscription(
+              legacySub.asaas_customer_id,
+              recurringAmountCents,
+              nextDueDate,
+              interval === "year" ? "YEARLY" : "MONTHLY",
+              "cc-renewal-legacy-" + paymentIdText,
+              "Critical Cash " + plan.name + (interval === "year" ? " anual" : " mensal") + " — renovação",
+            );
+            if (legacySub.asaas_subscription_id && legacySub.asaas_subscription_id !== recurring.id) {
+              await asaas.cancelAsaasSubscription(legacySub.asaas_subscription_id);
+            }
+
+            const { data: activeSub, error: activationError } = await db.from("subscriptions")
+              .update({
+                status: "active",
+                paid_at: paidAt,
+                asaas_subscription_id: recurring.id,
+                current_period_end: localMidnightTimestamp(nextDueDate),
+                cancel_at_period_end: false,
+                affiliate_payment_amount_cents: recurringAmountCents,
+                updated_at: paidAt,
+              })
+              .eq("id", legacySub.id)
+              .select("id, user_id, plan")
+              .single();
+            if (activationError) throw activationError;
+
+            await recordAffiliateCommission(db, {
+              partnerId: legacySub.affiliate_partner_id,
+              userId: activeSub.user_id,
+              subscriptionId: activeSub.id,
+              paymentId: paymentIdText,
+              paymentAmountCents,
+            });
+
+            const { error: auditError } = await db.from("audit_logs").insert({
+              user_id: activeSub.user_id,
+              action: "subscription_start",
+              meta: { plan: activeSub.plan, gateway: "asaas_pix_legacy", payment_id: paymentIdText, asaas_subscription_id: recurring.id },
+            });
+            if (auditError) throw auditError;
           }
 
           return Response.json({ received: true });
