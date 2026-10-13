@@ -69,6 +69,30 @@ describe("Asaas recurring PIX API contract", () => {
     });
   });
 
+  it("recovers a charge by external reference without creating a new payment", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({
+      data: [{
+        id: "pay_recovered_123",
+        status: "PENDING",
+        externalReference: "cc_checkout_stable_ref",
+        value: 59,
+      }],
+    }));
+
+    const result = await (await import("./asaas.server")).findPaymentByExternalReference("cc_checkout_stable_ref");
+
+    expect(result).toEqual({
+      id: "pay_recovered_123",
+      status: "PENDING",
+      externalReference: "cc_checkout_stable_ref",
+      value: 59,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0][0])).toContain(
+      "/payments?externalReference=cc_checkout_stable_ref&limit=100",
+    );
+  });
+
   it("reuses the existing active recurrence after a retry instead of creating a duplicate", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({
       data: [{
