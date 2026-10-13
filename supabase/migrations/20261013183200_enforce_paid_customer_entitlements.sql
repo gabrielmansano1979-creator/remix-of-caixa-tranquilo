@@ -72,7 +72,15 @@ BEGIN
   trial_end := p.trial_ends_at;
   plan_name := COALESCE(s.plan::text, s.plan_id);
 
-  IF s.status IN ('active', 'past_due')
+  IF (
+       s.status IN ('active', 'past_due')
+       OR (
+         s.status = 'canceled'
+         AND COALESCE(s.cancel_at_period_end, false)
+         AND s.current_period_end IS NOT NULL
+         AND s.current_period_end > now()
+       )
+     )
      AND plan_name IN ('starter', 'pro', 'business') THEN
     eff := plan_name::public.plan_tier;
     can_write := true;
