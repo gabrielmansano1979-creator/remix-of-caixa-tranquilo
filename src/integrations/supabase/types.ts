@@ -290,6 +290,66 @@ export type Database = {
         }
         Relationships: []
       }
+      pending_billing_changes: {
+        Row: {
+          affiliate_commission_percent: number | null
+          affiliate_coupon_code: string | null
+          affiliate_discount_percent: number | null
+          affiliate_partner_id: string | null
+          checkout_reference: string
+          created_at: string
+          customer_id: string
+          initial_amount_cents: number
+          paid_at: string | null
+          payment_id: string | null
+          plan: string
+          previous_asaas_subscription_id: string | null
+          recurring_amount_cents: number
+          status: string
+          updated_at: string
+          user_id: string
+          billing_interval: string
+        }
+        Insert: {
+          affiliate_commission_percent?: number | null
+          affiliate_coupon_code?: string | null
+          affiliate_discount_percent?: number | null
+          affiliate_partner_id?: string | null
+          checkout_reference: string
+          created_at?: string
+          customer_id: string
+          initial_amount_cents: number
+          paid_at?: string | null
+          payment_id?: string | null
+          plan: string
+          previous_asaas_subscription_id?: string | null
+          recurring_amount_cents: number
+          status?: string
+          updated_at?: string
+          user_id: string
+          billing_interval: string
+        }
+        Update: {
+          affiliate_commission_percent?: number | null
+          affiliate_coupon_code?: string | null
+          affiliate_discount_percent?: number | null
+          affiliate_partner_id?: string | null
+          checkout_reference?: string
+          created_at?: string
+          customer_id?: string
+          initial_amount_cents?: number
+          paid_at?: string | null
+          payment_id?: string | null
+          plan?: string
+          previous_asaas_subscription_id?: string | null
+          recurring_amount_cents?: number
+          status?: string
+          updated_at?: string
+          user_id?: string
+          billing_interval?: string
+        }
+        Relationships: []
+      }
       partner_requests: {
         Row: {
           crc_number: string
