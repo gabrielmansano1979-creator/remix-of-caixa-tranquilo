@@ -1,7 +1,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Clipboard, Download, LoaderCircle, ShieldCheck } from "lucide-react";
+import { Clipboard, Download, LoaderCircle, ShieldCheck, BadgeCheck, CircleDollarSign, Users, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -79,6 +79,7 @@ function AccountantPage() {
   const queryClient = useQueryClient();
   const [form, setForm] = useState(empty);
   const [busy, setBusy] = useState(false);
+  const [showApplicationForm, setShowApplicationForm] = useState(false);
   const query = useQuery({
     queryKey: ["partner-area"],
     queryFn: async () => {
@@ -157,96 +158,101 @@ function AccountantPage() {
 
   if (state?.status !== "approved") {
     return (
-      <div className="mx-auto max-w-3xl space-y-6 py-8">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
-            Programa de parceiros
+      <div className="mx-auto max-w-4xl space-y-6 py-8">
+        <header className="space-y-3">
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-primary">Programa de parceria profissional</p>
+          <h1 className="text-3xl font-bold tracking-tight md:text-4xl">Contador Afiliado</h1>
+          <p className="max-w-2xl text-base leading-relaxed text-muted-foreground">
+            Indique o Critical Cash aos seus clientes, ajude pequenos negócios a organizar o fluxo de caixa
+            e acompanhe suas comissões recorrentes em um painel dedicado.
           </p>
-          <h1 className="mt-2 text-3xl font-bold">Área do contador</h1>
-        </div>
+        </header>
+
         {state?.status === "pending_approval" && (
-          <div
-            role="status"
-            className="rounded-2xl border border-amber-400/20 bg-amber-400/5 p-5 text-sm text-amber-100"
-          >
-            Sua solicitação está em análise. Você poderá acessar os links de indicação após a
-            aprovação.
+          <div role="status" className="flex items-start gap-3 rounded-2xl border border-warning/40 bg-warning/10 p-5 text-sm">
+            <FileText className="mt-0.5 h-5 w-5 shrink-0 text-warning" />
+            <div><p className="font-semibold">Sua candidatura está em análise.</p><p className="mt-1 text-muted-foreground">O administrador avaliará as informações enviadas. O painel de afiliado será liberado após a aprovação.</p></div>
           </div>
         )}
         {state?.status === "rejected" && (
-          <div
-            role="alert"
-            className="rounded-2xl border border-danger/20 bg-danger/5 p-5 text-sm text-danger"
-          >
-            A solicitação anterior não foi aprovada. Revise os dados e envie novamente.
+          <div role="alert" className="flex items-start gap-3 rounded-2xl border border-danger/30 bg-danger/5 p-5 text-sm">
+            <FileText className="mt-0.5 h-5 w-5 shrink-0 text-danger" />
+            <div><p className="font-semibold">A candidatura anterior não foi aprovada.</p><p className="mt-1 text-muted-foreground">Confira os dados e, se necessário, envie uma nova solicitação para avaliação.</p></div>
           </div>
         )}
-        {state?.status !== "pending_approval" && (
+
+        <div className="grid gap-4 md:grid-cols-3">
+          <Card className="premium-surface">
+            <CardHeader><span className="mb-2 grid h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary"><Users className="h-5 w-5" /></span><CardTitle className="text-base">Indique clientes</CardTitle></CardHeader>
+            <CardContent className="text-sm leading-relaxed text-muted-foreground">Compartilhe seu link ou cupom para apresentar o Critical Cash a empresas que precisam organizar recebimentos, pagamentos e previsões de caixa.</CardContent>
+          </Card>
+          <Card className="premium-surface">
+            <CardHeader><span className="mb-2 grid h-10 w-10 place-items-center rounded-xl bg-success/10 text-success"><CircleDollarSign className="h-5 w-5" /></span><CardTitle className="text-base">Comissão recorrente</CardTitle></CardHeader>
+            <CardContent className="text-sm leading-relaxed text-muted-foreground">A comissão prevista no programa começa em 20% e pode variar entre 20% e 30%, conforme as condições definidas pelo administrador e registradas no seu cadastro.</CardContent>
+          </Card>
+          <Card className="premium-surface">
+            <CardHeader><span className="mb-2 grid h-10 w-10 place-items-center rounded-xl bg-accent text-accent-foreground"><BadgeCheck className="h-5 w-5" /></span><CardTitle className="text-base">Aprovação administrativa</CardTitle></CardHeader>
+            <CardContent className="text-sm leading-relaxed text-muted-foreground">A participação depende da conferência dos dados profissionais e da aprovação do administrador. A comissão não representa garantia de ganhos.</CardContent>
+          </Card>
+        </div>
+
+        {state?.status !== "pending_approval" && !showApplicationForm && (
+          <Card className="border-primary/30 bg-primary/5">
+            <CardHeader>
+              <CardTitle>Faça sua candidatura</CardTitle>
+              <p className="text-sm text-muted-foreground">Preencha os dados profissionais e de recebimento solicitados para iniciar a avaliação.</p>
+            </CardHeader>
+            <CardContent>
+              <Button className="h-12 w-full rounded-xl sm:w-auto" onClick={() => setShowApplicationForm(true)}>
+                Quero ser um contador afiliado
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {state?.status !== "pending_approval" && showApplicationForm && (
           <Card>
             <CardHeader>
-              <CardTitle>Solicitar parceria</CardTitle>
+              <CardTitle>Quero ser um contador afiliado</CardTitle>
+              <p className="text-sm text-muted-foreground">Informe os dados exatamente como constam nos seus registros profissionais.</p>
             </CardHeader>
             <CardContent>
               <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <Label htmlFor="partner-name">Nome completo</Label>
-                  <Input
-                    id="partner-name"
-                    required
-                    minLength={2}
-                    maxLength={160}
-                    value={form.full_name}
-                    onChange={(e) => setForm({ ...form, full_name: e.target.value })}
-                  />
+                  <Input id="partner-name" required minLength={2} maxLength={160} autoComplete="name"
+                    value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} />
                 </div>
                 <div>
                   <Label htmlFor="partner-doc">CPF ou CNPJ</Label>
-                  <Input
-                    id="partner-doc"
-                    required
-                    value={form.tax_id}
-                    onChange={(e) => setForm({ ...form, tax_id: e.target.value })}
-                  />
+                  <Input id="partner-doc" required autoComplete="off" value={form.tax_id}
+                    onChange={(e) => setForm({ ...form, tax_id: e.target.value })} />
                 </div>
                 <div>
-                  <Label htmlFor="partner-crc">CRC</Label>
-                  <Input
-                    id="partner-crc"
-                    required
-                    placeholder="SP-123456/O"
-                    value={form.crc_number}
-                    onChange={(e) => setForm({ ...form, crc_number: e.target.value })}
-                  />
+                  <Label htmlFor="partner-crc">Registro profissional no CRC</Label>
+                  <Input id="partner-crc" required placeholder="SP-123456/O" value={form.crc_number}
+                    onChange={(e) => setForm({ ...form, crc_number: e.target.value })} />
+                  <p className="mt-1 text-xs text-muted-foreground">Formato esperado: UF-123456/O.</p>
                 </div>
                 <div>
-                  <Label htmlFor="partner-pix-type">Tipo de chave PIX</Label>
-                  <select
-                    id="partner-pix-type"
-                    className="mt-1.5 h-10 w-full rounded-xl border bg-background px-3 text-sm"
-                    value={form.pix_type}
-                    onChange={(e) => setForm({ ...form, pix_type: e.target.value })}
-                  >
-                    <option value="cpf">CPF</option>
-                    <option value="cnpj">CNPJ</option>
-                    <option value="email">E-mail</option>
-                    <option value="phone">Telefone</option>
-                    <option value="random">Aleatória</option>
+                  <Label htmlFor="partner-pix-type">Tipo de chave Pix</Label>
+                  <select id="partner-pix-type" className="mt-1.5 h-11 w-full rounded-xl border bg-background px-3 text-sm"
+                    value={form.pix_type} onChange={(e) => setForm({ ...form, pix_type: e.target.value })}>
+                    <option value="cpf">CPF</option><option value="cnpj">CNPJ</option><option value="email">E-mail</option>
+                    <option value="phone">Telefone</option><option value="random">Aleatória</option>
                   </select>
                 </div>
                 <div className="sm:col-span-2">
-                  <Label htmlFor="partner-pix-key">Chave PIX para recebimento</Label>
-                  <Input
-                    id="partner-pix-key"
-                    required
-                    maxLength={180}
-                    value={form.pix_key}
-                    onChange={(e) => setForm({ ...form, pix_key: e.target.value })}
-                  />
+                  <Label htmlFor="partner-pix-key">Chave Pix para recebimento de comissões</Label>
+                  <Input id="partner-pix-key" required maxLength={180} value={form.pix_key}
+                    onChange={(e) => setForm({ ...form, pix_key: e.target.value })} />
                 </div>
-                <Button type="submit" disabled={busy} className="h-11 rounded-xl sm:col-span-2">
-                  {busy && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}Enviar para
-                  análise
-                </Button>
+                <div className="flex flex-wrap gap-2 sm:col-span-2">
+                  <Button type="submit" disabled={busy} className="h-11 rounded-xl">
+                    {busy && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}Enviar candidatura para avaliação
+                  </Button>
+                  <Button type="button" variant="outline" className="h-11 rounded-xl" onClick={() => setShowApplicationForm(false)}>Voltar</Button>
+                </div>
               </form>
             </CardContent>
           </Card>
