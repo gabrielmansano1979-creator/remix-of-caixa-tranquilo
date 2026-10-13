@@ -85,6 +85,15 @@ $function$;
 REVOKE ALL ON FUNCTION public.get_access(uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.get_access(uuid) TO authenticated, service_role;
 
+-- Prevent clients from changing server-managed trial and identity-control columns.
+-- Client UI writes only the explicit list below; service-role server operations remain supported.
+REVOKE INSERT, UPDATE, DELETE ON public.profiles FROM PUBLIC, anon, authenticated;
+REVOKE INSERT (id, full_name, email, created_at, updated_at, user_id, business_name, reply_to_email, initial_balance_cents, balance_date, cushion_cents, reminders_enabled, trial_ends_at, onboarding_done, notify_product_emails, welcome_sent, trial_warn_sent, trial_end_sent, notification_whatsapp) ON public.profiles FROM PUBLIC, anon, authenticated;
+REVOKE UPDATE (id, full_name, email, created_at, updated_at, user_id, business_name, reply_to_email, initial_balance_cents, balance_date, cushion_cents, reminders_enabled, trial_ends_at, onboarding_done, notify_product_emails, welcome_sent, trial_warn_sent, trial_end_sent, notification_whatsapp) ON public.profiles FROM PUBLIC, anon, authenticated;
+GRANT UPDATE (full_name, business_name, reply_to_email, initial_balance_cents, balance_date, cushion_cents, reminders_enabled, onboarding_done, notify_product_emails, notification_whatsapp)
+  ON public.profiles TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.profiles TO service_role;
+
 -- Enforce edit access for direct table writes too; client-side guards alone can be bypassed.
 CREATE OR REPLACE FUNCTION public.enforce_entry_write_entitlement()
 RETURNS trigger
