@@ -121,7 +121,14 @@ function AppShell() {
       <div className="flex min-w-0 flex-1 flex-col md:pl-20">
         <header className="sticky top-0 z-20 flex h-[4.5rem] items-center justify-between border-b border-border/70 bg-background/75 px-4 backdrop-blur-xl md:px-8">
           <div className="md:hidden flex items-center gap-2">
-            <Button variant="ghost" size="icon" aria-label={mobileNavOpen ? (mobileNavExpanded ? "Recolher menu" : "Expandir nomes do menu") : "Abrir menu"} onClick={() => mobileNavOpen ? setMobileNavExpanded((expanded) => !expanded) : setMobileNavOpen(true)}>
+            <Button variant="ghost" size="icon" aria-label={mobileNavOpen ? (mobileNavExpanded ? "Recolher menu" : "Expandir nomes do menu") : "Abrir menu"} onClick={() => {
+                if (mobileNavOpen) {
+                  setMobileNavExpanded((expanded) => !expanded);
+                } else {
+                  setMobileNavExpanded(true);
+                  setMobileNavOpen(true);
+                }
+              }}>
               <Menu className="h-5 w-5" />
             </Button>
             <Logo to="/caixa" />
