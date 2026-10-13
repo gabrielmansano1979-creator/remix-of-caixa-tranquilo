@@ -376,6 +376,12 @@ export type Database = {
       }
       partner_requests: {
         Row: {
+          id: string
+          company_name: string | null
+          phone: string | null
+          commission_rate: number | null
+          commission_percent: number | null
+          updated_at: string
           crc_number: string
           created_at: string
           email: string | null
@@ -387,6 +393,12 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          id?: string
+          company_name?: string | null
+          phone?: string | null
+          commission_rate?: number | null
+          commission_percent?: number | null
+          updated_at?: string
           crc_number: string
           created_at?: string
           email?: string | null
@@ -398,6 +410,12 @@ export type Database = {
           user_id: string
         }
         Update: {
+          id?: string
+          company_name?: string | null
+          phone?: string | null
+          commission_rate?: number | null
+          commission_percent?: number | null
+          updated_at?: string
           crc_number?: string
           created_at?: string
           email?: string | null
