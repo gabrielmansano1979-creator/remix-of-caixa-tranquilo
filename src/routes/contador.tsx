@@ -75,12 +75,6 @@ const empty = { full_name: "", tax_id: "", crc_number: "", pix_type: "cpf", pix_
 type ApplicationDocuments = { crc: File | null; identity: File | null; address: File | null };
 const emptyDocuments: ApplicationDocuments = { crc: null, identity: null, address: null };
 const MAX_DOCUMENT_SIZE = 10 * 1024 * 1024;
-const ACCEPTED_DOCUMENT_TYPES = [
-  "application/pdf",
-  "text/csv",
-  "application/vnd.ms-excel",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-];
 const ALLOWED_DOCUMENT_EXTENSIONS = [".pdf", ".csv", ".xls", ".xlsx"];
 const DOCUMENT_MIME_BY_EXTENSION: Record<string, string> = {
   ".pdf": "application/pdf",
