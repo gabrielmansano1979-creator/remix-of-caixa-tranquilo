@@ -60,7 +60,7 @@ function AppShell() {
     navigate({ to: "/login", replace: true });
   };
 
-  const linkCls = "group flex h-12 items-center gap-3 rounded-xl px-3.5 text-sm font-semibold text-muted-foreground transition-all duration-200 hover:bg-background/80 hover:text-foreground";
+  const linkCls = "group flex h-12 items-center gap-3 overflow-hidden rounded-xl px-3.5 text-sm font-semibold text-muted-foreground transition-all duration-200 hover:bg-background/80 hover:text-foreground";
   const activeCls = "!bg-background !text-primary shadow-[0_4px_14px_-10px_var(--foreground)] ring-1 ring-border/70";
 
   return (
