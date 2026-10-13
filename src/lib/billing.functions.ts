@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { getPlan, FIRST_PIX_DISCOUNT } from "@/config/plans";
-import { isValidCpfCnpj } from "@/lib/identity";
+import { isValidCpfCnpj, normalizeCpfCnpj } from "@/lib/identity";
 
 type Out = { url?: string; error?: string; qrCode?: string; copyPaste?: string; paymentId?: string };
 const origin = async () => {
@@ -41,7 +41,7 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
     plan: z.enum(["starter", "pro", "business"]),
     interval: z.enum(["month", "year"]),
     legalName: z.string().trim().min(2, "Informe seu nome civil completo").max(160),
-    cpfCnpj: z.string().transform((v) => v.replace(/\D/g, "")).refine(isValidCpfCnpj, "CPF ou CNPJ inválido"),
+    cpfCnpj: z.string().transform(normalizeCpfCnpj).refine(isValidCpfCnpj, "CPF ou CNPJ inválido"),
     referralCode: z.string().trim().max(80).optional(),
   }).parse(d))
   .handler(async ({ data, context }): Promise<Out> => {
@@ -111,8 +111,8 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
 
           const buyerEmail = customerEmail.trim().toLowerCase();
           const partnerEmail = (partner.email ?? "").trim().toLowerCase();
-          const buyerDoc = data.cpfCnpj.replace(/\D/g, "");
-          const partnerDoc = partner.tax_id.replace(/\D/g, "");
+          const buyerDoc = normalizeCpfCnpj(data.cpfCnpj);
+          const partnerDoc = normalizeCpfCnpj(partner.tax_id);
           if (partner.user_id === userId || (partnerEmail && partnerEmail === buyerEmail) || (partnerDoc && partnerDoc === buyerDoc)) {
             return { error: "Você não pode utilizar seu próprio cupom de indicação para assinar um plano." };
           }
