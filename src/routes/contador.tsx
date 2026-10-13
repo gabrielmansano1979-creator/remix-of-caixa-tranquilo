@@ -75,7 +75,19 @@ const empty = { full_name: "", tax_id: "", crc_number: "", pix_type: "cpf", pix_
 type ApplicationDocuments = { crc: File | null; identity: File | null; address: File | null };
 const emptyDocuments: ApplicationDocuments = { crc: null, identity: null, address: null };
 const MAX_DOCUMENT_SIZE = 10 * 1024 * 1024;
-const ACCEPTED_DOCUMENT_TYPES = ["application/pdf", "image/jpeg", "image/png"];
+const ACCEPTED_DOCUMENT_TYPES = [
+  "application/pdf",
+  "text/csv",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+];
+const ALLOWED_DOCUMENT_EXTENSIONS = [".pdf", ".csv", ".xls", ".xlsx"];
+const DOCUMENT_MIME_BY_EXTENSION: Record<string, string> = {
+  ".pdf": "application/pdf",
+  ".csv": "text/csv",
+  ".xls": "application/vnd.ms-excel",
+  ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+};
 const money = (cents: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100);
 
@@ -169,7 +181,7 @@ function AccountantPage() {
         const safeName = file.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9._-]/g, "-").slice(-100);
         const path = userId + "/" + label + "-" + Date.now() + "-" + safeName;
         const { error } = await supabase.storage.from("partner-application-documents").upload(path, file, {
-          contentType: file.type,
+          contentType: file.type || DOCUMENT_MIME_BY_EXTENSION["." + (file.name.split(".").pop()?.toLowerCase() ?? "")],
           upsert: false,
         });
         if (error) throw error;
@@ -295,7 +307,7 @@ function AccountantPage() {
             <CardHeader>
               <Button type="button" variant="ghost" className="mb-1 w-fit px-0" onClick={() => setShowApplicationForm(false)}><ArrowLeft className="mr-2 h-4 w-4" />Voltar às informações do programa</Button>
               <CardTitle>Quero ser um contador afiliado</CardTitle>
-              <p className="text-sm text-muted-foreground">Preencha os dados e anexe os três documentos obrigatórios. Aceitamos PDF, JPG e PNG de até 10 MB por arquivo.</p>
+              <p className="text-sm text-muted-foreground">Preencha os dados e anexe os três documentos obrigatórios. Aceitamos somente PDF, CSV ou Excel (.xls/.xlsx), até 10 MB por arquivo.</p>
             </CardHeader>
             <CardContent>
               <form onSubmit={submit} className="grid gap-5 sm:grid-cols-2">
@@ -308,9 +320,9 @@ function AccountantPage() {
                 <div className="space-y-1.5 sm:col-span-2"><Label htmlFor="partner-office"><Building2 className="mr-1 inline h-3.5 w-3.5" />Escritório contábil (opcional)</Label><Input id="partner-office" maxLength={180} value={form.office_name} onChange={(e) => setForm({ ...form, office_name: e.target.value })} /></div>
                 <div className="space-y-1.5"><Label htmlFor="partner-pix-type">Tipo de chave PIX</Label><select id="partner-pix-type" className="mt-1.5 h-11 w-full rounded-xl border bg-background px-3 text-sm" value={form.pix_type} onChange={(e) => setForm({ ...form, pix_type: e.target.value })}><option value="cpf">CPF</option><option value="cnpj">CNPJ</option><option value="email">E-mail</option><option value="phone">Telefone</option><option value="random">Aleatória</option></select></div>
                 <div className="space-y-1.5"><Label htmlFor="partner-pix-key">Chave PIX para recebimento</Label><Input id="partner-pix-key" required maxLength={180} value={form.pix_key} onChange={(e) => setForm({ ...form, pix_key: e.target.value })} /></div>
-                <div className="space-y-2 rounded-xl border p-4 sm:col-span-2"><Label htmlFor="partner-doc-crc">Comprovação de registro no CRC *</Label><p className="text-xs text-muted-foreground">Certidão de regularidade ou carteira profissional do Conselho Regional de Contabilidade.</p><Input id="partner-doc-crc" type="file" required accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" className="h-auto min-h-11 py-2" onChange={(e) => setDocuments({ ...documents, crc: e.target.files?.[0] ?? null })} />{documents.crc && <p className="text-xs text-success"><FileText className="mr-1 inline h-3.5 w-3.5" />{documents.crc.name}</p>}</div>
-                <div className="space-y-2 rounded-xl border p-4 sm:col-span-2"><Label htmlFor="partner-doc-identity">Documento de identidade com foto *</Label><p className="text-xs text-muted-foreground">RG ou CNH, frente e verso no mesmo arquivo quando aplicável.</p><Input id="partner-doc-identity" type="file" required accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" className="h-auto min-h-11 py-2" onChange={(e) => setDocuments({ ...documents, identity: e.target.files?.[0] ?? null })} />{documents.identity && <p className="text-xs text-success"><FileText className="mr-1 inline h-3.5 w-3.5" />{documents.identity.name}</p>}</div>
-                <div className="space-y-2 rounded-xl border p-4 sm:col-span-2"><Label htmlFor="partner-doc-address">Comprovante de endereço *</Label><p className="text-xs text-muted-foreground">Documento recente que mostre o nome e o endereço informado.</p><Input id="partner-doc-address" type="file" required accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" className="h-auto min-h-11 py-2" onChange={(e) => setDocuments({ ...documents, address: e.target.files?.[0] ?? null })} />{documents.address && <p className="text-xs text-success"><FileText className="mr-1 inline h-3.5 w-3.5" />{documents.address.name}</p>}</div>
+                <div className="space-y-2 rounded-xl border p-4 sm:col-span-2"><Label htmlFor="partner-doc-crc">Comprovação de registro no CRC *</Label><p className="text-xs text-muted-foreground">Certidão de regularidade ou carteira profissional do Conselho Regional de Contabilidade.</p><Input id="partner-doc-crc" type="file" required accept=".pdf,.csv,.xls,.xlsx,application/pdf,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="h-auto min-h-11 py-2" onChange={(e) => setDocuments({ ...documents, crc: e.target.files?.[0] ?? null })} />{documents.crc && <p className="text-xs text-success"><FileText className="mr-1 inline h-3.5 w-3.5" />{documents.crc.name}</p>}</div>
+                <div className="space-y-2 rounded-xl border p-4 sm:col-span-2"><Label htmlFor="partner-doc-identity">Documento de identidade com foto *</Label><p className="text-xs text-muted-foreground">RG ou CNH, frente e verso no mesmo arquivo quando aplicável.</p><Input id="partner-doc-identity" type="file" required accept=".pdf,.csv,.xls,.xlsx,application/pdf,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="h-auto min-h-11 py-2" onChange={(e) => setDocuments({ ...documents, identity: e.target.files?.[0] ?? null })} />{documents.identity && <p className="text-xs text-success"><FileText className="mr-1 inline h-3.5 w-3.5" />{documents.identity.name}</p>}</div>
+                <div className="space-y-2 rounded-xl border p-4 sm:col-span-2"><Label htmlFor="partner-doc-address">Comprovante de endereço *</Label><p className="text-xs text-muted-foreground">Documento recente que mostre o nome e o endereço informado.</p><Input id="partner-doc-address" type="file" required accept=".pdf,.csv,.xls,.xlsx,application/pdf,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="h-auto min-h-11 py-2" onChange={(e) => setDocuments({ ...documents, address: e.target.files?.[0] ?? null })} />{documents.address && <p className="text-xs text-success"><FileText className="mr-1 inline h-3.5 w-3.5" />{documents.address.name}</p>}</div>
                 <p className="text-xs leading-relaxed text-muted-foreground sm:col-span-2"><Mail className="mr-1 inline h-3.5 w-3.5" />A solicitação será vinculada ao e-mail da sua conta. Os arquivos serão armazenados em área privada para avaliação administrativa.</p>
                 <Button type="submit" disabled={busy} className="h-12 rounded-xl sm:col-span-2">{busy && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}Enviar documentação para avaliação</Button>
               </form>
