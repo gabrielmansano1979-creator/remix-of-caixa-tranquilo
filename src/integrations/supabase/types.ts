@@ -494,6 +494,48 @@ export type Database = {
         }
         Relationships: []
       }
+      partner_application_documents: {
+        Row: {
+          address_document_path: string
+          city: string
+          created_at: string
+          crc_document_path: string
+          identity_document_path: string
+          office_name: string | null
+          phone: string
+          state: string
+          submitted_at: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          address_document_path: string
+          city: string
+          created_at?: string
+          crc_document_path: string
+          identity_document_path: string
+          office_name?: string | null
+          phone: string
+          state: string
+          submitted_at?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          address_document_path?: string
+          city?: string
+          created_at?: string
+          crc_document_path?: string
+          identity_document_path?: string
+          office_name?: string | null
+          phone?: string
+          state?: string
+          submitted_at?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       stripe_events: {
         Row: {
           id: string
