@@ -164,6 +164,7 @@ BEGIN
   END IF;
 
   IF NEW.initial_balance_cents IS DISTINCT FROM OLD.initial_balance_cents
+     OR NEW.balance_date IS DISTINCT FROM OLD.balance_date
      OR NEW.cushion_cents IS DISTINCT FROM OLD.cushion_cents THEN
     access_data := public.my_access();
     IF NOT COALESCE((access_data->>'can_write')::boolean, false) THEN
@@ -176,7 +177,7 @@ $function$;
 
 DROP TRIGGER IF EXISTS profiles_enforce_finance_entitlement ON public.profiles;
 CREATE TRIGGER profiles_enforce_finance_entitlement
-BEFORE UPDATE OF initial_balance_cents, cushion_cents ON public.profiles
+BEFORE UPDATE OF initial_balance_cents, balance_date, cushion_cents ON public.profiles
 FOR EACH ROW EXECUTE FUNCTION public.enforce_profile_finance_entitlement();
 
 -- Enforce reminder-plan capabilities on the server, not just disabled UI controls.
