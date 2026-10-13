@@ -336,6 +336,8 @@ export type Database = {
       }
       profiles: {
         Row: {
+          id: string
+          email: string | null
           balance_date: string
           business_name: string | null
           created_at: string
@@ -354,6 +356,8 @@ export type Database = {
           welcome_sent: boolean
         }
         Insert: {
+          id?: string
+          email?: string | null
           balance_date?: string
           business_name?: string | null
           created_at?: string
@@ -372,6 +376,8 @@ export type Database = {
           welcome_sent?: boolean
         }
         Update: {
+          id?: string
+          email?: string | null
           balance_date?: string
           business_name?: string | null
           created_at?: string
@@ -562,6 +568,7 @@ export type Database = {
       }
       subscriptions: {
         Row: {
+          id: string
           affiliate_commission_percent: number | null
           affiliate_coupon_code: string | null
           affiliate_discount_percent: number | null
@@ -583,6 +590,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          id?: string
           affiliate_commission_percent?: number | null
           affiliate_coupon_code?: string | null
           affiliate_discount_percent?: number | null
@@ -604,6 +612,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          id?: string
           affiliate_commission_percent?: number | null
           affiliate_coupon_code?: string | null
           affiliate_discount_percent?: number | null
