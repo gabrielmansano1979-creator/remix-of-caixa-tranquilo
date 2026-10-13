@@ -179,6 +179,8 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
                     payment_id: paymentIdText,
                     client_name: clientName,
                     client_email: profile?.email ?? authResult.user?.email ?? null,
+                    // Keep the legacy numeric column populated while newer reports use integer cents.
+                    amount: amountCents / 100,
                     amount_cents: amountCents,
                     status: "pending",
                   }, { onConflict: "payment_id", ignoreDuplicates: true });
