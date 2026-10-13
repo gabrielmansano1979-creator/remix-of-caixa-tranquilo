@@ -189,7 +189,7 @@ BEGIN
      OR _tax_id IS NULL
      OR NOT public.is_valid_cpf_cnpj(_tax_id)
      OR _crc_number IS NULL
-     OR upper(trim(_crc_number)) !~ '^[A-Z]{2}-[0-9]{6}/[A-Z]
+     OR upper(trim(_crc_number)) !~ '^[A-Z]{2}-[0-9]{6}/[OP]-[0-9]( (T|S)-[A-Z]{2})?$'
   THEN RAISE EXCEPTION 'invalid partner identity'; END IF;
 
   IF (payout_type IS NULL) <> (payout_key IS NULL) THEN
