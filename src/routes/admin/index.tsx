@@ -39,6 +39,10 @@ type PartnerRow = {
   name: string | null;
   email: string | null;
   status: string | null;
+  tax_id: string | null;
+  crc_number: string | null;
+  pix_type: string | null;
+  pix_key: string | null;
   coupon_code: string | null;
   commission_percent: number | null;
   referrals: number;
@@ -156,17 +160,10 @@ function AdminPage() {
           return;
         }
 
-        const userEmail = session.user.email
-          ?.toLowerCase()
-          .trim();
-
-        const userRole = session.user.user_metadata?.role;
-
-        const isAdmin =
-          userEmail === "gabrielmansano1979@gmail.com" ||
-          userRole === "admin";
-
-        if (!isAdmin) {
+        // A autorização real vem do banco, nunca de user_metadata alterável pelo usuário.
+        const { error: adminCheckError } = await supabase.rpc("admin_partner_overview");
+        if (!active) return;
+        if (adminCheckError) {
           window.location.replace("/caixa");
           return;
         }
@@ -483,6 +480,7 @@ function AdminPage() {
         <CardHeader>
           <CardTitle>Documentação das solicitações</CardTitle>
           <p className="text-sm text-muted-foreground">Consulte os documentos privados enviados pelos candidatos antes de aprovar ou recusar a parceria.</p>
+          <p className="text-xs leading-relaxed text-muted-foreground">A validação automática confere os dígitos do CPF/CNPJ e o formato informado do CRC. A situação cadastral e a regularidade profissional precisam ser confirmadas manualmente nos portais oficiais; o formulário não declara uma validação oficial automática.</p>
         </CardHeader>
         <CardContent>
           {documentsQuery.isLoading ? (
@@ -496,13 +494,22 @@ function AdminPage() {
             <div className="overflow-x-auto">
               <table className="w-full min-w-[900px] text-left text-sm">
                 <thead><tr className="border-b text-xs text-muted-foreground">
-                  {["Candidato", "Telefone", "Localidade", "Escritório", "Enviada em", "Documentos"].map((title) => <th key={title} className="px-3 py-3 font-medium">{title}</th>)}
+                  {["Candidato e credenciais", "Telefone", "Localidade", "Escritório", "Enviada em", "Documentos"].map((title) => <th key={title} className="px-3 py-3 font-medium">{title}</th>)}
                 </tr></thead>
                 <tbody>
                   {(documentsQuery.data ?? []).length ? documentsQuery.data!.map((item) => {
                     const partner = partners.find((row) => row.user_id === item.user_id);
                     return <tr key={item.user_id} className="border-b last:border-0">
-                      <td className="px-3 py-3 font-medium">{partner?.name ?? "Candidato"}</td>
+                      <td className="px-3 py-3">
+                        <p className="font-medium">{partner?.name ?? "Candidato"}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">CPF/CNPJ: {partner?.tax_id ?? "—"}</p>
+                        <p className="text-xs text-muted-foreground">CRC: {partner?.crc_number ?? "—"}</p>
+                        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs">
+                          {partner?.tax_id && partner.tax_id.replace(/\D/g, "").length === 11 && <a className="text-primary underline" href="https://www.gov.br/pt-br/servicos/consultar-cadastro-de-pessoas-fisicas" target="_blank" rel="noreferrer">Consultar CPF na Receita</a>}
+                          {partner?.tax_id && partner.tax_id.replace(/\D/g, "").length === 14 && <a className="text-primary underline" href="https://www.gov.br/pt-br/servicos/consultar-cadastro-nacional-de-pessoas-juridicas" target="_blank" rel="noreferrer">Consultar CNPJ na Receita</a>}
+                          {partner?.crc_number && <a className="text-primary underline" href="https://cfc.org.br/conselhos/" target="_blank" rel="noreferrer">Localizar CRC oficial</a>}
+                        </div>
+                      </td>
                       <td className="px-3 py-3">{item.phone}</td>
                       <td className="px-3 py-3">{item.city} / {item.state}</td>
                       <td className="px-3 py-3">{item.office_name ?? "—"}</td>
@@ -538,8 +545,10 @@ function AdminPage() {
                   {[
                     "Nome",
                     "E-mail",
+                    "CPF/CNPJ e CRC",
+                    "PIX para recebimento",
                     "Status",
-                    "Indicações",
+                    "Indicações pagantes",
                     "Ações",
                   ].map((title) => (
                     <th
@@ -565,6 +574,15 @@ function AdminPage() {
 
                       <td className="px-3 py-3">
                         {partner.email ?? "—"}
+                      </td>
+
+                      <td className="px-3 py-3">
+                        <div>{partner.tax_id ?? "—"}</div>
+                        <div className="text-xs text-muted-foreground">CRC: {partner.crc_number ?? "—"}</div>
+                      </td>
+
+                      <td className="px-3 py-3">
+                        {partner.pix_type && partner.pix_key ? <><span className="font-medium">{partner.pix_type.toUpperCase()}</span><div className="break-all text-xs text-muted-foreground">{partner.pix_key}</div></> : "Ainda não informado"}
                       </td>
 
                       <td className="px-3 py-3">
