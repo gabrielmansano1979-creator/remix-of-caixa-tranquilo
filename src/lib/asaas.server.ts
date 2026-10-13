@@ -30,8 +30,12 @@ export async function createCustomer(email: string, name: string, cpfCnpj: strin
   });
 }
 
-export async function updateCustomerDoc(id: string, cpfCnpj: string) {
-  return asaasFetch<{ id: string }>(`/customers/${id}`, { method: "PUT", body: JSON.stringify({ cpfCnpj }) });
+export async function updateCustomerDoc(id: string, cpfCnpj: string, name?: string) {
+  const payload = {
+    cpfCnpj,
+    ...(name?.trim() ? { name: name.trim() } : {}),
+  };
+  return asaasFetch<{ id: string }>(`/customers/${id}`, { method: "PUT", body: JSON.stringify(payload) });
 }
 
 export async function getCustomerByEmail(email: string) {
