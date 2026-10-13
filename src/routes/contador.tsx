@@ -53,6 +53,14 @@ type PartnerDashboard = {
     created_at: string;
     paid_at: string | null;
   }>;
+  referrals: Array<{
+    user_id: string;
+    client_name: string | null;
+    plan: string;
+    status: string;
+    created_at: string;
+    paid_at: string | null;
+  }>;
   clients: Array<{
     client_name: string | null;
     plan: string;
