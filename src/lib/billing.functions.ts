@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { getPlan, FIRST_PIX_DISCOUNT } from "@/config/plans";
+import { isValidCpfCnpj } from "@/lib/identity";
 
 type Out = { url?: string; error?: string; qrCode?: string; copyPaste?: string; paymentId?: string };
 const origin = async () => {
@@ -10,29 +11,6 @@ const origin = async () => {
   const { getRequest } = await import("@tanstack/react-start/server");
   return new URL(getRequest().url).origin;
 };
-
-function isValidCpfCnpj(value: string) {
-  const digits = value.replace(/\D/g, "");
-  if (/^(\d)\1+$/.test(digits)) return false;
-  if (digits.length === 11) {
-    const digitAt = (length: number) => {
-      const sum = digits.slice(0, length).split("").reduce((total, digit, index) => total + Number(digit) * (length + 1 - index), 0);
-      const remainder = (sum * 10) % 11;
-      return remainder === 10 ? 0 : remainder;
-    };
-    return digitAt(9) === Number(digits[9]) && digitAt(10) === Number(digits[10]);
-  }
-  if (digits.length === 14) {
-    const checkDigit = (length: number) => {
-      const weights = length === 12 ? [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2] : [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
-      const sum = digits.slice(0, length).split("").reduce((total, digit, index) => total + Number(digit) * weights[index], 0);
-      const remainder = sum % 11;
-      return remainder < 2 ? 0 : 11 - remainder;
-    };
-    return checkDigit(12) === Number(digits[12]) && checkDigit(13) === Number(digits[13]);
-  }
-  return false;
-}
 
 async function ensureCustomer(userId: string, email: string | undefined, fullName: string | undefined, doc: string) {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -45,7 +23,7 @@ async function ensureCustomer(userId: string, email: string | undefined, fullNam
   }
 
   let customer: { id: string } | null = email ? await asaas.getCustomerByEmail(email) : null;
-  if (customer) await asaas.updateCustomerDoc(customer.id, doc);
+  if (customer) await asaas.updateCustomerDoc(customer.id, doc, fullName);
   else customer = await asaas.createCustomer(email || `${userId}@criticalcash.app`, fullName || (email ?? "Cliente").split("@")[0], doc);
 
   await supabaseAdmin.from("subscriptions").upsert({
@@ -80,7 +58,7 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
       const customerEmail = (claims as { email?: string }).email || `${userId}@criefy.local`;
       const metadata = (claims as { user_metadata?: { full_name?: string; affiliate_referral_code?: string } }).user_metadata;
-      const customerName = metadata?.full_name;
+      const customerName = data.legalName;
       const { data: prev, error: prevError } = await supabaseAdmin.from("subscriptions")
         .select("paid_at, affiliate_partner_id, affiliate_coupon_code, affiliate_commission_percent, affiliate_discount_percent")
         .eq("user_id", userId)
