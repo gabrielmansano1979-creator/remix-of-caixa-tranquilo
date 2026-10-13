@@ -125,6 +125,37 @@ BEGIN
 END
 $function$;
 
+CREATE OR REPLACE FUNCTION public.is_valid_pix_key(p_type text, p_key text)
+RETURNS boolean
+LANGUAGE plpgsql
+IMMUTABLE
+SET search_path TO public, pg_temp
+AS $function$
+DECLARE
+  key_type text := lower(trim(COALESCE(p_type, '')));
+  key_value text := trim(COALESCE(p_key, ''));
+  digits text := regexp_replace(COALESCE(p_key, ''), '[^0-9]', '', 'g');
+BEGIN
+  IF key_type = '' OR key_value = '' OR length(key_value) > 180 THEN
+    RETURN false;
+  END IF;
+  CASE key_type
+    WHEN 'cpf' THEN
+      RETURN length(digits) = 11 AND public.is_valid_cpf_cnpj(digits);
+    WHEN 'cnpj' THEN
+      RETURN length(digits) = 14 AND public.is_valid_cpf_cnpj(digits);
+    WHEN 'email' THEN
+      RETURN key_value ~* '^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$';
+    WHEN 'phone' THEN
+      RETURN length(digits) BETWEEN 10 AND 13;
+    WHEN 'random' THEN
+      RETURN length(key_value) BETWEEN 3 AND 180;
+    ELSE
+      RETURN false;
+  END CASE;
+END
+$function$;
+
 CREATE OR REPLACE FUNCTION public.submit_partner_request(
   _full_name text,
   _tax_id text,
@@ -153,33 +184,9 @@ BEGIN
   IF (payout_type IS NULL) <> (payout_key IS NULL) THEN
     RAISE EXCEPTION 'PIX type and key must be provided together';
   END IF;
-  IF payout_type IS NOT NULL AND (
-    payout_type NOT IN ('cpf', 'cnpj', 'email', 'phone', 'random')
-    OR length(payout_key) NOT BETWEEN 3 AND 180
-  ) THEN RAISE EXCEPTION 'invalid payout details'; END IF;
-  IF payout_type = 'cpf' AND (
-    length(regexp_replace(payout_key, '\\D', '', 'g')) <> 11
-    OR NOT public.is_valid_cpf_cnpj(payout_key)
-  ) THEN RAISE EXCEPTION 'invalid CPF PIX key'; END IF;
-  IF payout_type = 'cnpj' AND (
-    length(regexp_replace(payout_key, '\\D', '', 'g')) <> 14
-    OR NOT public.is_valid_cpf_cnpj(payout_key)
-  ) THEN RAISE EXCEPTION 'invalid CNPJ PIX key'; END IF;
-  IF payout_type = 'email' AND payout_key !~* '^[A-Z0-9._%+\\-]+@[A-Z0-9.\\-]+\\.[A-Z]{2,}
-  IF payout_type = 'cpf' AND (
-    length(regexp_replace(payout_key, '\\D', '', 'g')) <> 11
-    OR NOT public.is_valid_cpf_cnpj(payout_key)
-  ) THEN RAISE EXCEPTION 'invalid CPF PIX key'; END IF;
-  IF payout_type = 'cnpj' AND (
-    length(regexp_replace(payout_key, '\\D', '', 'g')) <> 14
-    OR NOT public.is_valid_cpf_cnpj(payout_key)
-  ) THEN RAISE EXCEPTION 'invalid CNPJ PIX key'; END IF;
-  IF payout_type = 'email' AND payout_key !~* '^[A-Z0-9._%+\\-]+@[A-Z0-9.\\-]+\\.[A-Z]{2,}
-
-  -- Keep the legal name consistent in the accountant dashboard, payment identity and profile.
-  UPDATE public.profiles
-  SET full_name = trim(_full_name)
-  WHERE user_id = uid;
+  IF payout_type IS NOT NULL AND NOT public.is_valid_pix_key(payout_type, payout_key) THEN
+    RAISE EXCEPTION 'invalid payout details';
+  END IF;
 
   SELECT status INTO existing_status
   FROM public.partner_requests WHERE user_id = uid;
@@ -187,13 +194,18 @@ BEGIN
     RAISE EXCEPTION 'approved partner identity cannot be changed here';
   END IF;
 
+  -- Keep the legal name consistent in the accountant dashboard, payment identity and profile.
+  UPDATE public.profiles
+  SET full_name = trim(_full_name)
+  WHERE user_id = uid;
+
   INSERT INTO public.partner_requests(
     user_id, full_name, tax_id, crc_number, pix_type, pix_key, status, email, updated_at
   )
   VALUES (
     uid,
     trim(_full_name),
-    regexp_replace(_tax_id, '\D', '', 'g'),
+    regexp_replace(_tax_id, '[^0-9]', '', 'g'),
     upper(trim(_crc_number)),
     payout_type,
     payout_key,
@@ -231,10 +243,9 @@ BEGIN
   IF (payout_type IS NULL) <> (payout_key IS NULL) THEN
     RAISE EXCEPTION 'PIX type and key must be provided together';
   END IF;
-  IF payout_type IS NOT NULL AND (
-    payout_type NOT IN ('cpf', 'cnpj', 'email', 'phone', 'random')
-    OR length(payout_key) NOT BETWEEN 3 AND 180
-  ) THEN RAISE EXCEPTION 'invalid payout details'; END IF;
+  IF payout_type IS NOT NULL AND NOT public.is_valid_pix_key(payout_type, payout_key) THEN
+    RAISE EXCEPTION 'invalid payout details';
+  END IF;
 
   UPDATE public.partner_requests
   SET pix_type = payout_type, pix_key = payout_key, updated_at = now()
@@ -242,7 +253,8 @@ BEGIN
   RETURNING status INTO partner_status;
   IF NOT FOUND THEN RAISE EXCEPTION 'partner request not found'; END IF;
 
-  IF partner_status = 'approved' AND payout_type IS NOT NULL AND payout_key IS NOT NULL THEN
+  IF partner_status = 'approved' AND payout_type IS NOT NULL AND payout_key IS NOT NULL
+     AND public.is_valid_pix_key(payout_type, payout_key) THEN
     SELECT count(DISTINCT s.user_id)::integer INTO confirmed_referrals
     FROM public.subscriptions s
     WHERE s.affiliate_partner_id = uid AND s.paid_at IS NOT NULL;
@@ -285,8 +297,7 @@ BEGIN
   RETURNING pix_type, pix_key INTO partner_pix_type, partner_pix_key;
   IF NOT FOUND THEN RAISE EXCEPTION 'partner not found'; END IF;
 
-  IF _status = 'approved' AND NULLIF(trim(partner_pix_type), '') IS NOT NULL
-     AND NULLIF(trim(partner_pix_key), '') IS NOT NULL THEN
+  IF _status = 'approved' AND public.is_valid_pix_key(partner_pix_type, partner_pix_key) THEN
     SELECT count(DISTINCT s.user_id)::integer INTO confirmed_referrals
     FROM public.subscriptions s
     WHERE s.affiliate_partner_id = _partner_id AND s.paid_at IS NOT NULL;
@@ -649,6 +660,7 @@ USING (
 -- Prevent anonymous access to sensitive RPCs; authorization inside SECURITY DEFINER functions is mandatory.
 REVOKE ALL ON FUNCTION public.sync_partner_coupon_rate() FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.is_valid_cpf_cnpj(text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.is_valid_pix_key(text, text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.submit_partner_request(text, text, text, text, text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.update_partner_payout(text, text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.admin_set_partner_status(uuid, text) FROM PUBLIC;
