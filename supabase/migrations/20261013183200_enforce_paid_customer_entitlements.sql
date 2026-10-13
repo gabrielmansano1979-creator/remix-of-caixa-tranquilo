@@ -216,13 +216,48 @@ BEGIN
   END IF;
 
   access_data := public.my_access();
+  limits_data := access_data->'limits';
+
+  -- Allow only the application's four exact default rules to be seeded for each user.
+  -- This lets onboarding establish defaults, but never grants custom-rule privileges.
+  IF TG_OP = 'INSERT'
+     AND NEW.user_id = uid
+     AND NEW.active = true
+     AND NEW.channel = 'email'
+     AND NOT EXISTS (
+       SELECT 1 FROM public.reminder_rules rr
+       WHERE rr.user_id = uid AND rr.label = NEW.label
+     )
+     AND (
+       (NEW.label = 'Lembrete prévio' AND NEW.offset_days = -2
+        AND NEW.subject_tpl = 'Lembrete: {{descricao}} vence em {{vencimento}}'
+        AND NEW.body_tpl = 'Olá, {{cliente}}! Passando para lembrar que {{descricao}}, no valor de {{valor}}, vence em {{vencimento}}. Obrigado! — {{empresa}}')
+       OR
+       (NEW.label = 'No vencimento' AND NEW.offset_days = 0
+        AND NEW.subject_tpl = 'Hoje vence: {{descricao}}'
+        AND NEW.body_tpl = 'Olá, {{cliente}}! Hoje ({{vencimento}}) vence {{descricao}}, no valor de {{valor}}. Se já pagou, desconsidere. — {{empresa}}')
+       OR
+       (NEW.label = '3 dias de atraso' AND NEW.offset_days = 3
+        AND NEW.subject_tpl = 'Pagamento pendente: {{descricao}}'
+        AND NEW.body_tpl = 'Olá, {{cliente}}. Não identificamos o pagamento de {{descricao}} ({{valor}}), vencido em {{vencimento}}. Pode verificar? — {{empresa}}')
+       OR
+       (NEW.label = '7 dias de atraso' AND NEW.offset_days = 7
+        AND NEW.subject_tpl = 'Segundo aviso: {{descricao}} em aberto'
+        AND NEW.body_tpl = 'Olá, {{cliente}}. {{descricao}} ({{valor}}) segue em aberto desde {{vencimento}}. Responda este e-mail se precisar combinar algo. — {{empresa}}')
+     ) THEN
+    RETURN NEW;
+  END IF;
+
   IF NOT COALESCE((access_data->>'can_write')::boolean, false) THEN
     RAISE EXCEPTION 'READ_ONLY' USING ERRCODE = '42501';
   END IF;
-  limits_data := access_data->'limits';
 
-  -- New accounts receive four system defaults; only custom edits are tier-gated here.
-  IF TG_OP = 'UPDATE' THEN
+  -- Custom rule creation/deletion requires Business, not merely write access.
+  IF TG_OP = 'INSERT' OR TG_OP = 'DELETE' THEN
+    IF NOT COALESCE((limits_data->>'edit_rule_texts')::boolean, false) THEN
+      RAISE EXCEPTION 'PLAN_LIMIT: custom reminder rules require Business' USING ERRCODE = '42501';
+    END IF;
+  ELSIF TG_OP = 'UPDATE' THEN
     IF (NEW.offset_days IS DISTINCT FROM OLD.offset_days
         OR NEW.active IS DISTINCT FROM OLD.active)
        AND NOT COALESCE((limits_data->>'edit_rule_days')::boolean, false) THEN
