@@ -127,6 +127,7 @@ function AccountantPage() {
       if (dashboardError) throw dashboardError;
       return { status, dashboard: dashboard as PartnerDashboard | null };
     },
+    refetchInterval: 15_000,
   });
   const state = query.data?.status;
   const dashboard = query.data?.dashboard;
@@ -300,7 +301,7 @@ function AccountantPage() {
             <div className="grid gap-4 md:grid-cols-3">
               <Card className="border-primary/20 bg-primary/5">
                 <CardHeader className="pb-2"><div className="mb-1 grid h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary"><BadgeCheck className="h-5 w-5" /></div><CardTitle className="text-base">Comissão recorrente</CardTitle></CardHeader>
-                <CardContent><p className="text-3xl font-bold">20%</p><p className="mt-2 text-sm text-muted-foreground">Percentual padrão atual sobre assinaturas elegíveis, conforme as regras do programa.</p></CardContent>
+                <CardContent><div className="grid grid-cols-3 gap-2"><div><p className="text-2xl font-bold">20%</p><p className="text-xs text-muted-foreground">1–5 clientes</p></div><div><p className="text-2xl font-bold">25%</p><p className="text-xs text-muted-foreground">6–15 clientes</p></div><div><p className="text-2xl font-bold">30%</p><p className="text-xs text-muted-foreground">16+ clientes</p></div></div><p className="mt-3 text-sm text-muted-foreground">A faixa muda automaticamente conforme clientes únicos com pagamento confirmado.</p></CardContent>
               </Card>
               <Card>
                 <CardHeader className="pb-2"><div className="mb-1 grid h-10 w-10 place-items-center rounded-xl bg-muted text-foreground"><Building2 className="h-5 w-5" /></div><CardTitle className="text-base">Indicação profissional</CardTitle></CardHeader>
@@ -317,7 +318,7 @@ function AccountantPage() {
                 <p>1. Preencha seus dados profissionais e fiscais.</p>
                 <p>2. Envie a comprovação de registro no CRC, um documento de identidade e um comprovante de endereço.</p>
                 <p>3. O administrador analisará o cadastro e registrará a decisão. Se aprovado, você terá acesso ao painel, aos links de indicação e ao acompanhamento das comissões.</p>
-                <p className="border-t pt-3">A comissão padrão atual é de 20% recorrente sobre assinaturas elegíveis. As condições aplicáveis seguem as regras vigentes do programa.</p>
+                <p className="border-t pt-3">A comissão é recorrente e escalonada: 20% para 1–5 clientes pagantes, 25% para 6–15 e 30% a partir de 16. Só contam clientes únicos com pagamento confirmado; acima de 30 clientes, a taxa permanece em 30%.</p>
               </CardContent>
             </Card>
             <Button className="h-12 w-full rounded-xl text-base sm:w-auto" onClick={() => setShowApplicationForm(true)}>Quero ser um contador afiliado <ArrowLeft className="ml-2 h-4 w-4 rotate-180" /></Button>
