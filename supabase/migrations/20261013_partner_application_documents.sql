@@ -24,13 +24,37 @@ USING ((SELECT auth.uid()) = user_id);
 DROP POLICY IF EXISTS "Partner applicants can submit their own documents" ON public.partner_application_documents;
 CREATE POLICY "Partner applicants can submit their own documents"
 ON public.partner_application_documents FOR INSERT TO authenticated
-WITH CHECK ((SELECT auth.uid()) = user_id);
+WITH CHECK (
+  (SELECT auth.uid()) = user_id
+  AND NOT EXISTS (
+    SELECT 1
+    FROM public.partner_requests AS pr
+    WHERE pr.user_id = (SELECT auth.uid())
+      AND pr.status <> 'rejected'
+  )
+);
 
 DROP POLICY IF EXISTS "Partner applicants can update their own documents" ON public.partner_application_documents;
 CREATE POLICY "Partner applicants can update their own documents"
 ON public.partner_application_documents FOR UPDATE TO authenticated
-USING ((SELECT auth.uid()) = user_id)
-WITH CHECK ((SELECT auth.uid()) = user_id);
+USING (
+  (SELECT auth.uid()) = user_id
+  AND EXISTS (
+    SELECT 1
+    FROM public.partner_requests AS pr
+    WHERE pr.user_id = (SELECT auth.uid())
+      AND pr.status = 'rejected'
+  )
+)
+WITH CHECK (
+  (SELECT auth.uid()) = user_id
+  AND EXISTS (
+    SELECT 1
+    FROM public.partner_requests AS pr
+    WHERE pr.user_id = (SELECT auth.uid())
+      AND pr.status = 'rejected'
+  )
+);
 
 DROP POLICY IF EXISTS "Administrators can review partner documents" ON public.partner_application_documents;
 CREATE POLICY "Administrators can review partner documents"
@@ -56,6 +80,12 @@ ON storage.objects FOR INSERT TO authenticated
 WITH CHECK (
   bucket_id = 'partner-application-documents'
   AND (storage.foldername(name))[1] = (SELECT auth.uid())::text
+  AND NOT EXISTS (
+    SELECT 1
+    FROM public.partner_requests AS pr
+    WHERE pr.user_id = (SELECT auth.uid())
+      AND pr.status <> 'rejected'
+  )
 );
 
 DROP POLICY IF EXISTS "Applicants and administrators read partner documents" ON storage.objects;
