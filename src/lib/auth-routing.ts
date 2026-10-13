@@ -29,6 +29,7 @@ export async function getAuthenticatedDestination(userId: string): Promise<strin
     return "/contador";
   } catch (err) {
     console.error("Erro em getAuthenticatedDestination:", err);
-    return "/admin";
+    // Falha fechada: uma exceção nunca deve conceder acesso administrativo.
+    return "/contador";
   }
 }
