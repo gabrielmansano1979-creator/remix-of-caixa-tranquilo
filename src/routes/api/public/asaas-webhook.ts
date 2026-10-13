@@ -37,8 +37,8 @@ async function recordAffiliateCommission(
   if (!input.partnerId || input.paymentAmountCents <= 0) return;
 
   const { data: partner, error: partnerError } = await db.from("partner_requests")
-    .select("user_id, status, pix_type, pix_key")
-    .eq("user_id", input.partnerId)
+    .select("id, user_id, status, pix_type, pix_key")
+    .eq("id", input.partnerId)
     .maybeSingle();
   if (partnerError) throw partnerError;
   if (partner?.status !== "approved" || !partner.pix_type || !partner.pix_key) return;
