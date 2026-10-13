@@ -65,23 +65,25 @@ function AppShell() {
 
   return (
     <div className="min-h-screen bg-background/70 md:flex">
-      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-sidebar-border/80 bg-sidebar/90 p-5 backdrop-blur-xl md:flex">
-        <div className="rounded-2xl border border-sidebar-border/70 bg-background/60 px-3 py-3 shadow-sm"><Logo to="/caixa" /></div>
-        <p className="mb-2 mt-9 px-3 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Gestão financeira</p>
+      <aside className="group/sidebar fixed left-0 top-0 z-40 hidden h-screen w-20 flex-col border-r border-sidebar-border/80 bg-sidebar/95 px-3 py-4 shadow-xl backdrop-blur-xl transition-[width] duration-200 ease-out hover:w-64 md:flex">
+        <div className="overflow-hidden rounded-2xl border border-sidebar-border/70 bg-background/60 px-1 py-3 shadow-sm transition-[padding] group-hover/sidebar:px-3"><Logo to="/caixa" compact /></div>
+        <p className="mb-2 mt-8 hidden px-3 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground group-hover/sidebar:block">Gestão financeira</p>
         <nav className="flex flex-col gap-1.5" aria-label="Principal">
           {NAV.map((n) => (
-            <Link key={n.to} to={n.to} className={linkCls} activeProps={{ className: activeCls }}>
-              <n.icon className="h-[18px] w-[18px] transition-transform duration-200 group-hover:scale-105" />{n.label}
+            <Link key={n.to} to={n.to} title={n.label} aria-label={n.label} className={linkCls} activeProps={{ className: activeCls }}>
+              <n.icon className="h-[18px] w-[18px] shrink-0 transition-transform duration-200 group-hover:scale-105" />
+              <span className="hidden whitespace-nowrap group-hover/sidebar:inline-flex">{n.label}</span>
             </Link>
           ))}
         </nav>
-        <div className="mt-auto rounded-2xl border border-sidebar-border/70 bg-background/55 p-4">
-          <p className="text-xs font-semibold">Visão executiva</p>
-          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">Caixa, compromissos e cobranças em um só lugar.</p>
+        <div className="mt-auto rounded-2xl border border-sidebar-border/70 bg-background/55 p-3 group-hover/sidebar:p-4">
+          <Wallet className="mx-auto h-5 w-5 text-primary group-hover/sidebar:hidden" />
+          <p className="hidden whitespace-nowrap text-xs font-semibold group-hover/sidebar:block">Visão executiva</p>
+          <p className="mt-1 hidden whitespace-nowrap text-xs leading-relaxed text-muted-foreground group-hover/sidebar:block">Caixa, compromissos e cobranças em um só lugar.</p>
         </div>
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col md:pl-20">
         <header className="sticky top-0 z-20 flex h-[4.5rem] items-center justify-between border-b border-border/70 bg-background/75 px-4 backdrop-blur-xl md:px-8">
           <div className="md:hidden"><Logo to="/caixa" /></div>
           <div className="hidden items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground md:flex">
