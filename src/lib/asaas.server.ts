@@ -60,5 +60,89 @@ export async function createPixCharge(customerId: string, amountCents: number, e
 }
 
 export async function getPayment(paymentId: string) {
-  return asaasFetch<{ id: string; status: string; value: number }>(`/payments/${paymentId}`);
+  return asaasFetch<{
+    id: string;
+    status: string;
+    value: number;
+    subscription?: string | null;
+    externalReference?: string | null;
+    dueDate?: string | null;
+    customer?: string | null;
+  }>(`/payments/${paymentId}`);
+}
+
+export async function getPixQrCode(paymentId: string) {
+  const qr = await asaasFetch<{ encodedImage: string; payload: string }>(`/payments/${paymentId}/pixQrCode`);
+  return { pixQrCode: qr.encodedImage, pixCopyAndPaste: qr.payload };
+}
+
+export async function deletePayment(paymentId: string) {
+  return asaasFetch<{ deleted: boolean }>(`/payments/${paymentId}`, { method: "DELETE" });
+}
+
+export type AsaasBillingCycle = "MONTHLY" | "YEARLY";
+
+type AsaasSubscription = {
+  id: string;
+  externalReference?: string | null;
+  status?: string;
+};
+
+async function findSubscriptionByExternalReference(externalReference: string) {
+  const result = await asaasFetch<{ data?: AsaasSubscription[] }>(
+    `/subscriptions?externalReference=${encodeURIComponent(externalReference)}&limit=100`,
+  );
+  return (result.data ?? []).find((item) => item.externalReference === externalReference) ?? null;
+}
+
+/**
+ * Creates a PIX recurrence or recovers the matching subscription after a
+ * webhook retry. externalReference makes the remote creation retry-safe.
+ */
+export async function createOrGetPixSubscription(
+  customerId: string,
+  amountCents: number,
+  nextDueDate: string,
+  cycle: AsaasBillingCycle,
+  externalReference: string,
+  description: string,
+) {
+  if (!Number.isSafeInteger(amountCents) || amountCents <= 0) {
+    throw new RangeError("recurring amount must be a positive safe integer in cents");
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(nextDueDate)) {
+    throw new RangeError("nextDueDate must use YYYY-MM-DD");
+  }
+
+  const existing = await findSubscriptionByExternalReference(externalReference);
+  if (existing) {
+    if (existing.status && existing.status !== "ACTIVE") {
+      throw new Error("ASAAS_SUBSCRIPTION_NOT_ACTIVE:" + existing.id);
+    }
+    return { id: existing.id, externalReference };
+  }
+
+  const subscription = await asaasFetch<AsaasSubscription>("/subscriptions", {
+    method: "POST",
+    body: JSON.stringify({
+      customer: customerId,
+      billingType: "PIX",
+      value: Number((amountCents / 100).toFixed(2)),
+      nextDueDate,
+      cycle,
+      externalReference,
+      description: description.slice(0, 500),
+    }),
+  });
+  if (!subscription.id) throw new Error("ASAAS_SUBSCRIPTION_ID_MISSING");
+  return { id: subscription.id, externalReference };
+}
+
+/**
+ * Ends an Asaas recurrence and removes its pending or overdue invoices. Paid
+ * invoices remain in Asaas. Local access can still be retained through the
+ * application's current_period_end timestamp.
+ */
+export async function cancelAsaasSubscription(subscriptionId: string) {
+  return asaasFetch<{ deleted: boolean }>(`/subscriptions/${subscriptionId}`, { method: "DELETE" });
 }
