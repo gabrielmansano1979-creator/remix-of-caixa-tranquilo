@@ -78,7 +78,7 @@ function CaixaPage() {
         <>
           <Semaphore p={p} />
           <div className="grid gap-5 md:grid-cols-3">
-            <BalanceCard current={p.current} />
+            <BalanceCard current={p.current} canWrite={access.data?.can_write ?? false} />
             <ProjCard label="Saldo projetado em 15 dias" value={p.series[15]?.balance ?? p.current} current={p.current} />
             <ProjCard label="Saldo projetado em 30 dias" value={p.series[30]?.balance ?? p.current} current={p.current} />
           </div>
