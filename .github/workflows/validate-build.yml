@@ -5,9 +5,12 @@ on:
     branches: [main]
     paths:
       - "src/**"
+      - "supabase/migrations/**"
+      - "drizzle/migrations/**"
       - "package.json"
       - "package-lock.json"
       - "vite.config.ts"
+      - "vitest.config.ts"
       - "tsconfig.json"
       - ".github/workflows/validate-build.yml"
   workflow_dispatch:
@@ -30,5 +33,7 @@ jobs:
         run: npm ci
       - name: Run unit tests
         run: npm test
+      - name: TypeScript check
+        run: npx tsc --noEmit
       - name: Build application
         run: npm run build
