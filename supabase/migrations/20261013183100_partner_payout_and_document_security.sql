@@ -121,7 +121,7 @@ STRICT
 SET search_path TO public, pg_temp
 AS $function$
 DECLARE
-  normalized text := upper(regexp_replace(p_value, '[^A-Z0-9]', '', 'g'));
+  normalized text := regexp_replace(upper(p_value), '[^A-Z0-9]', '', 'g');
   digit_sum integer := 0;
   remainder integer := 0;
   expected integer := 0;
