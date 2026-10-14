@@ -159,6 +159,8 @@ export type Database = {
           paid_at: string | null
           partner_id: string
           payment_id: string | null
+          payment_amount_cents: number | null
+          commission_percent: number | null
           receipt_url: string | null
           status: string
           subscription_id: string | null
@@ -173,6 +175,8 @@ export type Database = {
           paid_at?: string | null
           partner_id: string
           payment_id?: string | null
+          payment_amount_cents?: number | null
+          commission_percent?: number | null
           receipt_url?: string | null
           status?: string
           subscription_id?: string | null
@@ -187,6 +191,8 @@ export type Database = {
           paid_at?: string | null
           partner_id?: string
           payment_id?: string | null
+          payment_amount_cents?: number | null
+          commission_percent?: number | null
           receipt_url?: string | null
           status?: string
           subscription_id?: string | null
