@@ -383,7 +383,7 @@ function AccountantPage() {
             <div className="grid gap-4 md:grid-cols-3">
               <Card className="border-primary/20 bg-primary/5">
                 <CardHeader className="pb-2"><div className="mb-1 grid h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary"><BadgeCheck className="h-5 w-5" /></div><CardTitle className="text-base">Comissão recorrente</CardTitle></CardHeader>
-                <CardContent><div className="grid grid-cols-3 gap-2"><div><p className="text-2xl font-bold">20%</p><p className="text-xs text-muted-foreground">1–5 clientes</p></div><div><p className="text-2xl font-bold">25%</p><p className="text-xs text-muted-foreground">6–15 clientes</p></div><div><p className="text-2xl font-bold">30%</p><p className="text-xs text-muted-foreground">16+ clientes</p></div></div><p className="mt-3 text-sm text-muted-foreground">A faixa muda automaticamente conforme clientes únicos com pagamento confirmado.</p></CardContent>
+                <CardContent><div className="grid grid-cols-3 gap-2"><div><p className="text-2xl font-bold">20%</p><p className="text-xs text-muted-foreground">1–5 clientes</p></div><div><p className="text-2xl font-bold">25%</p><p className="text-xs text-muted-foreground">6–15 clientes</p></div><div><p className="text-2xl font-bold">30%</p><p className="text-xs text-muted-foreground">16–30 clientes</p></div></div><p className="mt-3 text-sm text-muted-foreground">A faixa muda automaticamente conforme clientes únicos com pagamento confirmado. Acima de 30 clientes, a comissão permanece em 30%.</p></CardContent>
               </Card>
               <Card>
                 <CardHeader className="pb-2"><div className="mb-1 grid h-10 w-10 place-items-center rounded-xl bg-muted text-foreground"><Building2 className="h-5 w-5" /></div><CardTitle className="text-base">Indicação profissional</CardTitle></CardHeader>
@@ -400,7 +400,7 @@ function AccountantPage() {
                 <p>1. Preencha seus dados profissionais e fiscais.</p>
                 <p>2. Envie a comprovação de registro no CRC, um documento de identidade e um comprovante de endereço.</p>
                 <p>3. O administrador analisará o cadastro e registrará a decisão. Se aprovado, você terá acesso ao painel, aos links de indicação e ao acompanhamento das comissões.</p>
-                <p className="border-t pt-3">A comissão é recorrente e escalonada: 20% para 1–5 clientes pagantes, 25% para 6–15 e 30% a partir de 16. Só contam clientes únicos com pagamento confirmado; acima de 30 clientes, a taxa permanece em 30%.</p>
+                <p className="border-t pt-3">Comissão recorrente: 20% para 1–5 clientes pagantes, 25% para 6–15 e 30% para 16–30. A partir do 31º cliente, a comissão continua em 30%. Só contam clientes únicos com pagamento confirmado. Clientes que assinarem pelo seu link ou cupom recebem 20% de desconto.</p>
               </CardContent>
             </Card>
             <Button className="h-12 w-full rounded-xl text-base sm:w-auto" onClick={() => setShowApplicationForm(true)}>Quero ser um contador afiliado <ArrowLeft className="ml-2 h-4 w-4 rotate-180" /></Button>
@@ -443,7 +443,7 @@ function AccountantPage() {
     ? { target: 5, nextRate: 25, nextCount: 6 }
     : confirmedReferrals <= 15
       ? { target: 15, nextRate: 30, nextCount: 16 }
-      : { target: 30, nextRate: 30, nextCount: 30 };
+      : { target: 30, nextRate: 30, nextCount: 31 };
   const referralProgress = Math.min(100, Math.round((confirmedReferrals / referralGoal.target) * 100));
   const history = dashboard?.commissions ?? [];
   const clientRows = dashboard?.clients ?? [];
@@ -548,10 +548,12 @@ function AccountantPage() {
             <div className="h-full rounded-full bg-primary transition-all duration-300" style={{ width: `${referralProgress}%` }} />
           </div>
           {confirmedReferrals <= 5
-            ? <p className="text-sm text-muted-foreground">Faixa inicial: 20% até 5 clientes. Ao confirmar o pagamento do {referralGoal.nextCount}º cliente, a comissão passa para 25%.</p>
+            ? <p className="text-sm text-muted-foreground">Faixa inicial: 20% para 1–5 clientes pagantes. Ao confirmar o pagamento do 6º cliente, a comissão passa para 25%.</p>
             : confirmedReferrals <= 15
-              ? <p className="text-sm text-muted-foreground">Faixa atual: 25% de 6 a 15 clientes pagantes. Ao confirmar o pagamento do 16º cliente, a comissão passa para 30%.</p>
-              : <p className="text-sm text-muted-foreground">Meta máxima atingida: 30% de comissão recorrente a partir de 16 clientes pagantes.</p>}
+              ? <p className="text-sm text-muted-foreground">Faixa atual: 25% para 6–15 clientes pagantes. Ao confirmar o pagamento do 16º cliente, a comissão passa para 30%.</p>
+              : confirmedReferrals <= 30
+                ? <p className="text-sm text-muted-foreground">Faixa atual: 30% para 16–30 clientes pagantes. A comissão permanece em 30% após o 30º cliente.</p>
+                : <p className="text-sm text-muted-foreground">Você já ultrapassou 30 clientes pagantes: sua comissão recorrente continua em 30%.</p>}
           <p className="text-xs text-muted-foreground">As metas consideram pagamentos confirmados, não apenas cadastros ou cliques no cupom.</p>
         </CardContent>
       </Card>
