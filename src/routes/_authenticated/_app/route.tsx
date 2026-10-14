@@ -30,16 +30,24 @@ const NAV = [
 
 function AppShell() {
   const { user } = Route.useRouteContext();
+  const [currentUser, setCurrentUser] = useState(user);
   const qc = useQueryClient();
   const navigate = useNavigate();
   const { data: access } = useQuery(accessQuery);
   const { data: profile } = useQuery(profileQuery);
-  const metadata = user.user_metadata ?? {};
+  useEffect(() => {
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) setCurrentUser(session.user);
+    });
+    return () => data.subscription.unsubscribe();
+  }, []);
+
+  const metadata = currentUser.user_metadata ?? {};
   const displayName =
     (typeof profile?.full_name === "string" ? profile.full_name.trim() : "") ||
     (typeof metadata.full_name === "string" ? metadata.full_name.trim() : "") ||
     (typeof metadata.name === "string" ? metadata.name.trim() : "") ||
-    user.email ||
+    currentUser.email ||
     "Usuário";
   const avatarUrl =
     (typeof metadata.avatar_url === "string" ? metadata.avatar_url : "") ||
@@ -156,7 +164,7 @@ function AppShell() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56 rounded-xl">
-                <DropdownMenuLabel className="truncate font-medium">{displayName}</DropdownMenuLabel><DropdownMenuLabel className="truncate pt-0 font-normal text-muted-foreground">{user.email}</DropdownMenuLabel>
+                <DropdownMenuLabel className="truncate font-medium">{displayName}</DropdownMenuLabel><DropdownMenuLabel className="truncate pt-0 font-normal text-muted-foreground">{currentUser.email}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild><Link to="/configuracoes"><Settings className="mr-2 h-4 w-4" />Configurações</Link></DropdownMenuItem>
                 <DropdownMenuItem asChild><Link to="/assinatura"><CreditCard className="mr-2 h-4 w-4" />Assinatura</Link></DropdownMenuItem>
