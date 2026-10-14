@@ -187,20 +187,20 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
             .eq("id", coupon.partner_id)
             .maybeSingle();
           if (partnerError) throw partnerError;
-          if (!partner || partner.status !== "approved") return { error: "O cupom de indicação não está disponível." };
+          if (!partner || partner.status !== "approved" || !coupon.partner_id) return { error: "O cupom de indicação não está disponível." };
 
           const buyerEmail = customerEmail.trim().toLowerCase();
           const partnerEmail = (partner.email ?? "").trim().toLowerCase();
           const buyerDoc = normalizeCpfCnpj(data.cpfCnpj);
-          const partnerDoc = normalizeCpfCnpj(partner.tax_id);
+          const partnerDoc = normalizeCpfCnpj(partner.tax_id ?? "");
           if (partner.user_id === userId || (partnerEmail && partnerEmail === buyerEmail) || (partnerDoc && partnerDoc === buyerDoc)) {
             return { error: "Você não pode utilizar seu próprio cupom de indicação para assinar um plano." };
           }
           affiliate = {
             partnerId: coupon.partner_id,
             code: coupon.code,
-            commissionPercent: coupon.commission_percent,
-            discountPercent: coupon.discount_percent,
+            commissionPercent: coupon.commission_percent ?? 20,
+            discountPercent: coupon.discount_percent ?? 20,
           };
         }
       }
@@ -348,7 +348,7 @@ export const cancelSubscription = createServerFn({ method: "POST" })
       const { error: auditError } = await supabaseAdmin.from("audit_logs").insert({
         user_id: context.userId,
         action: "subscription_cancel",
-        meta: { reason: data.reason ?? null, asaas_subscription_id: sub.asaas_subscription_id ?? null },
+        details: { reason: data.reason ?? null, asaas_subscription_id: sub.asaas_subscription_id ?? null },
       });
       if (auditError) throw auditError;
 
