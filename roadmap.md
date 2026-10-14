@@ -1,6 +1,7 @@
 # Roadmap — Caixa Crítico
 
 ## Cobranças Pix (Asaas)
+- [ ] Diagnosticar falha de produção, corrigir tratamento do checkout e testar sem cobranças reais
 - [x] Vencimento do Pix nunca retroativo — `createPixCharge` envia a data de hoje em YYYY-MM-DD (antes subtraía 3 horas)
 - [x] Teste da regra de vencimento — seis testes aprovados no módulo Asaas
 - [ ] Alinhar esquema do banco ao código de cobrança — `pending_billing_changes`, `accountant_access.checkout_reference` e `subscriptions.asaas_subscription_id` faltam no banco conectado; aguarda autorização do dono e a decisão sobre o Supabase próprio
