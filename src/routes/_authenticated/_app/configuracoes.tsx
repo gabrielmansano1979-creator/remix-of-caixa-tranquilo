@@ -6,7 +6,7 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Download, Trash2 } from "lucide-react";
+import { Camera, Download, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import { parseDbError, profileQuery, todaySP } from "@/lib/app-data";
@@ -39,12 +39,92 @@ function ConfigPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold tracking-tight">Configurações</h1>
+      <ProfilePhoto />
       <BusinessForm profile={profile} />
       <Notifications />
       <AccountantSharing />
       <PasswordForm />
       <DataSection />
     </div>
+  );
+}
+
+function ProfilePhoto() {
+  const [avatarUrl, setAvatarUrl] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [userId, setUserId] = useState("");
+  const [inputKey, setInputKey] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+    void supabase.auth.getUser().then(({ data, error }) => {
+      if (!active || error || !data.user) return;
+      setUserId(data.user.id);
+      const metadata = data.user.user_metadata ?? {};
+      setAvatarUrl(typeof metadata.avatar_url === "string" ? metadata.avatar_url : "");
+    });
+    return () => { active = false; };
+  }, []);
+
+  const uploadPhoto = async (file?: File) => {
+    if (!file) return;
+    setInputKey((value) => value + 1);
+    if (file.type !== "image/jpeg" || !/\.jpe?g$/i.test(file.name)) {
+      toast.error("Formato inválido. Escolha uma foto JPEG (.jpg ou .jpeg).");
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("A foto deve ter no máximo 2 MB.");
+      return;
+    }
+    const bytes = new Uint8Array(await file.slice(0, 3).arrayBuffer());
+    if (bytes.length !== 3 || bytes[0] !== 0xff || bytes[1] !== 0xd8 || bytes[2] !== 0xff) {
+      toast.error("O arquivo não parece ser uma imagem JPEG válida.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const { data: auth, error: authError } = await supabase.auth.getUser();
+      if (authError || !auth.user || auth.user.id !== userId) throw new Error("Sessão inválida. Entre novamente.");
+      const path = \`\${auth.user.id}/\${crypto.randomUUID()}.jpg\`;
+      const { error: uploadError } = await supabase.storage.from("avatars").upload(path, file, {
+        contentType: "image/jpeg",
+        cacheControl: "3600",
+        upsert: false,
+      });
+      if (uploadError) throw uploadError;
+      const { data: publicData } = supabase.storage.from("avatars").getPublicUrl(path);
+      const nextUrl = publicData.publicUrl;
+      const { error: metadataError } = await supabase.auth.updateUser({ data: { avatar_url: nextUrl } });
+      if (metadataError) {
+        await supabase.storage.from("avatars").remove([path]);
+        throw metadataError;
+      }
+      setAvatarUrl(nextUrl);
+      toast.success("Foto de perfil atualizada.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível enviar a foto.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="rounded-2xl border bg-card p-6 shadow-[var(--shadow-soft)] space-y-4">
+      <h2 className="font-semibold">Foto de perfil</h2>
+      <p className="text-sm text-muted-foreground">Envie uma foto JPEG para aparecer no menu da sua conta. Somente arquivos .jpg ou .jpeg, até 2 MB.</p>
+      <div className="flex flex-wrap items-center gap-4">
+        <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border bg-muted">
+          {avatarUrl ? <img src={avatarUrl} alt="Foto de perfil atual" className="h-full w-full object-cover" /> : <Camera className="h-8 w-8 text-muted-foreground" />}
+        </div>
+        <label className="inline-flex cursor-pointer">
+          <span className="inline-flex h-11 items-center rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground">
+            {busy ? "Enviando..." : "Escolher foto JPEG"}
+          </span>
+          <input key={inputKey} type="file" accept=".jpg,.jpeg,image/jpeg" disabled={busy} className="sr-only" onChange={(event) => void uploadPhoto(event.target.files?.[0])} />
+        </label>
+      </div>
+    </section>
   );
 }
 
@@ -182,7 +262,7 @@ function DataSection() {
   const [busy, setBusy] = useState(false);
   useEffect(() => { if (!step) setTyped(""); }, [step]);
 
-  const exportData = async (fmt: "json" | ReportFormat) => {
+  const exportData = async (fmt: ReportFormat) => {
     const [p, e, r, l] = await Promise.all([
       supabase.from("profiles").select("*").maybeSingle(),
       supabase.from("entries").select("*"),
@@ -190,13 +270,6 @@ function DataSection() {
       supabase.from("reminder_logs").select("*"),
     ]);
     if (p.error || e.error || r.error || l.error) return toast.error("Não foi possível carregar todos os dados para exportação.");
-    if (fmt === "json") {
-      const blob = new Blob([JSON.stringify({ perfil: p.data, contas: e.data, regua: r.data, envios: l.data }, null, 2)], { type: "application/json" });
-      const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: "critical-cash-dados.json" });
-      a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 500);
-      toast.success("Exportação pronta.");
-      return;
-    }
     try {
       await exportReport({
         title: "Exportação dos dados pessoais — Critical Cash",
@@ -232,7 +305,6 @@ function DataSection() {
       <h2 className="font-semibold">Meus dados (LGPD)</h2>
       <div className="flex flex-wrap gap-2">
         {(["pdf", "excel", "csv"] as const).map((format) => <Button key={format} variant="outline" className="h-11 rounded-xl" onClick={() => void exportData(format)}><Download className="mr-2 h-4 w-4" />Exportar tudo ({format.toUpperCase()})</Button>)}
-        <Button variant="outline" className="h-11 rounded-xl" onClick={() => exportData("json")}><Download className="mr-2 h-4 w-4" />Exportar tudo (JSON)</Button>
       </div>
       <div className="border-t pt-4">
         <Button variant="ghost" className="h-11 rounded-xl text-danger" onClick={() => setStep(1)}><Trash2 className="mr-2 h-4 w-4" />Excluir minha conta</Button>
