@@ -155,8 +155,10 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
           affiliate = {
             partnerId: prev.affiliate_partner_id,
             code: referralCode,
-            commissionPercent: currentCoupon?.commission_percent ?? prev.affiliate_commission_percent,
-            discountPercent: currentCoupon?.discount_percent ?? prev.affiliate_discount_percent,
+            // A referred customer's commission tier and discount are fixed at acquisition.
+            // A later change in the accountant's tier must only affect newly acquired clients.
+            commissionPercent: prev.affiliate_commission_percent ?? currentCoupon?.commission_percent ?? 20,
+            discountPercent: prev.affiliate_discount_percent ?? currentCoupon?.discount_percent ?? 20,
           };
         } else {
           const { data: coupon, error: couponError } = await supabaseAdmin
