@@ -432,8 +432,8 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
                 if (values.asaas_subscription_id !== asaasSubscriptionId || typeof values.payment_id !== "string") return [];
                 return [values.payment_id];
               }));
-              if (paidPaymentIds.size >= 2) {
-                const plan = getPlan(sub.plan as PlanId);
+              const plan = getPlan(sub.plan as PlanId);
+              if (paidPaymentIds.size >= 2 && Number(sub.affiliate_payment_amount_cents ?? 0) !== plan.priceMonthCents) {
                 await asaas.updateAsaasSubscriptionAmount(asaasSubscriptionId, plan.priceMonthCents);
                 const { error: amountError } = await db.from("subscriptions")
                   .update({ affiliate_payment_amount_cents: plan.priceMonthCents, updated_at: paidAt })
