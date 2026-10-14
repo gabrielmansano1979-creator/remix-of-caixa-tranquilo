@@ -135,6 +135,7 @@ function BusinessForm({ profile }: { profile: Tables<"profiles"> }) {
     defaultValues: { business_name: profile.business_name ?? "", initial_balance_cents: profile.initial_balance_cents, cushion_cents: profile.cushion_cents },
   });
   const onSubmit = handleSubmit(async (v) => {
+    if (!profile.user_id) return toast.error("Perfil indisponível. Atualize a página e tente novamente.");
     const balChanged = v.initial_balance_cents !== profile.initial_balance_cents;
     const { error } = await supabase.from("profiles").update({ ...v, ...(balChanged ? { balance_date: todaySP() } : {}) }).eq("user_id", profile.user_id);
     if (error) return toast.error(parseDbError(error).message);
