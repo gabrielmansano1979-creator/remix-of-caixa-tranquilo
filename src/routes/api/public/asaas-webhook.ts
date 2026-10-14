@@ -33,10 +33,10 @@ async function recordAffiliateCommission(
     userId: string;
     subscriptionId: string;
     paymentId: string;
-    paymentAmountCents: number;
+    actualPaidAmountCents: number;
   },
 ) {
-  if (!input.partnerId || input.paymentAmountCents <= 0) return;
+  if (!input.partnerId || input.actualPaidAmountCents <= 0) return;
 
   const { data: partner, error: partnerError } = await db.from("partner_requests")
     .select("id, user_id, status, pix_type, pix_key")
@@ -77,7 +77,7 @@ async function recordAffiliateCommission(
     "Cliente";
 
   const amountCents = calculateCommissionAmountCents(
-    input.paymentAmountCents,
+    input.actualPaidAmountCents,
     commissionRate as 20 | 25 | 30,
   );
   const { error: commissionError } = await db.from("commissions").upsert({
@@ -208,7 +208,9 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
             return Response.json({ received: true });
           }
 
-          const paymentAmountCents = amountToCents(payment.value);
+          // Use Asaas's actual collected value, already reduced by any affiliate discount.
+          // The commission is never calculated from the plan's undiscounted list price.
+          const actualPaidAmountCents = amountToCents(payment.value);
           const paidAt = new Date().toISOString();
 
           const { data: pendingCheckout, error: pendingCheckoutError } = await db
@@ -346,7 +348,7 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
               userId: activeSub.user_id,
               subscriptionId: activeSub.id,
               paymentId: paymentIdText,
-              paymentAmountCents,
+              actualPaidAmountCents,
             });
 
             const { error: auditError } = await db.from("audit_logs").insert({
@@ -396,7 +398,7 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
               userId: renewedSub.user_id,
               subscriptionId: renewedSub.id,
               paymentId: paymentIdText,
-              paymentAmountCents,
+              actualPaidAmountCents,
             });
 
             const { error: auditError } = await db.from("audit_logs").insert({
@@ -467,7 +469,7 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
               userId: activeSub.user_id,
               subscriptionId: activeSub.id,
               paymentId: paymentIdText,
-              paymentAmountCents,
+              actualPaidAmountCents,
             });
 
             const { error: auditError } = await db.from("audit_logs").insert({
