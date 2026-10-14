@@ -54,7 +54,7 @@ export const Route = createFileRoute("/api/public/stripe-webhook")({
                 if (o.client_reference_id) await db.from("subscriptions").upsert({ user_id: o.client_reference_id, stripe_customer_id: o.customer, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
                 const sub = await stripe<Sub>("GET", `subscriptions/${o.subscription}`);
                 const uid = await upsertSub(sub);
-                if (uid) await db.from("audit_logs").insert({ user_id: uid, action: "subscription_start", meta: { plan: sub.items.data[0]?.price.id } });
+                if (uid) await db.from("audit_logs").insert({ user_id: uid, action: "subscription_start", details: { plan: sub.items.data[0]?.price.id } });
               }
               break;
             }
