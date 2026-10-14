@@ -150,4 +150,31 @@ describe("Asaas recurring PIX API contract", () => {
     expect(String(fetchMock.mock.calls[0][0])).toBe("https://api-sandbox.asaas.com/v3/subscriptions/sub_already_removed");
     expect(fetchMock.mock.calls[0][1]?.method).toBe("DELETE");
   });
+
+  it("sends a PIX charge due today, never a date in the past", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-14T01:30:00Z"));
+    try {
+      fetchMock
+        .mockResolvedValueOnce(jsonResponse({ id: "pay_unit_456", value: 59 }))
+        .mockResolvedValueOnce(jsonResponse({ encodedImage: "00020126", payload: "0002012608" }));
+
+      const result = await createPixCharge("cus_unit_123", 5900, "cc_checkout_ref", "Critical Cash Pro mensal");
+
+      expect(result).toEqual({
+        id: "pay_unit_456",
+        pixQrCode: "00020126",
+        pixCopyAndPaste: "0002012608",
+        value: 59,
+      });
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(String(fetchMock.mock.calls[0][0])).toBe("https://api-sandbox.asaas.com/v3/payments");
+
+      const payload = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as Record<string, unknown>;
+      expect(payload.dueDate).toBe("2026-10-14");
+      expect(payload.dueDate >= new Date("2026-10-14T01:30:00Z").toISOString().slice(0, 10)).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
