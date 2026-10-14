@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   cancelAsaasSubscription,
   createOrGetPixSubscription,
+  createPixCharge,
   type AsaasBillingCycle,
 } from "./asaas.server";
 

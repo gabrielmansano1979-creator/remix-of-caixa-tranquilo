@@ -50,7 +50,7 @@ export async function createPixCharge(customerId: string, amountCents: number, e
       customer: customerId,
       billingType: "PIX",
       value: Number((amountCents / 100).toFixed(2)),
-      dueDate: new Date(Date.now() - 3 * 3600000).toISOString().split("T")[0],
+      dueDate: new Date().toISOString().slice(0, 10),
       externalReference,
       description,
     }),
