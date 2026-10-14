@@ -7,20 +7,59 @@ function config() {
   return { key, base };
 }
 
+export class AsaasApiError extends Error {
+  constructor(public readonly status: number, public readonly code: string, public readonly operation: string, public readonly safeDescription: string) {
+    super(`ASAAS_${status}:${code}`);
+    this.name = "AsaasApiError";
+  }
+}
+
+function safeProviderError(body: unknown) {
+  const candidate = body && typeof body === "object" && "errors" in body ? body.errors : null;
+  const first = Array.isArray(candidate) ? candidate[0] : null;
+  const rawCode = first && typeof first === "object" ? first.code : null;
+  const descriptions: Record<string, string> = {
+    invalid_cpfCnpj: "CPF/CNPJ recusado",
+    invalid_cpf_cnpj: "CPF/CNPJ recusado",
+    invalid_customer: "Dados do titular recusados",
+    invalid_dueDate: "Vencimento recusado",
+    invalid_due_date: "Vencimento recusado",
+    invalid_value: "Valor recusado",
+    invalid_access_token: "Acesso recusado",
+    invalid_action: "Operação recusada",
+    invalid_object: "Dados da operação recusados",
+  };
+  const code = typeof rawCode === "string" && Object.hasOwn(descriptions, rawCode) ? rawCode : "provider_rejected";
+  return { code, description: descriptions[code] ?? "O provedor recusou a solicitação; detalhes pessoais omitidos" };
+}
+
 async function asaasFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   const { key, base } = config();
-  const res = await fetch(`${base}${path}`, {
+  // Never log query strings (email/reference) or resource IDs.
+  const operation = `${options.method ?? "GET"} ${path.split("?")[0].replace(/\/(customers|payments|subscriptions)\/[^/]+/g, "/$1/:id")}`;
+  let res: Response;
+  try {
+    res = await fetch(`${base}${path}`, {
     ...options,
     headers: { "Content-Type": "application/json", "User-Agent": "CriticalCash", access_token: key, ...options.headers },
-  });
-  const text = await res.text();
-  if (!res.ok) {
-    console.error(`Asaas ${res.status} ${path}: ${text}`);
-    let desc = "";
-    try { desc = JSON.parse(text)?.errors?.[0]?.description ?? ""; } catch { /* ignore */ }
-    throw new Error(`ASAAS_${res.status}:${desc}`);
+    signal: options.signal ?? AbortSignal.timeout(20000),
+    });
+  } catch {
+    console.error("asaas request failed", { operation, status: 0, code: "network_error", message: "Resposta não confirmada" });
+    throw new AsaasApiError(0, "network_error", operation, "Resposta não confirmada");
   }
-  return JSON.parse(text) as T;
+  let body: unknown;
+  try { body = JSON.parse(await res.text()); } catch { body = null; }
+  if (!res.ok) {
+    const safe = safeProviderError(body);
+    console.error("asaas request rejected", { operation, status: res.status, code: safe.code, message: safe.description });
+    throw new AsaasApiError(res.status, safe.code, operation, safe.description);
+  }
+  if (!body || typeof body !== "object") {
+    console.error("asaas response invalid", { operation, status: res.status, code: "invalid_response", message: "Resposta inválida" });
+    throw new AsaasApiError(res.status, "invalid_response", operation, "Resposta inválida");
+  }
+  return body as T;
 }
 
 export async function createCustomer(email: string, name: string, cpfCnpj: string) {
@@ -44,6 +83,7 @@ export async function getCustomerByEmail(email: string) {
 }
 
 export async function createPixCharge(customerId: string, amountCents: number, externalReference: string, description: string) {
+  if (!Number.isSafeInteger(amountCents) || amountCents <= 0) throw new RangeError("PIX amount must be positive safe integer cents");
   const payment = await asaasFetch<{ id: string; value: number }>("/payments", {
     method: "POST",
     body: JSON.stringify({
@@ -55,8 +95,9 @@ export async function createPixCharge(customerId: string, amountCents: number, e
       description,
     }),
   });
-  const qr = await asaasFetch<{ encodedImage: string; payload: string }>(`/payments/${payment.id}/pixQrCode`);
-  return { id: payment.id, pixQrCode: qr.encodedImage, pixCopyAndPaste: qr.payload, value: payment.value };
+  if (!payment.id) throw new AsaasApiError(200, "invalid_response", "POST /payments", "Identificação da cobrança ausente");
+  const qr = await getPixQrCode(payment.id);
+  return { id: payment.id, ...qr, value: payment.value };
 }
 
 export async function getPayment(paymentId: string) {
@@ -73,6 +114,7 @@ export async function getPayment(paymentId: string) {
 
 export async function getPixQrCode(paymentId: string) {
   const qr = await asaasFetch<{ encodedImage: string; payload: string }>(`/payments/${paymentId}/pixQrCode`);
+  if (!qr.encodedImage || !qr.payload) throw new Error("PIX_QR_UNAVAILABLE");
   return { pixQrCode: qr.encodedImage, pixCopyAndPaste: qr.payload };
 }
 

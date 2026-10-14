@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { getPlan, FIRST_PIX_DISCOUNT } from "@/config/plans";
 import { isValidCpfCnpj, normalizeCpfCnpj } from "@/lib/identity";
+import { checkoutErrorMessage } from "./billing-errors";
 
 type Out = { url?: string; error?: string; qrCode?: string; copyPaste?: string; paymentId?: string };
 const origin = async () => {
@@ -16,7 +17,8 @@ async function ensureCustomer(userId: string, email: string | undefined, fullNam
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const asaas = await import("./asaas.server");
 
-  const { data: sub } = await supabaseAdmin.from("subscriptions").select("asaas_customer_id").eq("user_id", userId).maybeSingle();
+  const { data: sub, error: lookupError } = await supabaseAdmin.from("subscriptions").select("asaas_customer_id").eq("user_id", userId).maybeSingle();
+  if (lookupError) throw lookupError;
   if (sub?.asaas_customer_id) {
     await asaas.updateCustomerDoc(sub.asaas_customer_id, doc, fullName);
     return sub.asaas_customer_id;
@@ -26,13 +28,15 @@ async function ensureCustomer(userId: string, email: string | undefined, fullNam
   if (customer) await asaas.updateCustomerDoc(customer.id, doc, fullName);
   else customer = await asaas.createCustomer(email || `${userId}@criticalcash.app`, fullName || (email ?? "Cliente").split("@")[0], doc);
 
-  await supabaseAdmin.from("subscriptions").upsert({
+  if (!customer?.id) throw new Error("ASAAS_CUSTOMER_MISSING");
+  const { error: saveError } = await supabaseAdmin.from("subscriptions").upsert({
     user_id: userId,
-    asaas_customer_id: customer!.id,
+    asaas_customer_id: customer.id,
     updated_at: new Date().toISOString()
   }, { onConflict: "user_id" });
 
-  return customer!.id;
+  if (saveError) throw saveError;
+  return customer.id;
 }
 
 export const createCheckoutSession = createServerFn({ method: "POST" })
@@ -45,12 +49,14 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
     referralCode: z.string().trim().max(80).optional(),
   }).parse(d))
   .handler(async ({ data, context }): Promise<Out> => {
+    let stage = "usage";
     try {
       const { supabase, userId, claims } = context;
       const asaas = await import("./asaas.server");
 
       // Bloqueia downgrade se o uso atual exceder o plano escolhido.
-      const { data: usage } = await supabase.rpc("my_usage");
+      const { data: usage, error: usageError } = await supabase.rpc("my_usage");
+      if (usageError) throw usageError;
       const pending = (usage as { pending_entries: number } | null)?.pending_entries ?? 0;
       if (pending > getPlan(data.plan).limits.pendingEntries) {
         return { error: `Você tem ${pending} contas pendentes; o plano ${getPlan(data.plan).name} permite ${getPlan(data.plan).limits.pendingEntries}.` };
@@ -60,6 +66,7 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       const customerEmail = (claims as { email?: string }).email || `${userId}@criefy.local`;
       const metadata = (claims as { user_metadata?: { full_name?: string; affiliate_referral_code?: string } }).user_metadata;
       const customerName = data.legalName;
+      stage = "pending_checkout_lookup";
       const { data: existingCheckout, error: existingCheckoutError } = await supabaseAdmin
         .from("pending_billing_changes")
         .select("checkout_reference, payment_id, plan, billing_interval, status, updated_at")
@@ -67,6 +74,14 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
         .eq("status", "pending")
         .maybeSingle();
       if (existingCheckoutError) throw existingCheckoutError;
+      // Verify required subscription columns before any external customer/payment write.
+      stage = "subscription_lookup";
+      const { data: prev, error: prevError } = await supabaseAdmin.from("subscriptions")
+        .select("paid_at, affiliate_partner_id, affiliate_coupon_code, affiliate_commission_percent, affiliate_discount_percent, asaas_subscription_id")
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (prevError) throw prevError;
+      stage = "pending_checkout_recovery";
       if (existingCheckout) {
         let existingPaymentId = existingCheckout.payment_id;
         if (!existingPaymentId) {
@@ -127,11 +142,7 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
         }
       }
 
-      const { data: prev, error: prevError } = await supabaseAdmin.from("subscriptions")
-        .select("paid_at, affiliate_partner_id, affiliate_coupon_code, affiliate_commission_percent, affiliate_discount_percent, asaas_subscription_id")
-        .eq("user_id", userId)
-        .maybeSingle();
-      if (prevError) throw prevError;
+      stage = "referral_validation";
       const requestedReferralCode = (data.referralCode || metadata?.affiliate_referral_code || "").trim().toUpperCase();
       if (prev?.paid_at && prev.affiliate_partner_id && requestedReferralCode && requestedReferralCode !== prev.affiliate_coupon_code) {
         return { error: "A indicação desta assinatura já está vinculada e não pode ser substituída." };
@@ -201,10 +212,12 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       // so the third monthly charge uses the plan's normal price. Annual renewals are full price.
       const recurringDiscountPercent = data.interval === "month" ? (affiliate?.discountPercent ?? 0) : 0;
       const recurringPriceCents = Math.round(basePrice * (1 - recurringDiscountPercent / 100));
+      stage = "customer_lookup_or_create";
       const customerId = await ensureCustomer(userId, customerEmail, customerName, data.cpfCnpj);
 
       const checkoutReference = `cc_${userId}_${crypto.randomUUID()}`;
       const now = new Date().toISOString();
+      stage = "pending_checkout_insert";
       const { error: pendingInsertError } = await supabaseAdmin.from("pending_billing_changes").insert({
         checkout_reference: checkoutReference,
         payment_id: null,
@@ -233,6 +246,7 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
         ? ` (cupom ${affiliate.code}: ${discountPercent}% off)`
         : discountPercent ? ` (${discountPercent}% off 1º pagamento)` : "";
       let charge: Awaited<ReturnType<typeof asaas.createPixCharge>>;
+      stage = "payment_create_and_qr";
       try {
         charge = await asaas.createPixCharge(
           customerId,
@@ -241,21 +255,33 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
           `Critical Cash ${plan.name} ${data.interval === "year" ? "anual" : "mensal"}${discountLabel}`,
         );
       } catch (error) {
+        if (error instanceof asaas.AsaasApiError && error.operation === "POST /payments"
+          && error.status >= 400 && error.status < 500 && ![408, 429].includes(error.status)) {
+          // A definitive rejection created no charge; don't lock retries for five minutes.
+          const { error: releaseError } = await supabaseAdmin.from("pending_billing_changes")
+            .update({ status: "failed", updated_at: new Date().toISOString() })
+            .eq("checkout_reference", checkoutReference).eq("status", "pending");
+          if (releaseError) console.error("checkout release failed", { stage, code: releaseError.code });
+          throw error;
+        }
         // The request may have reached Asaas even when the network response was lost.
         // Keep the stable checkout reference pending so a retry can recover that payment
         // instead of creating a second PIX charge. Stale empty references are retired after
         // the recovery window by the next checkout attempt.
-        console.error("Asaas PIX creation result is ambiguous; keeping checkout reference for recovery", checkoutReference, error);
+        console.error("checkout payment recovery required", { stage, code: "PIX_CREATE_STATUS_UNKNOWN" });
+        if ((error instanceof asaas.AsaasApiError && error.operation.includes("pixQrCode"))
+          || (error instanceof Error && error.message === "PIX_QR_UNAVAILABLE")) throw new Error("PIX_QR_UNAVAILABLE");
         throw new Error("PIX_CREATE_STATUS_UNKNOWN:Não foi possível confirmar se o Pix foi criado. Reabra o checkout em alguns minutos; o sistema verificará a cobrança existente antes de gerar outra.");
       }
 
+      stage = "payment_link";
       const { error: paymentLinkError } = await supabaseAdmin.from("pending_billing_changes")
         .update({ payment_id: charge.id, updated_at: new Date().toISOString() })
         .eq("checkout_reference", checkoutReference)
         .eq("status", "pending");
       if (paymentLinkError) {
         try { await asaas.deletePayment(charge.id); } catch (cleanupError) {
-          console.error("Asaas pending payment cleanup failed", charge.id, cleanupError);
+          console.error("Asaas pending payment cleanup failed", { stage, code: "cleanup_failed" });
         }
         await supabaseAdmin.from("pending_billing_changes")
           .update({ status: "failed", updated_at: new Date().toISOString() })
@@ -269,12 +295,11 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
         paymentId: charge.id
       };
     } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      console.error("checkout error", msg);
-      if (msg.includes("NOT_CONFIGURED")) return { error: "Pagamentos ainda não configurados." };
-      if (msg.startsWith("ASAAS_401")) return { error: "A chave do Asaas é inválida ou de outro ambiente. Gere uma nova chave no Asaas." };
-      const desc = msg.split(":").slice(1).join(":").trim();
-      return { error: desc ? `Asaas: ${desc}` : "Não foi possível gerar o Pix. Tente novamente." };
+      const code = e && typeof e === "object" && "code" in e ? String(e.code) : "checkout_failed";
+      const safeCode = /^[a-zA-Z0-9_]{1,40}$/.test(code) ? code : "checkout_failed";
+      const message = checkoutErrorMessage(e);
+      console.error("checkout failed", { stage, code: safeCode, message });
+      return { error: message };
     }
   });
 

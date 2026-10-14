@@ -15,6 +15,7 @@ Antes de planejar ou alterar arquivos, leia `CLAUDE.md` integralmente. Ele cont√
 - Store new reminder deliveries with `stage_rule_id` and `channel`; keep legacy `rule_id` null on new deliveries to preserve per-channel idempotency without breaking historical records.
 - Persist onboarding profile and financial inputs through authenticated database access; derive the semaphore from `cash_projection` rather than simulated state.
 - Use the shared `ReminderPreview` for public examples and in-app previews, so both channel renderings remain consistent.
+- Fail checkout closed on missing billing schema before external writes; keep ambiguous payment references recoverable and expose only allowlisted provider diagnostics to avoid duplicate charges and sensitive-data leaks.
 
 <!-- CRIEFY:MEMORIA:INICIO -->
 # Mem√≥ria do projeto (mantida pelo CrieFy)
