@@ -33,6 +33,17 @@ describe("affiliate commission cents", () => {
     expect(calculateCommissionAmountCents(amount, rate)).toBe(expected);
   });
 
+  it("calculates commission on the discounted amount actually paid", () => {
+    const listPriceCents = 10_000;
+    const discountPercent = 20;
+    const actualPaidCents = Math.round(listPriceCents * (1 - discountPercent / 100));
+
+    expect(actualPaidCents).toBe(8_000);
+    expect(calculateCommissionAmountCents(actualPaidCents, 20)).toBe(1_600);
+    expect(calculateCommissionAmountCents(actualPaidCents, 25)).toBe(2_000);
+    expect(calculateCommissionAmountCents(actualPaidCents, 30)).toBe(2_400);
+  });
+
   it("remains exact for very large safe-integer payment amounts", () => {
     const amount = Number.MAX_SAFE_INTEGER;
     for (const rate of [20, 25, 30] as const) {
