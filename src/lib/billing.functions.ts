@@ -196,7 +196,7 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       const priceCents = Math.round(basePrice * (1 - discountPercent / 100));
       // The first Pix may receive its one-time promotion. Later recurring charges
       // return to the normal price, except an affiliate's recurring coupon discount.
-      const recurringDiscountPercent = affiliate?.discountPercent ?? 0;
+      const recurringDiscountPercent = data.interval === "month" ? (affiliate?.discountPercent ?? 0) : 0;
       const recurringPriceCents = Math.round(basePrice * (1 - recurringDiscountPercent / 100));
       const customerId = await ensureCustomer(userId, customerEmail, customerName, data.cpfCnpj);
 
