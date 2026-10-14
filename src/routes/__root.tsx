@@ -130,11 +130,13 @@ function RootComponent() {
   useEffect(() => {
     const pendingTasks = new Set<ReturnType<typeof setTimeout>>();
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      // Renovar o access token não altera identidade nem permissões. Invalidar
+      // todas as rotas e consultas em TOKEN_REFRESHED gera chamadas extras e
+      // pode amplificar falhas de sessão sob carga.
       if (
         event !== "INITIAL_SESSION" &&
         event !== "SIGNED_IN" &&
         event !== "SIGNED_OUT" &&
-        event !== "TOKEN_REFRESHED" &&
         event !== "USER_UPDATED" &&
         event !== "PASSWORD_RECOVERY"
       )
