@@ -90,7 +90,7 @@ type AdminOverview = {
   total_clients: number;
 };
 
-type AuthStatus = "checking" | "authorized";
+type AuthStatus = "checking" | "authorized" | "error";
 
 const emptyOverview: AdminOverview = {
   partners: [],
@@ -150,21 +150,31 @@ function AdminPage() {
     const verifyAdminAccess = async () => {
       try {
         const {
-          data: { session },
+          data: { user },
           error,
-        } = await supabase.auth.getSession();
+        } = await supabase.auth.getUser();
 
         if (!active) return;
 
-        if (error || !session?.user) {
+        if (error || !user) {
+          console.error("[ADMIN] Sessão ausente ou inválida:", error);
           window.location.replace("/login");
           return;
         }
 
-        // A autorização real vem do banco, nunca de user_metadata alterável pelo usuário.
-        const { error: adminCheckError } = await supabase.rpc("admin_partner_overview");
+        // Verificar somente o papel aqui. O RPC de dados é executado pela query
+        // após a autorização, e um erro transitório não deve expulsar o admin.
+        const { data: isAdmin, error: adminCheckError } = await supabase.rpc(
+          "has_role",
+          { _user_id: user.id, _role: "admin" },
+        );
         if (!active) return;
         if (adminCheckError) {
+          console.error("[ADMIN] Falha ao verificar função administrativa:", adminCheckError);
+          setAuthStatus("error");
+          return;
+        }
+        if (isAdmin !== true) {
           window.location.replace("/caixa");
           return;
         }
@@ -235,7 +245,7 @@ function AdminPage() {
         total_clients: Number(result.total_clients ?? 0),
       };
     },
-    refetchInterval: 15_000,
+    refetchInterval: 60_000,
   });
 
   const data = query.data ?? emptyOverview;
@@ -373,10 +383,21 @@ function AdminPage() {
     }
   };
 
-  if (authStatus !== "authorized") {
+  if (authStatus === "checking") {
     return (
       <div className="p-8 text-muted-foreground">
         Verificando acesso administrativo...
+      </div>
+    );
+  }
+
+  if (authStatus === "error") {
+    return (
+      <div className="p-8 text-muted-foreground">
+        <p>Não foi possível confirmar a autorização administrativa por uma falha temporária.</p>
+        <Button className="mt-4" onClick={() => window.location.reload()}>
+          Tentar novamente
+        </Button>
       </div>
     );
   }
