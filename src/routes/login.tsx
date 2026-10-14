@@ -107,8 +107,10 @@ if (isRegistering) {
   if (error) throw error;
 
   if (data.session?.user) {
+    // O evento SIGNED_IN redireciona após a verificação de função.
+    // Não chamar redirectUser aqui também: isso duplicava o RPC has_role
+    // e podia aumentar a carga/gerar respostas 429 no Supabase.
     toast.success('Login realizado com sucesso!');
-    await redirectUser(data.session.user);
   }
 }
 } catch (err: any) {
