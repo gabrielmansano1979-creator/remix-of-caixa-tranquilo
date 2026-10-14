@@ -44,34 +44,27 @@ const redirectUser = async (sessionUser: any) => {
 };
 
 useEffect(() => {
-let isMounted = true;
+  let isMounted = true;
 
-const processAuth = async () => {
-const urlParams = new URLSearchParams(window.location.search);
-const authCode = urlParams.get('code');
+  // Do not redirect from a pre-existing session when /login opens.
+  // Otherwise an old admin session can send someone back to /admin before
+  // they can sign in with a different customer account.
+  const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    // Only route after a new successful sign-in (password or OAuth), not
+    // INITIAL_SESSION or TOKEN_REFRESHED from an account already stored here.
+    if (event !== 'SIGNED_IN' || !session?.user) return;
 
-if (authCode) {
-  await new Promise((resolve) => setTimeout(resolve, 500));
-}
+    // Defer Supabase calls until the auth callback has returned, avoiding
+    // re-entrant auth-lock problems when redirectUser calls an RPC.
+    Promise.resolve().then(() => {
+      if (isMounted) void redirectUser(session.user);
+    });
+  });
 
-const { data: { session } } = await supabase.auth.getSession();
-if (session?.user && isMounted) {
-  await redirectUser(session.user);
-}
-};
-
-void processAuth();
-
-const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-if (session?.user && isMounted) {
-  await redirectUser(session.user);
-}
-});
-
-return () => {
-isMounted = false;
-subscription.unsubscribe();
-};
+  return () => {
+    isMounted = false;
+    subscription.unsubscribe();
+  };
 }, []);
 
 
