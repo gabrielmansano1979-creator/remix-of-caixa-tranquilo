@@ -25,10 +25,10 @@ describe("affiliate commission cents", () => {
   it.each([
     [1, 20, 0],
     [5, 20, 1],
-    [999, 25, 249],
+    [999, 25, 250],
     [12345, 20, 2469],
     [12345, 25, 3086],
-    [12345, 30, 3703],
+    [12345, 30, 3704],
   ] as const)("calculates %i cents at %i percent -> %i cents", (amount, rate, expected) => {
     expect(calculateCommissionAmountCents(amount, rate)).toBe(expected);
   });
@@ -44,10 +44,15 @@ describe("affiliate commission cents", () => {
     expect(calculateCommissionAmountCents(actualPaidCents, 30)).toBe(2_400);
   });
 
+  it("rounds fractional cents half-up", () => {
+    expect(calculateCommissionAmountCents(5, 30)).toBe(2);
+    expect(calculateCommissionAmountCents(15, 30)).toBe(5);
+  });
+
   it("remains exact for very large safe-integer payment amounts", () => {
     const amount = Number.MAX_SAFE_INTEGER;
     for (const rate of [20, 25, 30] as const) {
-      expect(calculateCommissionAmountCents(amount, rate)).toBe(Number((BigInt(amount) * BigInt(rate)) / 100n));
+      expect(calculateCommissionAmountCents(amount, rate)).toBe(Number((BigInt(amount) * BigInt(rate) + 50n) / 100n));
     }
   });
 
