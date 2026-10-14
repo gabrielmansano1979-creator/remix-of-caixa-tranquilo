@@ -125,7 +125,7 @@ function BalanceCard({ current, canWrite }: { current: number; canWrite: boolean
   useEffect(() => { if (!canWrite) setEdit(false); }, [canWrite]);
   const save = useMutation({
     mutationFn: async () => {
-      if (!profile.data) throw new Error("Perfil indisponível");
+      if (!profile.data?.user_id) throw new Error("Perfil indisponível");
       const { error } = await supabase.from("profiles").update({ initial_balance_cents: v, balance_date: todaySP() }).eq("user_id", profile.data.user_id);
       if (error) throw error;
     },
@@ -208,9 +208,19 @@ function Chart({ p }: { p: Projection }) {
 
 function Risks({ limit, canWrite }: { limit: number; canWrite: boolean }) {
   const risks = useQuery({ queryKey: ["risks", limit], queryFn: async () => {
-    const { data, error } = await supabase.rpc("top_risks", { _limit: limit });
+    const { data, error } = await supabase.from("entries")
+      .select("id, description, counterparty_name, counterparty_whatsapp, amount_cents, due_date")
+      .eq("status", "pending")
+      .order("due_date", { ascending: true })
+      .limit(Math.max(limit, 1));
     if (error) throw error;
-    return data as Risk[];
+    const today = todaySP();
+    return (data ?? []).map((entry): Risk => {
+      const daysUntilDue = Math.floor((new Date(entry.due_date + "T12:00:00").getTime() - new Date(today + "T12:00:00").getTime()) / 86400000);
+      const level: Risk["level"] = daysUntilDue < 0 ? "high" : daysUntilDue <= 3 ? "medium" : "low";
+      const reason = daysUntilDue < 0 ? `Vencida há ${Math.abs(daysUntilDue)} dia(s).` : daysUntilDue === 0 ? "Vence hoje." : `Vence em ${daysUntilDue} dia(s).`;
+      return { entry_id: entry.id, description: entry.description, counterparty_name: entry.counterparty_name, counterparty_whatsapp: entry.counterparty_whatsapp, amount_cents: entry.amount_cents, due_date: entry.due_date, level, reason };
+    });
   } });
   const markPaid = useMarkPaid();
   const openWhatsApp = (risk: Risk) => {
