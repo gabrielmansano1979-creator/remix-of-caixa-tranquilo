@@ -33,11 +33,16 @@ const redirectUser = async (sessionUser: any) => {
     _role: 'admin',
   });
 
+  // Falha de rede/autenticação não significa que a pessoa seja cliente.
+  // Não mandar para /caixa quando a verificação falha: isso cria o ciclo
+  // /login -> /caixa -> /login quando a sessão ainda está se estabilizando.
   if (error) {
     console.error('[LOGIN] Falha ao verificar função administrativa:', error);
+    toast.error('Não foi possível validar sua sessão. Tente entrar novamente.');
+    return;
   }
 
-  const targetPath = !error && isAdmin === true ? '/admin' : '/caixa';
+  const targetPath = isAdmin === true ? '/admin' : '/caixa';
   if (window.location.pathname !== targetPath) {
     window.location.replace(targetPath);
   }
