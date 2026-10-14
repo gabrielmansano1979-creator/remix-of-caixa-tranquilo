@@ -86,7 +86,7 @@ function ProfilePhoto() {
     try {
       const { data: auth, error: authError } = await supabase.auth.getUser();
       if (authError || !auth.user || auth.user.id !== userId) throw new Error("Sessão inválida. Entre novamente.");
-      const path = \`\${auth.user.id}/\${crypto.randomUUID()}.jpg\`;
+      const path = `${auth.user.id}/${crypto.randomUUID()}.jpg`;
       const { error: uploadError } = await supabase.storage.from("avatars").upload(path, file, {
         contentType: "image/jpeg",
         cacheControl: "3600",
