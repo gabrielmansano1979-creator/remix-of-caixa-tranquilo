@@ -12,9 +12,9 @@ export function commissionRateForConfirmedClients(confirmedClients: number): 20 
 }
 
 /**
- * Calculates the commission from an integer amount in cents without multiplying
- * the full payment amount by the percentage first. The result is rounded down to
- * the nearest cent, matching the billing contract.
+ * Calculates commission on the amount actually paid, using integer cents only.
+ * Fractions of a cent are rounded half-up to the nearest cent (not always down),
+ * avoiding systematic underpayment over many transactions.
  */
 export function calculateCommissionAmountCents(
   paymentAmountCents: number,
@@ -27,13 +27,10 @@ export function calculateCommissionAmountCents(
     throw new RangeError("commissionPercent must be 20, 25, or 30");
   }
 
-  const wholeHundreds = Math.trunc(paymentAmountCents / 100);
-  const remainderCents = paymentAmountCents % 100;
-  const wholeCommission = wholeHundreds * commissionPercent;
-  const fractionalCommission = Math.trunc((remainderCents * commissionPercent) / 100);
-  const result = wholeCommission + fractionalCommission;
-  if (!Number.isSafeInteger(result)) {
+  const result = (BigInt(paymentAmountCents) * BigInt(commissionPercent) + 50n) / 100n;
+  const roundedCents = Number(result);
+  if (!Number.isSafeInteger(roundedCents)) {
     throw new RangeError("commission result exceeds exact integer precision");
   }
-  return result;
+  return roundedCents;
 }
