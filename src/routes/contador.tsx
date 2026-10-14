@@ -49,6 +49,8 @@ type PartnerDashboard = {
     id: string;
     client_name: string | null;
     amount_cents: number;
+    payment_amount_cents: number | null;
+    commission_percent: number | null;
     status: string;
     created_at: string;
     paid_at: string | null;
@@ -449,6 +451,8 @@ function AccountantPage() {
   const clientRows = dashboard?.clients ?? [];
   const commissionRows = history.map((item) => ({
     cliente: item.client_name ?? "Cliente",
+    base_calculo: item.payment_amount_cents == null ? "—" : money(item.payment_amount_cents),
+    taxa: item.commission_percent == null ? "—" : `${item.commission_percent}%`,
     valor: money(item.amount_cents),
     situacao: statusLabelPt(item.status),
     data: new Date(item.created_at).toLocaleDateString("pt-BR"),
@@ -498,7 +502,9 @@ function AccountantPage() {
         format,
         columns: [
           { key: "cliente", label: "Cliente" },
-          { key: "valor", label: "Valor" },
+          { key: "base_calculo", label: "Valor pago após desconto" },
+          { key: "taxa", label: "Taxa de comissão" },
+          { key: "valor", label: "Comissão" },
           { key: "situacao", label: "Situação" },
           { key: "data", label: "Data" },
           { key: "pago_em", label: "Pago em" },
@@ -555,6 +561,7 @@ function AccountantPage() {
                 ? <p className="text-sm text-muted-foreground">Faixa atual: 30% para 16–30 clientes pagantes. A comissão permanece em 30% após o 30º cliente.</p>
                 : <p className="text-sm text-muted-foreground">Você já ultrapassou 30 clientes pagantes: sua comissão recorrente continua em 30%.</p>}
           <p className="text-xs text-muted-foreground">As metas consideram pagamentos confirmados, não apenas cadastros ou cliques no cupom.</p>
+          <p className="rounded-lg border bg-muted/30 p-3 text-sm text-muted-foreground">Seus clientes indicados recebem 20% de desconto. Sua comissão é calculada sobre o valor efetivamente pago pelo cliente após esse desconto, usando a faixa de 20%, 25% ou 30% correspondente.</p>
         </CardContent>
       </Card>
 
@@ -700,7 +707,7 @@ function AccountantPage() {
         </CardHeader>
         <CardContent>
           <DataTable
-            headers={["Cliente", "Comissão", "Status", "Criada em", "Paga em"]}
+            headers={["Cliente", "Valor pago após desconto", "Taxa", "Comissão", "Status", "Criada em", "Paga em"]}
             rows={commissionRows.map((row) => Object.values(row))}
             empty="Nenhuma comissão registrada."
           />
