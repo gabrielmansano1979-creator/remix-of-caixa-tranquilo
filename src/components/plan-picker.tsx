@@ -80,7 +80,7 @@ export function PlanPicker({ referralCode }: { referralCode?: string }) {
         </div>
       </div>
       <div className="mt-4 text-center text-sm text-muted-foreground">
-        {referralCode ? "Cupom de parceiro com 10% de desconto aplicado. Não cumulativo com outras ofertas." : "Primeiro pagamento via Pix com 10% de desconto e confirmação automática em poucos segundos."}
+        {referralCode ? "Cupom de contador afiliado com 20% de desconto aplicado. Não cumulativo com outras ofertas." : "Primeiro pagamento via Pix com 10% de desconto e confirmação automática em poucos segundos."}
       </div>
       <div className="mx-auto mt-6 max-w-xs">
         <label htmlFor="legal-name" className="text-sm font-medium">Nome civil completo (como consta no documento)</label>
