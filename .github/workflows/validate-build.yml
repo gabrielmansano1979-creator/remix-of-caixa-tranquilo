@@ -1,6 +1,18 @@
 name: Validate build
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "supabase/migrations/**"
+      - "drizzle/migrations/**"
+      - "package.json"
+      - "package-lock.json"
+      - "vite.config.ts"
+      - "vitest.config.ts"
+      - "tsconfig.json"
+      - ".github/workflows/validate-build.yml"
   pull_request:
     branches: [main]
     paths:
