@@ -171,8 +171,9 @@ describe("Asaas recurring PIX API contract", () => {
       expect(String(fetchMock.mock.calls[0][0])).toBe("https://api-sandbox.asaas.com/v3/payments");
 
       const payload = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as Record<string, unknown>;
-      expect(payload.dueDate).toBe("2026-10-14");
-      expect(payload.dueDate >= new Date("2026-10-14T01:30:00Z").toISOString().slice(0, 10)).toBe(true);
+      const dueDate = String(payload.dueDate);
+      expect(dueDate).toBe("2026-10-14");
+      expect(dueDate >= new Date("2026-10-14T01:30:00Z").toISOString().slice(0, 10)).toBe(true);
     } finally {
       vi.useRealTimers();
     }
