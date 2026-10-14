@@ -34,6 +34,7 @@ async function recordAffiliateCommission(
     subscriptionId: string;
     paymentId: string;
     actualPaidAmountCents: number;
+    commissionPercentAtAcquisition?: number | null;
   },
 ) {
   if (!input.partnerId || input.actualPaidAmountCents <= 0) return;
@@ -45,18 +46,16 @@ async function recordAffiliateCommission(
   if (partnerError) throw partnerError;
   if (partner?.status !== "approved" || !partner.pix_type || !partner.pix_key) return;
 
-  const { data: coupon, error: couponError } = await db.from("coupons")
-    .select("commission_percent, is_active")
-    .eq("partner_id", input.partnerId)
-    .maybeSingle();
-  if (couponError) throw couponError;
-  const commissionRate = Number(coupon?.commission_percent ?? 0);
-  if (!coupon?.is_active || ![20, 25, 30].includes(commissionRate)) return;
-
-  const { error: rateError } = await db.from("subscriptions")
-    .update({ affiliate_commission_percent: commissionRate })
-    .eq("user_id", input.userId);
-  if (rateError) throw rateError;
+  let commissionRate = Number(input.commissionPercentAtAcquisition ?? 0);
+  if (![20, 25, 30].includes(commissionRate)) {
+    const { data: coupon, error: couponError } = await db.from("coupons")
+      .select("commission_percent, is_active")
+      .eq("partner_id", input.partnerId)
+      .maybeSingle();
+    if (couponError) throw couponError;
+    commissionRate = Number(coupon?.commission_percent ?? 0);
+    if (!coupon?.is_active || ![20, 25, 30].includes(commissionRate)) return;
+  }
 
   const { data: profile, error: profileError } = await db.from("profiles")
     .select("full_name, business_name, email")
@@ -351,6 +350,7 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
               subscriptionId: activeSub.id,
               paymentId: paymentIdText,
               actualPaidAmountCents,
+              commissionPercentAtAcquisition: pendingCheckout.affiliate_commission_percent,
             });
 
             const { error: auditError } = await db.from("audit_logs").insert({
@@ -372,7 +372,7 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
           } else if (asaasSubscriptionId) {
             // Every recurring charge has its own payment ID but references the same Asaas subscription.
             const { data: sub, error: subError } = await db.from("subscriptions")
-              .select("id, user_id, plan, billing_interval, affiliate_partner_id, affiliate_payment_amount_cents, asaas_subscription_id, current_period_end")
+              .select("id, user_id, plan, billing_interval, affiliate_partner_id, affiliate_commission_percent, affiliate_discount_percent, affiliate_payment_amount_cents, asaas_subscription_id, current_period_end")
               .eq("asaas_subscription_id", asaasSubscriptionId)
               .maybeSingle();
             if (subError) throw subError;
@@ -401,6 +401,7 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
               subscriptionId: renewedSub.id,
               paymentId: paymentIdText,
               actualPaidAmountCents,
+              commissionPercentAtAcquisition: sub.affiliate_commission_percent,
             });
 
             const { error: auditError } = await db.from("audit_logs").insert({
@@ -409,6 +410,37 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
               meta: { gateway: "asaas_pix", payment_id: paymentIdText, asaas_subscription_id: asaasSubscriptionId },
             });
             if (auditError) throw auditError;
+
+            // The acquisition payment and the first monthly renewal are discounted.
+            // Once the second paid invoice is confirmed, update both the recurrence and
+            // any already-created pending invoice so the third monthly charge is full price.
+            if (
+              interval === "month"
+              && sub.affiliate_partner_id
+              && Number(sub.affiliate_discount_percent ?? 0) > 0
+              && asaasSubscriptionId
+            ) {
+              const { data: cycleLogs, error: cycleLogsError } = await db.from("audit_logs")
+                .select("action, meta")
+                .eq("user_id", renewedSub.user_id)
+                .in("action", ["subscription_start", "subscription_renewal"]);
+              if (cycleLogsError) throw cycleLogsError;
+              const paidPaymentIds = new Set((cycleLogs ?? []).flatMap((log) => {
+                const meta = log.meta;
+                if (!meta || typeof meta !== "object" || Array.isArray(meta)) return [];
+                const values = meta as Record<string, unknown>;
+                if (values.asaas_subscription_id !== asaasSubscriptionId || typeof values.payment_id !== "string") return [];
+                return [values.payment_id];
+              }));
+              if (paidPaymentIds.size >= 2) {
+                const plan = getPlan(sub.plan as PlanId);
+                await asaas.updateAsaasSubscriptionAmount(asaasSubscriptionId, plan.priceMonthCents);
+                const { error: amountError } = await db.from("subscriptions")
+                  .update({ affiliate_payment_amount_cents: plan.priceMonthCents, updated_at: paidAt })
+                  .eq("id", sub.id);
+                if (amountError) throw amountError;
+              }
+            }
           } else {
             // Compatibility for a Pix issued by the previous version before pending checkouts
             // were stored separately. We still activate it and install the new recurring cycle.
@@ -472,6 +504,7 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
               subscriptionId: activeSub.id,
               paymentId: paymentIdText,
               actualPaidAmountCents,
+              commissionPercentAtAcquisition: legacySub.affiliate_commission_percent,
             });
 
             const { error: auditError } = await db.from("audit_logs").insert({
