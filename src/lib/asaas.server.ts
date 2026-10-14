@@ -165,6 +165,27 @@ export async function createOrGetPixSubscription(
  * invoices remain in Asaas. Local access can still be retained through the
  * application's current_period_end timestamp.
  */
+export async function updateAsaasSubscriptionAmount(subscriptionId: string, amountCents: number) {
+  if (!Number.isSafeInteger(amountCents) || amountCents <= 0) {
+    throw new RangeError("subscription amount must be a positive safe integer in cents");
+  }
+  await asaasFetch<{ id: string }>(`/subscriptions/${encodeURIComponent(subscriptionId)}`, {
+    method: "PUT",
+    body: JSON.stringify({ value: Number((amountCents / 100).toFixed(2)) }),
+  });
+  const pending = await asaasFetch<{ data?: Array<{ id: string; value?: number; status?: string }> }>(
+    `/payments?subscription=${encodeURIComponent(subscriptionId)}&status=PENDING&limit=100`,
+  );
+  for (const payment of pending.data ?? []) {
+    if (payment.status && payment.status !== "PENDING") continue;
+    if (Math.round(Number(payment.value ?? 0) * 100) === amountCents) continue;
+    await asaasFetch<{ id: string }>(`/payments/${encodeURIComponent(payment.id)}`, {
+      method: "PUT",
+      body: JSON.stringify({ value: Number((amountCents / 100).toFixed(2)) }),
+    });
+  }
+}
+
 export async function cancelAsaasSubscription(subscriptionId: string) {
   try {
     return await asaasFetch<{ deleted: boolean }>(`/subscriptions/${subscriptionId}`, { method: "DELETE" });
