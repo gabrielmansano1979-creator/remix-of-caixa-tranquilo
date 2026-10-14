@@ -124,6 +124,30 @@ export type Database = {
         }
         Relationships: []
       }
+      asaas_processed_payments: {
+        Row: {
+          created_at: string
+          last_error: string | null
+          payment_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          last_error?: string | null
+          payment_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          last_error?: string | null
+          payment_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       audit_logs: {
         Row: {
           action: string
@@ -327,6 +351,66 @@ export type Database = {
             referencedColumns: ["user_id"]
           },
         ]
+      }
+      pending_billing_changes: {
+        Row: {
+          affiliate_commission_percent: number | null
+          affiliate_coupon_code: string | null
+          affiliate_discount_percent: number | null
+          affiliate_partner_id: string | null
+          billing_interval: string
+          checkout_reference: string
+          created_at: string
+          customer_id: string
+          initial_amount_cents: number
+          paid_at: string | null
+          payment_id: string | null
+          plan: string
+          previous_asaas_subscription_id: string | null
+          recurring_amount_cents: number
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          affiliate_commission_percent?: number | null
+          affiliate_coupon_code?: string | null
+          affiliate_discount_percent?: number | null
+          affiliate_partner_id?: string | null
+          billing_interval: string
+          checkout_reference: string
+          created_at?: string
+          customer_id: string
+          initial_amount_cents: number
+          paid_at?: string | null
+          payment_id?: string | null
+          plan: string
+          previous_asaas_subscription_id?: string | null
+          recurring_amount_cents: number
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          affiliate_commission_percent?: number | null
+          affiliate_coupon_code?: string | null
+          affiliate_discount_percent?: number | null
+          affiliate_partner_id?: string | null
+          billing_interval?: string
+          checkout_reference?: string
+          created_at?: string
+          customer_id?: string
+          initial_amount_cents?: number
+          paid_at?: string | null
+          payment_id?: string | null
+          plan?: string
+          previous_asaas_subscription_id?: string | null
+          recurring_amount_cents?: number
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
