@@ -356,7 +356,7 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
             const { error: auditError } = await db.from("audit_logs").insert({
               user_id: activeSub.user_id,
               action: "subscription_start",
-              meta: {
+              details: {
                 plan: activeSub.plan,
                 gateway: "asaas_pix",
                 payment_id: paymentIdText,
@@ -407,7 +407,7 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
             const { error: auditError } = await db.from("audit_logs").insert({
               user_id: renewedSub.user_id,
               action: "subscription_renewal",
-              meta: { gateway: "asaas_pix", payment_id: paymentIdText, asaas_subscription_id: asaasSubscriptionId },
+              details: { gateway: "asaas_pix", payment_id: paymentIdText, asaas_subscription_id: asaasSubscriptionId },
             });
             if (auditError) throw auditError;
 
@@ -421,12 +421,12 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
               && asaasSubscriptionId
             ) {
               const { data: cycleLogs, error: cycleLogsError } = await db.from("audit_logs")
-                .select("action, meta")
+                .select("action, details")
                 .eq("user_id", renewedSub.user_id)
                 .in("action", ["subscription_start", "subscription_renewal"]);
               if (cycleLogsError) throw cycleLogsError;
               const paidPaymentIds = new Set((cycleLogs ?? []).flatMap((log) => {
-                const meta = log.meta;
+                const meta = log.details;
                 if (!meta || typeof meta !== "object" || Array.isArray(meta)) return [];
                 const values = meta as Record<string, unknown>;
                 if (values.asaas_subscription_id !== asaasSubscriptionId || typeof values.payment_id !== "string") return [];
@@ -510,7 +510,7 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
             const { error: auditError } = await db.from("audit_logs").insert({
               user_id: activeSub.user_id,
               action: "subscription_start",
-              meta: { plan: activeSub.plan, gateway: "asaas_pix_legacy", payment_id: paymentIdText, asaas_subscription_id: recurring.id },
+              details: { plan: activeSub.plan, gateway: "asaas_pix_legacy", payment_id: paymentIdText, asaas_subscription_id: recurring.id },
             });
             if (auditError) throw auditError;
           }
