@@ -88,6 +88,8 @@ async function recordAffiliateCommission(
     client_email: profile?.email ?? authResult.user?.email ?? null,
     amount: amountCents / 100,
     amount_cents: amountCents,
+    payment_amount_cents: input.actualPaidAmountCents,
+    commission_percent: commissionRate,
     status: "pending",
   }, { onConflict: "payment_id", ignoreDuplicates: true });
   if (commissionError) throw commissionError;
