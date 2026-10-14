@@ -181,13 +181,14 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
           if (couponError) throw couponError;
           if (!coupon) return { error: "O cupom de indicação é inválido ou está inativo." };
 
+          if (!coupon.partner_id) return { error: "O cupom de indicação não está disponível." };
           const { data: partner, error: partnerError } = await supabaseAdmin
             .from("partner_requests")
             .select("id, user_id, email, tax_id, status")
             .eq("id", coupon.partner_id)
             .maybeSingle();
           if (partnerError) throw partnerError;
-          if (!partner || partner.status !== "approved" || !coupon.partner_id) return { error: "O cupom de indicação não está disponível." };
+          if (!partner || partner.status !== "approved") return { error: "O cupom de indicação não está disponível." };
 
           const buyerEmail = customerEmail.trim().toLowerCase();
           const partnerEmail = (partner.email ?? "").trim().toLowerCase();
