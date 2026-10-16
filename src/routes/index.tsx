@@ -18,7 +18,7 @@ export const Route = createFileRoute('/')({
 });
 
 const money = (cents: number) =>
-  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(cents / 100);
+  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(cents / 100);
 
 const plans = [
   { name: 'Starter', priceMonth: 2900, priceYear: 29000, limit: 'Até 100 contas pendentes', features: ['Cobranças manuais pelo WhatsApp', 'Importação CSV de até 100 linhas', 'Régua padrão com 4 etapas', 'Projeção de caixa de 15 e 30 dias', 'Visão das 3 maiores exposições'], featured: false },
@@ -92,13 +92,13 @@ function IndexComponent() {
           </nav>
           <div className="hidden items-center gap-3 md:flex">
             {!loadingAuth && !sessionActive && <Button variant="ghost" onClick={() => handleNavigate('/login')} className="text-zinc-300 hover:bg-white/5 hover:text-white">Entrar</Button>}
-            <Button onClick={() => handleNavigate(sessionActive ? userRolePath : '/login')} className="rounded-xl bg-emerald-400 px-5 font-semibold text-zinc-950 shadow-lg shadow-emerald-950/30 hover:bg-emerald-300">{loadingAuth ? 'Carregando…' : ctaLabel}<ArrowRight className="ml-2 h-4 w-4" /></Button>
+            <Button onClick={() => handleNavigate(sessionActive ? userRolePath : '/cadastro')} className="rounded-xl bg-emerald-400 px-5 font-semibold text-zinc-950 shadow-lg shadow-emerald-950/30 hover:bg-emerald-300">{loadingAuth ? 'Carregando…' : ctaLabel}<ArrowRight className="ml-2 h-4 w-4" /></Button>
           </div>
           <button type="button" aria-label={mobileMenuOpen ? 'Fechar menu' : 'Abrir menu'} aria-expanded={mobileMenuOpen} onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="rounded-lg p-2 text-zinc-200 hover:bg-white/10 md:hidden">{mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}</button>
         </div>
         {mobileMenuOpen && <nav className="border-t border-white/10 px-5 py-4 md:hidden" aria-label="Menu móvel">
           {['#recursos', '#como-funciona', '#planos', '#duvidas'].map((href) => <a key={href} href={href} onClick={() => setMobileMenuOpen(false)} className="block py-3 text-sm text-zinc-300">{({ '#recursos': 'Recursos', '#como-funciona': 'Como funciona', '#planos': 'Planos', '#duvidas': 'Dúvidas' } as Record<string, string>)[href]}</a>)}
-          <Button onClick={() => handleNavigate(sessionActive ? userRolePath : '/login')} className="mt-2 w-full bg-emerald-400 font-semibold text-zinc-950 hover:bg-emerald-300">{ctaLabel}<ArrowRight className="ml-2 h-4 w-4" /></Button>
+          <Button onClick={() => handleNavigate(sessionActive ? userRolePath : '/cadastro')} className="mt-2 w-full bg-emerald-400 font-semibold text-zinc-950 hover:bg-emerald-300">{ctaLabel}<ArrowRight className="ml-2 h-4 w-4" /></Button>
         </nav>}
       </header>
 
@@ -115,7 +115,7 @@ function IndexComponent() {
               <h1 className="text-4xl font-semibold leading-[1.08] tracking-tight text-white sm:text-6xl lg:text-[4.25rem]">Seu caixa, com <span className="text-emerald-300">visão de futuro.</span></h1>
               <p className="mt-7 max-w-xl text-base leading-8 text-zinc-400 sm:text-lg">Organize contas a receber, antecipe riscos e saiba onde concentrar seus esforços — sem perder horas em planilhas dispersas.</p>
               <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-                <Button onClick={() => handleNavigate(sessionActive ? userRolePath : '/login')} className="h-12 rounded-xl bg-emerald-400 px-6 text-base font-semibold text-zinc-950 shadow-xl shadow-emerald-950/40 hover:bg-emerald-300">{ctaLabel}<ArrowRight className="ml-2 h-5 w-5" /></Button>
+                <Button onClick={() => handleNavigate(sessionActive ? userRolePath : '/cadastro')} className="h-12 rounded-xl bg-emerald-400 px-6 text-base font-semibold text-zinc-950 shadow-xl shadow-emerald-950/40 hover:bg-emerald-300">{ctaLabel}<ArrowRight className="ml-2 h-5 w-5" /></Button>
                 <a href="#recursos" className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-white/15 px-6 text-sm font-medium text-zinc-200 transition hover:border-white/30 hover:bg-white/5">Conhecer recursos</a>
               </div>
               <div className="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-sm text-zinc-400">
@@ -161,7 +161,7 @@ function IndexComponent() {
 
         <section id="como-funciona" className="scroll-mt-24 px-5 py-20 sm:px-8 sm:py-24">
           <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-2 lg:items-center">
-            <div><p className="text-xs font-bold uppercase tracking-[0.22em] text-emerald-300">Simples por design</p><h2 className="mt-4 text-3xl font-semibold tracking-tight text-white sm:text-4xl">Uma rotina financeira mais clara, passo a passo.</h2><p className="mt-5 leading-7 text-zinc-400">O Critical Cash ajuda a estruturar o trabalho; as decisões e os envios continuam sob seu controle.</p><Button onClick={() => handleNavigate(sessionActive ? userRolePath : '/login')} className="mt-7 rounded-xl bg-emerald-400 px-5 font-semibold text-zinc-950 hover:bg-emerald-300">{ctaLabel}<ArrowRight className="ml-2 h-4 w-4" /></Button></div>
+            <div><p className="text-xs font-bold uppercase tracking-[0.22em] text-emerald-300">Simples por design</p><h2 className="mt-4 text-3xl font-semibold tracking-tight text-white sm:text-4xl">Uma rotina financeira mais clara, passo a passo.</h2><p className="mt-5 leading-7 text-zinc-400">O Critical Cash ajuda a estruturar o trabalho; as decisões e os envios continuam sob seu controle.</p><Button onClick={() => handleNavigate(sessionActive ? userRolePath : '/cadastro')} className="mt-7 rounded-xl bg-emerald-400 px-5 font-semibold text-zinc-950 hover:bg-emerald-300">{ctaLabel}<ArrowRight className="ml-2 h-4 w-4" /></Button></div>
             <div className="space-y-4">
               {[{ n: '01', title: 'Organize seus recebíveis', text: 'Cadastre ou importe contas pendentes e mantenha os vencimentos em um só fluxo.' }, { n: '02', title: 'Enxergue o que vem pela frente', text: 'Use as projeções e a priorização de riscos para planejar os próximos dias.' }, { n: '03', title: 'Prepare e revise as cobranças', text: 'Edite a mensagem, abra o WhatsApp e confirme o envio por conta própria.' }].map(step => <div key={step.n} className="flex gap-5 rounded-2xl border border-white/10 bg-white/[0.025] p-5 sm:p-6"><span className="text-sm font-bold text-emerald-300">{step.n}</span><div><h3 className="font-semibold text-white">{step.title}</h3><p className="mt-2 text-sm leading-6 text-zinc-400">{step.text}</p></div></div>)}
             </div>
@@ -180,7 +180,7 @@ function IndexComponent() {
                 <div className="mt-6"><span className="text-4xl font-semibold tracking-tight text-white">{money(billingCycle === 'monthly' ? plan.priceMonth : plan.priceYear)}</span><span className="ml-2 text-sm text-zinc-500">/{billingCycle === 'monthly' ? 'mês' : 'ano'}</span></div>
                 {billingCycle === 'yearly' && <p className="mt-2 text-xs text-emerald-200">Equivalente a {money(Math.round(plan.priceYear / 12))}/mês, cobrado anualmente.</p>}
                 <div className="my-6 border-t border-white/10" /><ul className="flex-1 space-y-3">{plan.features.map(feature => <li key={feature} className="flex gap-3 text-sm leading-5 text-zinc-300"><Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />{feature}</li>)}</ul>
-                <Button onClick={() => handleNavigate(sessionActive ? userRolePath : '/login')} className={`mt-8 h-11 w-full rounded-xl font-semibold ${plan.featured ? 'bg-emerald-300 text-zinc-950 hover:bg-emerald-200' : 'border border-white/15 bg-transparent text-white hover:bg-white/5'}`}>Começar com {plan.name}<ArrowRight className="ml-2 h-4 w-4" /></Button>
+                <Button onClick={() => handleNavigate(sessionActive ? userRolePath : '/cadastro')} className={`mt-8 h-11 w-full rounded-xl font-semibold ${plan.featured ? 'bg-emerald-300 text-zinc-950 hover:bg-emerald-200' : 'border border-white/15 bg-transparent text-white hover:bg-white/5'}`}>Começar com {plan.name}<ArrowRight className="ml-2 h-4 w-4" /></Button>
               </article>)}
             </div>
             <p className="mx-auto mt-6 max-w-3xl text-center text-xs leading-5 text-zinc-500">Os valores exibidos são os preços de referência cadastrados no produto. Confirme as condições, a forma de pagamento e a cobrança final na tela de contratação antes de assinar.</p>
@@ -193,7 +193,7 @@ function IndexComponent() {
           </div>
         </section>
 
-        <section className="px-5 pb-20 sm:px-8 sm:pb-24"><div className="mx-auto flex max-w-7xl flex-col items-start justify-between gap-6 rounded-3xl border border-emerald-300/20 bg-gradient-to-br from-emerald-300/[0.10] to-teal-300/[0.025] p-7 sm:p-10 md:flex-row md:items-center"><div><h2 className="text-2xl font-semibold text-white sm:text-3xl">Dê mais clareza às suas decisões.</h2><p className="mt-3 max-w-xl text-sm leading-6 text-zinc-400">Comece organizando seus recebíveis e tenha uma visão mais prática do que precisa de atenção.</p></div><Button onClick={() => handleNavigate(sessionActive ? userRolePath : '/login')} className="h-12 shrink-0 rounded-xl bg-emerald-300 px-6 font-semibold text-zinc-950 hover:bg-emerald-200">{ctaLabel}<ArrowRight className="ml-2 h-4 w-4" /></Button></div></section>
+        <section className="px-5 pb-20 sm:px-8 sm:pb-24"><div className="mx-auto flex max-w-7xl flex-col items-start justify-between gap-6 rounded-3xl border border-emerald-300/20 bg-gradient-to-br from-emerald-300/[0.10] to-teal-300/[0.025] p-7 sm:p-10 md:flex-row md:items-center"><div><h2 className="text-2xl font-semibold text-white sm:text-3xl">Dê mais clareza às suas decisões.</h2><p className="mt-3 max-w-xl text-sm leading-6 text-zinc-400">Comece organizando seus recebíveis e tenha uma visão mais prática do que precisa de atenção.</p></div><Button onClick={() => handleNavigate(sessionActive ? userRolePath : '/cadastro')} className="h-12 shrink-0 rounded-xl bg-emerald-300 px-6 font-semibold text-zinc-950 hover:bg-emerald-200">{ctaLabel}<ArrowRight className="ml-2 h-4 w-4" /></Button></div></section>
       </main>
 
       <footer className="border-t border-white/10 bg-black/20 px-5 py-10 sm:px-8">
