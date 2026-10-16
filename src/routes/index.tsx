@@ -170,12 +170,12 @@ function IndexComponent() {
             </div>
             <div className="mt-12 grid gap-5 lg:grid-cols-3">
               {PLANS.map(plan => <article key={plan.name} className={`relative flex flex-col rounded-2xl border p-6 sm:p-7 ${plan.popular ? 'border-emerald-300/50 bg-emerald-300/[0.055] shadow-xl shadow-emerald-950/20' : 'border-white/10 bg-[#0d1310]'}`}>
-                {plan.featured && <span className="absolute right-5 top-5 rounded-full bg-emerald-300 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-zinc-950">Mais escolhido</span>}
-                <h3 className="text-lg font-semibold text-white">{plan.name}</h3><p className="mt-2 text-sm text-zinc-400">{Até {plan.limits.pendingEntries} contas pendentes}</p>
+                {plan.popular && <span className="absolute right-5 top-5 rounded-full bg-emerald-300 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-zinc-950">Mais escolhido</span>}
+                <h3 className="text-lg font-semibold text-white">{plan.name}</h3><p className="mt-2 text-sm text-zinc-400">Até {plan.limits.pendingEntries} contas pendentes</p>
                 <div className="mt-6"><span className="text-4xl font-semibold tracking-tight text-white">{money(billingCycle === 'monthly' ? plan.priceMonthCents : plan.priceYearCents)}</span><span className="ml-2 text-sm text-zinc-500">/{billingCycle === 'monthly' ? 'mês' : 'ano'}</span></div>
-                {billingCycle === 'yearly' && <p className="mt-2 text-xs text-emerald-200">Equivalente a {money(Math.round(plan.priceYear / 12))}/mês, cobrado anualmente.</p>}
+                {billingCycle === 'yearly' && <p className="mt-2 text-xs text-emerald-200">Equivalente a {money(Math.round(plan.priceYearCents / 12))}/mês, cobrado anualmente.</p>}
                 <div className="my-6 border-t border-white/10" /><ul className="flex-1 space-y-3">{plan.features.map(feature => <li key={feature} className="flex gap-3 text-sm leading-5 text-zinc-300"><Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />{feature}</li>)}</ul>
-                <Button onClick={() => handleNavigate(sessionActive ? userRolePath : '/cadastro')} className={`mt-8 h-11 w-full rounded-xl font-semibold ${plan.featured ? 'bg-emerald-300 text-zinc-950 hover:bg-emerald-200' : 'border border-white/15 bg-transparent text-white hover:bg-white/5'}`}>Começar com {plan.name}<ArrowRight className="ml-2 h-4 w-4" /></Button>
+                <Button onClick={() => handleNavigate(sessionActive ? userRolePath : '/cadastro')} className={`mt-8 h-11 w-full rounded-xl font-semibold ${plan.popular ? 'bg-emerald-300 text-zinc-950 hover:bg-emerald-200' : 'border border-white/15 bg-transparent text-white hover:bg-white/5'}`}>Começar com {plan.name}<ArrowRight className="ml-2 h-4 w-4" /></Button>
               </article>)}
             </div>
             <p className="mx-auto mt-6 max-w-3xl text-center text-xs leading-5 text-zinc-500">Os valores exibidos são os preços de referência cadastrados no produto. Confirme as condições, a forma de pagamento e a cobrança final na tela de contratação antes de assinar.</p>
