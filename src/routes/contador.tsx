@@ -240,8 +240,9 @@ function AccountantPage() {
         _full_name: form.full_name.trim(),
         _tax_id: taxId,
         _crc_number: form.crc_number.trim().toUpperCase(),
-        _pix_type: form.pix_type || undefined,
-        _pix_key: form.pix_key.trim() || undefined,
+        // The SQL RPC normalizes empty strings to NULL; send both args so PostgREST resolves the signature.
+        _pix_type: form.pix_type || "",
+        _pix_key: form.pix_key.trim(),
       });
       if (error) throw error;
       applicationSubmitted = true;
