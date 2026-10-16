@@ -90,7 +90,8 @@ export async function createPixCharge(customerId: string, amountCents: number, e
       customer: customerId,
       billingType: "PIX",
       value: Number((amountCents / 100).toFixed(2)),
-      dueDate: new Date().toISOString().slice(0, 10),
+      // Data de hoje no fuso de Brasília (nunca retroativa nem "amanhã" após 21h BRT).
+      dueDate: new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date()),
       externalReference,
       description,
     }),
