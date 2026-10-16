@@ -172,8 +172,9 @@ describe("Asaas recurring PIX API contract", () => {
 
       const payload = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as Record<string, unknown>;
       const dueDate = String(payload.dueDate);
-      expect(dueDate).toBe("2026-10-14");
-      expect(dueDate >= new Date("2026-10-14T01:30:00Z").toISOString().slice(0, 10)).toBe(true);
+      // 01:30 UTC = 22:30 do dia 13 em Brasília: o vencimento segue o dia de Brasília.
+      expect(dueDate).toBe("2026-10-13");
+      expect(dueDate >= new Date("2026-10-13T01:30:00Z").toISOString().slice(0, 10)).toBe(true);
     } finally {
       vi.useRealTimers();
     }
