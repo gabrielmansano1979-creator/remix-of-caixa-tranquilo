@@ -383,6 +383,48 @@ export type Database = {
           },
         ]
       }
+      partner_application_documents: {
+        Row: {
+          address_document_path: string
+          city: string
+          created_at: string
+          crc_document_path: string
+          identity_document_path: string
+          office_name: string | null
+          phone: string
+          state: string
+          submitted_at: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          address_document_path: string
+          city: string
+          created_at?: string
+          crc_document_path: string
+          identity_document_path: string
+          office_name?: string | null
+          phone: string
+          state: string
+          submitted_at?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          address_document_path?: string
+          city?: string
+          created_at?: string
+          crc_document_path?: string
+          identity_document_path?: string
+          office_name?: string | null
+          phone?: string
+          state?: string
+          submitted_at?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       pending_billing_changes: {
         Row: {
           affiliate_commission_percent: number | null
@@ -819,6 +861,10 @@ export type Database = {
         Returns: Json
       }
       revoke_accountant_access: { Args: never; Returns: undefined }
+      update_partner_payout: {
+        Args: { _pix_key: string; _pix_type: string }
+        Returns: undefined
+      }
       submit_partner_request: {
         Args: {
           _crc_number: string
