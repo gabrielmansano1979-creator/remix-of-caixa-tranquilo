@@ -1,10 +1,12 @@
 # Roadmap — Caixa Crítico
 
 ## Cobranças Pix (Asaas)
-- [ ] Diagnosticar falha de produção, corrigir tratamento do checkout e testar sem cobranças reais
+- [x] Diagnosticar falha de produção, corrigir tratamento do checkout e testar sem cobranças reais
 - [x] Vencimento do Pix nunca retroativo — `createPixCharge` envia a data de hoje em YYYY-MM-DD (antes subtraía 3 horas)
-- [x] Teste da regra de vencimento — seis testes aprovados no módulo Asaas
-- [ ] Alinhar esquema do banco ao código de cobrança — `pending_billing_changes`, `accountant_access.checkout_reference` e `subscriptions.asaas_subscription_id` faltam no banco conectado; aguarda autorização do dono e a decisão sobre o Supabase próprio
+- [x] Vencimento no fuso de Brasília — `createPixCharge` usa a data de America/Sao_Paulo (antes UTC virava "amanhã" após 21h); 64 testes aprovados
+- [x] Esquema de cobrança confirmado no banco ativo — `pending_billing_changes` e `subscriptions.asaas_subscription_id` existem (revalidado em 16/10)
+- [ ] Aplicar migrations de `partner_application_documents` e `update_partner_payout` + regenerar tipos — 22 erros de typecheck em `contador.tsx`/`admin/index.tsx`; aguarda autorização do dono (mudança de banco)
+- [ ] Migration corretiva do trial — a migration de 03/10 zera `trial_ends_at` no repo, mas o banco ativo tem 7 dias; risco só em ambientes novos; aguarda autorização
 
 ## Login no Supabase próprio (dygwbadhvwzajordpmst)
 - [x] Diagnóstico e levantamento somente leitura (site publicado usa backend antigo)
