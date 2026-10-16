@@ -79,23 +79,47 @@ export type Database = {
           },
         ]
       }
+      app_feedback: {
+        Row: {
+          comment: string | null
+          created_at: string
+          dismissed: boolean
+          id: string
+          rating: number | null
+          user_id: string
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string
+          dismissed?: boolean
+          id?: string
+          rating?: number | null
+          user_id?: string
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string
+          dismissed?: boolean
+          id?: string
+          rating?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       asaas_events: {
         Row: {
-          created_at: string
           id: string
-          processed_at: string | null
+          processed_at: string
           type: string | null
         }
         Insert: {
-          created_at?: string
           id: string
-          processed_at?: string | null
+          processed_at?: string
           type?: string | null
         }
         Update: {
-          created_at?: string
           id?: string
-          processed_at?: string | null
+          processed_at?: string
           type?: string | null
         }
         Relationships: []
@@ -130,21 +154,24 @@ export type Database = {
           created_at: string
           details: Json
           id: string
-          user_id: string | null
+          meta: Json
+          user_id: string
         }
         Insert: {
           action: string
           created_at?: string
           details?: Json
           id?: string
-          user_id?: string | null
+          meta?: Json
+          user_id: string
         }
         Update: {
           action?: string
           created_at?: string
           details?: Json
           id?: string
-          user_id?: string | null
+          meta?: Json
+          user_id?: string
         }
         Relationships: []
       }
@@ -155,14 +182,14 @@ export type Database = {
           client_email: string | null
           client_name: string | null
           commission_percent: number | null
-          created_at: string | null
+          created_at: string
           id: string
           paid_at: string | null
-          partner_id: string | null
+          partner_id: string
           payment_amount_cents: number | null
           payment_id: string | null
           receipt_url: string | null
-          status: string | null
+          status: string
           subscription_id: string | null
         }
         Insert: {
@@ -171,14 +198,14 @@ export type Database = {
           client_email?: string | null
           client_name?: string | null
           commission_percent?: number | null
-          created_at?: string | null
+          created_at?: string
           id?: string
           paid_at?: string | null
-          partner_id?: string | null
+          partner_id: string
           payment_amount_cents?: number | null
           payment_id?: string | null
           receipt_url?: string | null
-          status?: string | null
+          status?: string
           subscription_id?: string | null
         }
         Update: {
@@ -187,14 +214,14 @@ export type Database = {
           client_email?: string | null
           client_name?: string | null
           commission_percent?: number | null
-          created_at?: string | null
+          created_at?: string
           id?: string
           paid_at?: string | null
-          partner_id?: string | null
+          partner_id?: string
           payment_amount_cents?: number | null
           payment_id?: string | null
           receipt_url?: string | null
-          status?: string | null
+          status?: string
           subscription_id?: string | null
         }
         Relationships: [
@@ -217,39 +244,39 @@ export type Database = {
       coupons: {
         Row: {
           code: string
-          commission_percent: number | null
-          created_at: string | null
-          discount_percent: number | null
+          commission_percent: number
+          created_at: string
+          discount_percent: number
           id: string
-          is_active: boolean | null
-          partner_id: string | null
+          is_active: boolean
+          partner_id: string
           updated_at: string | null
         }
         Insert: {
           code: string
-          commission_percent?: number | null
-          created_at?: string | null
-          discount_percent?: number | null
+          commission_percent?: number
+          created_at?: string
+          discount_percent?: number
           id?: string
-          is_active?: boolean | null
-          partner_id?: string | null
+          is_active?: boolean
+          partner_id: string
           updated_at?: string | null
         }
         Update: {
           code?: string
-          commission_percent?: number | null
-          created_at?: string | null
-          discount_percent?: number | null
+          commission_percent?: number
+          created_at?: string
+          discount_percent?: number
           id?: string
-          is_active?: boolean | null
-          partner_id?: string | null
+          is_active?: boolean
+          partner_id?: string
           updated_at?: string | null
         }
         Relationships: [
           {
             foreignKeyName: "coupons_partner_id_fkey"
             columns: ["partner_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "partner_requests"
             referencedColumns: ["id"]
           },
@@ -306,101 +333,55 @@ export type Database = {
         }
         Relationships: []
       }
-      partner_application_documents: {
-        Row: {
-          address_document_path: string
-          city: string
-          crc_document_path: string
-          created_at: string
-          identity_document_path: string
-          office_name: string | null
-          phone: string
-          state: string
-          submitted_at: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          address_document_path: string
-          city: string
-          crc_document_path: string
-          created_at?: string
-          identity_document_path: string
-          office_name?: string | null
-          phone: string
-          state: string
-          submitted_at?: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          address_document_path?: string
-          city?: string
-          crc_document_path?: string
-          created_at?: string
-          identity_document_path?: string
-          office_name?: string | null
-          phone?: string
-          state?: string
-          submitted_at?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       partner_requests: {
         Row: {
-          commission_percent: number | null
-          commission_rate: number | null
-          company_name: string | null
-          crc_number: string | null
-          created_at: string | null
-          email: string
+          crc_number: string
+          created_at: string
+          email: string | null
           full_name: string
           id: string
-          phone: string | null
           pix_key: string | null
           pix_type: string | null
-          status: string | null
-          tax_id: string | null
+          status: string
+          tax_id: string
           updated_at: string | null
-          user_id: string | null
+          user_id: string
         }
         Insert: {
-          commission_percent?: number | null
-          commission_rate?: number | null
-          company_name?: string | null
-          crc_number?: string | null
-          created_at?: string | null
-          email: string
+          crc_number: string
+          created_at?: string
+          email?: string | null
           full_name: string
           id?: string
-          phone?: string | null
           pix_key?: string | null
           pix_type?: string | null
-          status?: string | null
-          tax_id?: string | null
+          status?: string
+          tax_id: string
           updated_at?: string | null
-          user_id?: string | null
+          user_id: string
         }
         Update: {
-          commission_percent?: number | null
-          commission_rate?: number | null
-          company_name?: string | null
-          crc_number?: string | null
-          created_at?: string | null
-          email?: string
+          crc_number?: string
+          created_at?: string
+          email?: string | null
           full_name?: string
           id?: string
-          phone?: string | null
           pix_key?: string | null
           pix_type?: string | null
-          status?: string | null
-          tax_id?: string | null
+          status?: string
+          tax_id?: string
           updated_at?: string | null
-          user_id?: string | null
+          user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "partner_requests_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       pending_billing_changes: {
         Row: {
@@ -465,13 +446,11 @@ export type Database = {
       profiles: {
         Row: {
           balance_date: string
-          balance_updated_at: string
           business_name: string | null
-          created_at: string | null
+          created_at: string
           cushion_cents: number
           email: string | null
           full_name: string | null
-          id: string
           initial_balance_cents: number
           notification_whatsapp: string | null
           notify_product_emails: boolean
@@ -481,19 +460,16 @@ export type Database = {
           trial_end_sent: boolean
           trial_ends_at: string
           trial_warn_sent: boolean
-          updated_at: string | null
-          user_id: string | null
+          user_id: string
           welcome_sent: boolean
         }
         Insert: {
           balance_date?: string
-          balance_updated_at?: string
           business_name?: string | null
-          created_at?: string | null
+          created_at?: string
           cushion_cents?: number
           email?: string | null
           full_name?: string | null
-          id: string
           initial_balance_cents?: number
           notification_whatsapp?: string | null
           notify_product_emails?: boolean
@@ -503,19 +479,16 @@ export type Database = {
           trial_end_sent?: boolean
           trial_ends_at?: string
           trial_warn_sent?: boolean
-          updated_at?: string | null
-          user_id?: string | null
+          user_id: string
           welcome_sent?: boolean
         }
         Update: {
           balance_date?: string
-          balance_updated_at?: string
           business_name?: string | null
-          created_at?: string | null
+          created_at?: string
           cushion_cents?: number
           email?: string | null
           full_name?: string | null
-          id?: string
           initial_balance_cents?: number
           notification_whatsapp?: string | null
           notify_product_emails?: boolean
@@ -525,8 +498,7 @@ export type Database = {
           trial_end_sent?: boolean
           trial_ends_at?: string
           trial_warn_sent?: boolean
-          updated_at?: string | null
-          user_id?: string | null
+          user_id?: string
           welcome_sent?: boolean
         }
         Relationships: []
@@ -642,21 +614,18 @@ export type Database = {
       }
       stripe_events: {
         Row: {
-          created_at: string
           id: string
-          processed_at: string | null
+          processed_at: string
           type: string
         }
         Insert: {
-          created_at?: string
           id: string
-          processed_at?: string | null
+          processed_at?: string
           type: string
         }
         Update: {
-          created_at?: string
           id?: string
-          processed_at?: string | null
+          processed_at?: string
           type?: string
         }
         Relationships: []
@@ -675,18 +644,14 @@ export type Database = {
             | Database["public"]["Enums"]["billing_interval"]
             | null
           cancel_at_period_end: boolean
-          created_at: string | null
           current_period_end: string | null
           id: string
           paid_at: string | null
-          partner_id: string | null
           plan: Database["public"]["Enums"]["plan_tier"] | null
-          plan_id: string | null
-          referral_code: string | null
-          status: string
+          status: Database["public"]["Enums"]["sub_status"]
           stripe_customer_id: string | null
           stripe_subscription_id: string | null
-          updated_at: string | null
+          updated_at: string
           user_id: string
         }
         Insert: {
@@ -702,18 +667,14 @@ export type Database = {
             | Database["public"]["Enums"]["billing_interval"]
             | null
           cancel_at_period_end?: boolean
-          created_at?: string | null
           current_period_end?: string | null
           id?: string
           paid_at?: string | null
-          partner_id?: string | null
           plan?: Database["public"]["Enums"]["plan_tier"] | null
-          plan_id?: string | null
-          referral_code?: string | null
-          status?: string
+          status?: Database["public"]["Enums"]["sub_status"]
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
-          updated_at?: string | null
+          updated_at?: string
           user_id: string
         }
         Update: {
@@ -729,31 +690,20 @@ export type Database = {
             | Database["public"]["Enums"]["billing_interval"]
             | null
           cancel_at_period_end?: boolean
-          created_at?: string | null
           current_period_end?: string | null
           id?: string
           paid_at?: string | null
-          partner_id?: string | null
           plan?: Database["public"]["Enums"]["plan_tier"] | null
-          plan_id?: string | null
-          referral_code?: string | null
-          status?: string
+          status?: Database["public"]["Enums"]["sub_status"]
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
-          updated_at?: string | null
+          updated_at?: string
           user_id?: string
         }
         Relationships: [
           {
             foreignKeyName: "subscriptions_affiliate_partner_id_fkey"
             columns: ["affiliate_partner_id"]
-            isOneToOne: false
-            referencedRelation: "partner_requests"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "subscriptions_partner_id_fkey"
-            columns: ["partner_id"]
             isOneToOne: false
             referencedRelation: "partner_requests"
             referencedColumns: ["id"]
@@ -780,29 +730,26 @@ export type Database = {
       }
       user_roles: {
         Row: {
-          created_at: string | null
           id: string
-          role: string
+          role: Database["public"]["Enums"]["app_role"]
           user_id: string
         }
         Insert: {
-          created_at?: string | null
           id?: string
-          role?: string
+          role: Database["public"]["Enums"]["app_role"]
           user_id: string
         }
         Update: {
-          created_at?: string | null
           id?: string
-          role?: string
+          role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
         }
         Relationships: []
       }
       whatsapp_webhook_events: {
         Row: {
-          delivery_id: string | null
-          event: string | null
+          delivery_id: string
+          event: string
           id: string
           payload: Json
           processed_at: string | null
@@ -810,17 +757,17 @@ export type Database = {
           received_at: string
         }
         Insert: {
-          delivery_id?: string | null
-          event?: string | null
+          delivery_id: string
+          event: string
           id?: string
-          payload?: Json
+          payload: Json
           processed_at?: string | null
           processing_error?: string | null
           received_at?: string
         }
         Update: {
-          delivery_id?: string | null
-          event?: string | null
+          delivery_id?: string
+          event?: string
           id?: string
           payload?: Json
           processed_at?: string | null
@@ -847,10 +794,6 @@ export type Database = {
         Args: { _partner_id: string; _percent: number }
         Returns: undefined
       }
-      can_manage_partner_application_documents: {
-        Args: never
-        Returns: boolean
-      }
       cash_projection: { Args: { _days?: number }; Returns: Json }
       ensure_user_setup: { Args: never; Returns: undefined }
       get_access: { Args: { _user_id: string }; Returns: Json }
@@ -866,11 +809,6 @@ export type Database = {
         Returns: boolean
       }
       import_entries: { Args: { _rows: Json }; Returns: number }
-      is_valid_cpf_cnpj: { Args: { p_value: string }; Returns: boolean }
-      is_valid_pix_key: {
-        Args: { p_key: string; p_type: string }
-        Returns: boolean
-      }
       my_access: { Args: never; Returns: Json }
       my_accountant_access: { Args: never; Returns: Json }
       my_partner_status: { Args: never; Returns: Json }
@@ -885,15 +823,26 @@ export type Database = {
         Args: {
           _crc_number: string
           _full_name: string
-          _pix_key?: string
-          _pix_type?: string
+          _pix_key: string
+          _pix_type: string
           _tax_id: string
         }
         Returns: undefined
       }
-      update_partner_payout: {
-        Args: { _pix_key: string; _pix_type: string }
-        Returns: undefined
+      top_risks: {
+        Args: { _limit?: number }
+        Returns: {
+          amount_cents: number
+          counterparty_email: string
+          counterparty_name: string
+          counterparty_whatsapp: string
+          description: string
+          due_date: string
+          entry_id: string
+          level: string
+          reason: string
+          score: number
+        }[]
       }
     }
     Enums: {
@@ -901,7 +850,6 @@ export type Database = {
       billing_interval: "month" | "year"
       entry_status: "pending" | "paid"
       entry_type: "income" | "expense"
-      partner_status: "pending" | "approved" | "rejected"
       plan_tier: "starter" | "pro" | "business"
       reminder_status: "sent" | "failed" | "bounced"
       sub_status:
@@ -1042,7 +990,6 @@ export const Constants = {
       billing_interval: ["month", "year"],
       entry_status: ["pending", "paid"],
       entry_type: ["income", "expense"],
-      partner_status: ["pending", "approved", "rejected"],
       plan_tier: ["starter", "pro", "business"],
       reminder_status: ["sent", "failed", "bounced"],
       sub_status: [
