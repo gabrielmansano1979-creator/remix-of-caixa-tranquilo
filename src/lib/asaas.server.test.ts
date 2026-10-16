@@ -178,4 +178,22 @@ describe("Asaas recurring PIX API contract", () => {
       vi.useRealTimers();
     }
   });
+
+  it("uses the Brasília calendar date late at night instead of the UTC next day", async () => {
+    vi.useFakeTimers();
+    // 23:30 em Brasília (02:30 UTC do dia seguinte): o vencimento deve ser o dia de Brasília.
+    vi.setSystemTime(new Date("2026-10-15T02:30:00Z"));
+    try {
+      fetchMock
+        .mockResolvedValueOnce(jsonResponse({ id: "pay_unit_789", value: 59 }))
+        .mockResolvedValueOnce(jsonResponse({ encodedImage: "00020126", payload: "0002012608" }));
+
+      await createPixCharge("cus_unit_123", 5900, "cc_checkout_ref_brt", "Critical Cash Pro mensal");
+
+      const payload = JSON.parse(String(fetchMock.mock.calls[0][1]?.body)) as Record<string, unknown>;
+      expect(payload.dueDate).toBe("2026-10-14");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
