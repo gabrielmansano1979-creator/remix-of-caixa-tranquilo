@@ -2,6 +2,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
+import { PLANS } from '@/config/plans';
 import {
   ArrowRight, BarChart3, Check, ChevronDown, CircleHelp, Clock3, FileSpreadsheet,
   LockKeyhole, Menu, MessageCircle, ShieldCheck, TrendingUp, Wallet, X,
@@ -19,12 +20,6 @@ export const Route = createFileRoute('/')({
 
 const money = (cents: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(cents / 100);
-
-const plans = [
-  { name: 'Starter', priceMonth: 2900, priceYear: 29000, limit: 'Até 100 contas pendentes', features: ['Cobranças manuais pelo WhatsApp', 'Importação CSV de até 100 linhas', 'Régua padrão com 4 etapas', 'Projeção de caixa de 15 e 30 dias', 'Visão das 3 maiores exposições'], featured: false },
-  { name: 'Pro', priceMonth: 5900, priceYear: 59000, limit: 'Até 500 contas pendentes', features: ['Tudo do Starter', 'Importação CSV de até 500 linhas', 'Personalize dias e etapas da régua', 'Visão das 5 maiores exposições', 'Suporte prioritário'], featured: true },
-  { name: 'Business', priceMonth: 11900, priceYear: 119000, limit: 'Até 2.000 contas pendentes', features: ['Tudo do Pro', 'Importação CSV de até 2.000 linhas', 'Personalize mensagens e etapas', 'Visão das 10 maiores exposições', 'Suporte prioritário'], featured: false },
-];
 
 function IndexComponent() {
   const [sessionActive, setSessionActive] = useState(false);
@@ -174,10 +169,10 @@ function IndexComponent() {
               <div className="mx-auto mt-7 inline-flex rounded-xl border border-white/10 bg-black/20 p-1"><button type="button" aria-pressed={billingCycle === 'monthly'} onClick={() => setBillingCycle('monthly')} className={`rounded-lg px-4 py-2 text-sm transition ${billingCycle === 'monthly' ? 'bg-emerald-300 text-zinc-950' : 'text-zinc-400 hover:text-white'}`}>Mensal</button><button type="button" aria-pressed={billingCycle === 'yearly'} onClick={() => setBillingCycle('yearly')} className={`rounded-lg px-4 py-2 text-sm transition ${billingCycle === 'yearly' ? 'bg-emerald-300 text-zinc-950' : 'text-zinc-400 hover:text-white'}`}>Anual</button></div>
             </div>
             <div className="mt-12 grid gap-5 lg:grid-cols-3">
-              {plans.map(plan => <article key={plan.name} className={`relative flex flex-col rounded-2xl border p-6 sm:p-7 ${plan.featured ? 'border-emerald-300/50 bg-emerald-300/[0.055] shadow-xl shadow-emerald-950/20' : 'border-white/10 bg-[#0d1310]'}`}>
+              {PLANS.map(plan => <article key={plan.name} className={`relative flex flex-col rounded-2xl border p-6 sm:p-7 ${plan.popular ? 'border-emerald-300/50 bg-emerald-300/[0.055] shadow-xl shadow-emerald-950/20' : 'border-white/10 bg-[#0d1310]'}`}>
                 {plan.featured && <span className="absolute right-5 top-5 rounded-full bg-emerald-300 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-zinc-950">Mais escolhido</span>}
-                <h3 className="text-lg font-semibold text-white">{plan.name}</h3><p className="mt-2 text-sm text-zinc-400">{plan.limit}</p>
-                <div className="mt-6"><span className="text-4xl font-semibold tracking-tight text-white">{money(billingCycle === 'monthly' ? plan.priceMonth : plan.priceYear)}</span><span className="ml-2 text-sm text-zinc-500">/{billingCycle === 'monthly' ? 'mês' : 'ano'}</span></div>
+                <h3 className="text-lg font-semibold text-white">{plan.name}</h3><p className="mt-2 text-sm text-zinc-400">{Até {plan.limits.pendingEntries} contas pendentes}</p>
+                <div className="mt-6"><span className="text-4xl font-semibold tracking-tight text-white">{money(billingCycle === 'monthly' ? plan.priceMonthCents : plan.priceYearCents)}</span><span className="ml-2 text-sm text-zinc-500">/{billingCycle === 'monthly' ? 'mês' : 'ano'}</span></div>
                 {billingCycle === 'yearly' && <p className="mt-2 text-xs text-emerald-200">Equivalente a {money(Math.round(plan.priceYear / 12))}/mês, cobrado anualmente.</p>}
                 <div className="my-6 border-t border-white/10" /><ul className="flex-1 space-y-3">{plan.features.map(feature => <li key={feature} className="flex gap-3 text-sm leading-5 text-zinc-300"><Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />{feature}</li>)}</ul>
                 <Button onClick={() => handleNavigate(sessionActive ? userRolePath : '/cadastro')} className={`mt-8 h-11 w-full rounded-xl font-semibold ${plan.featured ? 'bg-emerald-300 text-zinc-950 hover:bg-emerald-200' : 'border border-white/15 bg-transparent text-white hover:bg-white/5'}`}>Começar com {plan.name}<ArrowRight className="ml-2 h-4 w-4" /></Button>
