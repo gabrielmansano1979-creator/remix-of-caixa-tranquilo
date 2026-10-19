@@ -28,7 +28,7 @@ export const Route = createFileRoute("/_authenticated/_app/configuracoes")({
 const card = "rounded-2xl border bg-card p-6 shadow-[var(--shadow-soft)]";
 const bizSchema = z.object({
   business_name: z.string().trim().min(2, "Informe o nome do negócio.").max(120),
-  business_size: z.enum(["", "MEI", "ME", "EPP", "OUTRO"]),
+  business_size: z.string().refine((value) => ["", "MEI", "ME", "EPP", "OUTRO"].includes(value)),
   initial_balance_cents: z.number().int(),
   cushion_cents: z.number().int().min(0),
 });
@@ -133,7 +133,7 @@ function BusinessForm({ profile }: { profile: Tables<"profiles"> }) {
   const qc = useQueryClient();
   const { register, handleSubmit, control, formState } = useForm<z.infer<typeof bizSchema>>({
     resolver: zodResolver(bizSchema),
-    defaultValues: { business_name: profile.business_name ?? "", business_size: (["MEI", "ME", "EPP", "OUTRO"].includes(profile.business_size ?? "") ? profile.business_size : "") as "" | "MEI" | "ME" | "EPP" | "OUTRO", initial_balance_cents: profile.initial_balance_cents, cushion_cents: profile.cushion_cents },
+    defaultValues: { business_name: profile.business_name ?? "", business_size: profile.business_size ?? "", initial_balance_cents: profile.initial_balance_cents, cushion_cents: profile.cushion_cents },
   });
   const onSubmit = handleSubmit(async (v) => {
     if (!profile.user_id) return toast.error("Perfil indisponível. Atualize a página e tente novamente.");
