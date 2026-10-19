@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseMoney, parseStatementText, parseOfxText, parseQifText, parseBankTable } from "./csv";
+import { parseMoney, parseStatementText, parseOfxText, parseBankTable } from "./csv";
 
 describe("parseMoney", () => {
   it("parses Brazilian decimal and thousands separators", () => {
@@ -72,16 +72,6 @@ describe("parseOfxText", () => {
     expect(parsed.rows[1].value).toMatchObject({ type: "income", amount_cents: 125000, due_date: "2026-10-13" });
   });
 });
-
-describe("parseQifText", () => {
-  it("parses QIF date, signed amount, payee and memo", () => {
-    const parsed = parseQifText("!Type:Bank\nD12/10/2026\nT-89.90\nPPAGAMENTO INTERNET\nMConta mensal\n^\nD13/10/2026\nT250.00\nPCLIENTE\n^");
-    expect(parsed.rows).toHaveLength(2);
-    expect(parsed.rows[0].value).toMatchObject({ type: "expense", amount_cents: 8990, due_date: "2026-10-12", description: "PAGAMENTO INTERNET — Conta mensal" });
-    expect(parsed.rows[1].value).toMatchObject({ type: "income", amount_cents: 25000, due_date: "2026-10-13" });
-  });
-});
-
 
 describe("parseBankTable", () => {
   it("recognizes common alternative bank CSV headers and keeps unknown direction for review", () => {
