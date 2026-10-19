@@ -127,13 +127,13 @@ function IndexComponent() {
             <div className="mx-auto max-w-2xl text-center lg:mx-0 lg:text-left">
               <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-300/[0.07] px-3.5 py-2 text-xs font-medium tracking-wide text-emerald-200 sm:text-sm">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />
-                Gestão de caixa com visão executiva
+                Gestão de caixa com visão executiva e apoio à auditoria
               </div>
               <h1 className="text-balance text-4xl font-semibold leading-[1.1] tracking-[-0.04em] text-white sm:text-5xl lg:text-[3.65rem]">
                 Mais clareza para decidir. <span className="text-emerald-300">Mais controle sobre o caixa.</span>
               </h1>
               <p className="mx-auto mt-6 max-w-xl text-base leading-8 text-zinc-400 sm:text-lg lg:mx-0">
-                Organize a rotina financeira, importe lançamentos de arquivos CSV, Excel e extratos PDF, e transforme as informações do caixa em uma visão mais clara para a gestão do seu negócio.
+                Organize a rotina financeira, importe lançamentos de arquivos CSV, Excel e extratos PDF e mantenha as informações mais organizadas para conferência, rastreabilidade e apoio à auditoria financeira.
               </p>
               <div className="mt-9 flex flex-col justify-center gap-3 sm:flex-row lg:justify-start">
                 <Button onClick={() => handleNavigate(primaryPath)} className="h-12 rounded-xl bg-emerald-400 px-6 text-base font-semibold text-zinc-950 shadow-xl shadow-emerald-950/30 hover:bg-emerald-300">
