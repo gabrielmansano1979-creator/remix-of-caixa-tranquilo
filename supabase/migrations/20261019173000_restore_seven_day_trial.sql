@@ -1,9 +1,9 @@
--- Restore the documented seven-day trial for fresh environments.
+-- Restore the documented fourteen-day trial for fresh environments.
 -- The 2026-10-03 migration temporarily changed new profiles to no trial and
 -- marked existing trial subscriptions expired. The active database already has
 -- the corrected behavior; this migration makes a clean replay match production.
 ALTER TABLE public.profiles
-  ALTER COLUMN trial_ends_at SET DEFAULT (now() + interval '7 days');
+  ALTER COLUMN trial_ends_at SET DEFAULT (now() + interval '14 days');
 
 CREATE OR REPLACE FUNCTION public.ensure_user_setup()
 RETURNS void
@@ -19,7 +19,7 @@ BEGIN
   END IF;
 
   INSERT INTO public.profiles (id, user_id, trial_ends_at)
-  VALUES (uid, uid, now() + interval '7 days')
+  VALUES (uid, uid, now() + interval '14 days')
   ON CONFLICT (id) DO NOTHING;
 
   IF NOT EXISTS (
