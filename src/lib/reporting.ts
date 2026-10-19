@@ -127,9 +127,10 @@ export async function generateAccountingReport(options: ExportOptions, rows: Rep
     ["Saídas / despesas registradas", money(expense)],
     [income >= expense ? "Saldo líquido dos lançamentos" : "Déficit dos lançamentos", money(Math.abs(income - expense))],
   ];
-  if (options.businessSize && options.period === "anual") {
+  if (options.accountantOnly && options.period === "anual") {
+    summary.push(["Total anual de entradas registradas (não necessariamente faturamento tributável)", money(income)]);
     summary.push(["Média mensal de entradas (total anual dividido por 12)", money(income / 12)]);
-    summary.push(["Observação", "A média considera os 12 meses do ano; confirme se o histórico está completo."]);
+    summary.push(["Observação", "Média calculada sobre 12 meses; confirme a completude do histórico e classifique transferências, empréstimos e aportes antes de usar como faturamento."]);
   }
   summary.push(["Maiores destinos identificáveis pelas descrições (não são categorias contábeis)", largestExpenses.map(([description, cents]) => `${description}: ${money(cents)}`).join(" | ") || "Sem despesas registradas no período"]);
   summary.push(["Nota tributária", "Documento informativo para análise do contador. Não contém cálculo de tributos nem substitui escrituração ou declaração oficial."]);
