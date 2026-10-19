@@ -199,16 +199,19 @@ async function extractPdfText(file: File): Promise<{ text: string; ocrPages: num
     for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
       const page = await pdf.getPage(pageNumber);
       const content = await page.getTextContent();
+      const positionedItems = content.items
+        .filter((item): item is typeof item & { str: string; transform: number[] } => "str" in item && "transform" in item)
+        .map((item) => ({ text: item.str, x: item.transform[4], y: Math.round(item.transform[5] / 2) * 2 }))
+        .sort((a, b) => b.y - a.y || a.x - b.x);
       const textLines: Array<{ y: number; text: string }> = [];
-      for (const item of content.items) {
-        if (!("str" in item) || !("transform" in item)) continue;
-        const y = Math.round(item.transform[5] / 2) * 2;
+      for (const item of positionedItems) {
         const previous = textLines[textLines.length - 1];
-        if (previous && Math.abs(previous.y - y) <= 2) previous.text += ` ${item.str}`;
-        else textLines.push({ y, text: item.str });
+        if (previous && Math.abs(previous.y - item.y) <= 2) previous.text += ` ${item.text}`;
+        else textLines.push({ y: item.y, text: item.text });
       }
       let text = textLines.map((line) => line.text).join("\n");
-      if (text.replace(/\s/g, "").length < 30) {
+      const hasTransactionLikeLine = /(?:\d{2}[/. -]\d{2}[/. -]\d{4}|\d{4}-\d{2}-\d{2}).*(?:R\$\s*)?[+-]?\d[\d.,]*(?:\s*(?:CR|DB|C|D))?\s*$/im.test(text);
+      if (text.replace(/\s/g, "").length < 30 || !hasTransactionLikeLine) {
         worker ??= await createWorker("por");
         const viewport = page.getViewport({ scale: 1.8 });
         const canvas = document.createElement("canvas");
