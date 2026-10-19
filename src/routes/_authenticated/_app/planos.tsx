@@ -15,7 +15,7 @@ function PlansPage() {
       <h1 className="text-center text-2xl font-semibold tracking-tight">Escolha seu plano</h1>
       <p className="mt-1 text-center text-sm text-muted-foreground">Cancele quando quiser. Sem fidelidade.</p>
       <div className="mt-4 rounded-2xl border border-primary/25 bg-primary/5 px-4 py-3 text-center text-sm text-primary">
-        {ref ? "Cupom de parceiro aplicado: 10% de desconto sem acumular com outras ofertas." : "1ª assinatura via Pix com 20% de desconto e confirmação automática em segundos."}
+        {ref ? "Cupom de contador: 20% de desconto no primeiro pagamento anual ou nas duas primeiras mensalidades. Não cumulativo com outras ofertas." : "Sem cupom válido: 10% de desconto somente no primeiro pagamento da assinatura via Pix."}
       </div>
       <div className="mt-8"><PlanPicker referralCode={ref} /></div>
     </div>
