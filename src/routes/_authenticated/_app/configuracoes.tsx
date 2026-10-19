@@ -133,12 +133,12 @@ function BusinessForm({ profile }: { profile: Tables<"profiles"> }) {
   const qc = useQueryClient();
   const { register, handleSubmit, control, formState } = useForm<z.infer<typeof bizSchema>>({
     resolver: zodResolver(bizSchema),
-    defaultValues: { business_name: profile.business_name ?? "", business_size: (["MEI", "ME", "EPP", "OUTRO"].includes(profile.business_size ?? "") ? profile.business_size : "") as z.infer<typeof bizSchema>["business_size"], initial_balance_cents: profile.initial_balance_cents, cushion_cents: profile.cushion_cents },
+    defaultValues: { business_name: profile.business_name ?? "", business_size: (["MEI", "ME", "EPP", "OUTRO"].includes(profile.business_size ?? "") ? profile.business_size : "") as "" | "MEI" | "ME" | "EPP" | "OUTRO", initial_balance_cents: profile.initial_balance_cents, cushion_cents: profile.cushion_cents },
   });
   const onSubmit = handleSubmit(async (v) => {
     if (!profile.user_id) return toast.error("Perfil indisponível. Atualize a página e tente novamente.");
     const balChanged = v.initial_balance_cents !== profile.initial_balance_cents;
-    const profileUpdate: Database["public"]["Tables"]["profiles"]["Update"] = { business_name: v.business_name, business_size: v.business_size || null, initial_balance_cents: v.initial_balance_cents, cushion_cents: v.cushion_cents, ...(balChanged ? { balance_date: todaySP() } : {}) };
+    const profileUpdate: Database["public"]["Tables"]["profiles"]["Update"] = { business_name: v.business_name, business_size: (v.business_size || null) as "MEI" | "ME" | "EPP" | "OUTRO" | null, initial_balance_cents: v.initial_balance_cents, cushion_cents: v.cushion_cents, ...(balChanged ? { balance_date: todaySP() } : {}) };
     const { error } = await supabase.from("profiles").update(profileUpdate).eq("user_id", profile.user_id);
     if (error) return toast.error(parseDbError(error).message);
     qc.invalidateQueries({ queryKey: ["profile"] }); qc.invalidateQueries({ queryKey: ["projection"] });
