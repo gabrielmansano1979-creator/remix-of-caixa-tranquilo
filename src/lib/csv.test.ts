@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseMoney, parseStatementText } from "./csv";
+import { parseMoney, parseStatementText, parseOfxText, parseQifText } from "./csv";
 
 describe("parseMoney", () => {
   it("parses Brazilian decimal and thousands separators", () => {
@@ -48,5 +48,36 @@ describe("parseStatementText", () => {
 
     expect(parsed.rows).toHaveLength(0);
     expect(parsed.ignored).toBe(0);
+  });
+});
+
+
+describe("parseOfxText", () => {
+  it("parses OFX/QFX signed transactions and converts them to Brazilian entry types", () => {
+    const parsed = parseOfxText(`<OFX>
+<STMTTRN>
+<DTPOSTED>20261012120000
+<TRNAMT>-42.50
+<NAME>PADARIA CENTRAL
+<MEMO>COMPRA CARTAO
+</STMTTRN>
+<STMTTRN>
+<DTPOSTED>20261013120000
+<TRNAMT>1250.00
+<NAME>PIX RECEBIDO
+</STMTTRN>
+</OFX>`);
+    expect(parsed.rows).toHaveLength(2);
+    expect(parsed.rows[0].value).toMatchObject({ type: "expense", amount_cents: 4250, due_date: "2026-10-12" });
+    expect(parsed.rows[1].value).toMatchObject({ type: "income", amount_cents: 125000, due_date: "2026-10-13" });
+  });
+});
+
+describe("parseQifText", () => {
+  it("parses QIF date, signed amount, payee and memo", () => {
+    const parsed = parseQifText("!Type:Bank\\nD12/10/2026\\nT-89.90\\nPPAGAMENTO INTERNET\\nMConta mensal\\n^\\nD13/10/2026\\nT250.00\\nPCLIENTE\\n^");
+    expect(parsed.rows).toHaveLength(2);
+    expect(parsed.rows[0].value).toMatchObject({ type: "expense", amount_cents: 8990, due_date: "2026-10-12", description: "PAGAMENTO INTERNET — Conta mensal" });
+    expect(parsed.rows[1].value).toMatchObject({ type: "income", amount_cents: 25000, due_date: "2026-10-13" });
   });
 });
