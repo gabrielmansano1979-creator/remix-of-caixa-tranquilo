@@ -40,6 +40,7 @@ type PartnerRow = {
   name: string | null;
   email: string | null;
   status: string | null;
+  created_at: string;
   tax_id: string | null;
   crc_number: string | null;
   pix_type: string | null;
@@ -260,7 +261,7 @@ function AdminPage() {
       const { data, error } = await supabase
         .from("partner_application_documents")
         .select("*")
-        .order("submitted_at", { ascending: false });
+        .order("submitted_at", { ascending: true });
       if (error) throw error;
       return (data ?? []) as PartnerApplicationDocument[];
     },
@@ -571,7 +572,7 @@ function AdminPage() {
 
         <CardContent>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] text-left text-sm">
+            <table className="w-full min-w-[900px] text-left text-sm">
               <thead>
                 <tr className="border-b border-white/10 text-xs text-zinc-400">
                   {[
@@ -580,6 +581,7 @@ function AdminPage() {
                     "CPF/CNPJ e CRC",
                     "PIX para recebimento",
                     "Status",
+                    "Solicitada em",
                     "Indicações pagantes",
                     "Ações",
                   ].map((title) => (
@@ -619,6 +621,10 @@ function AdminPage() {
 
                       <td className="px-3 py-3">
                         {statusLabel(partner.status)}
+                      </td>
+
+                      <td className="px-3 py-3 whitespace-nowrap">
+                        {date(partner.created_at)}
                       </td>
 
                       <td className="num px-3 py-3">
@@ -672,7 +678,7 @@ function AdminPage() {
                   ))
                 ) : (
                   <EmptyRow
-                    colSpan={7}
+                    colSpan={8}
                     message="Nenhuma solicitação de contador encontrada."
                   />
                 )}
