@@ -82,6 +82,7 @@ export function parseCsv(text: string): { rows: CsvRow[]; headerError?: string }
 }
 
 function normalizeStatementDate(raw: string): string | null {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return parseDate(raw);
   const normalized = raw.replace(/[.-]/g, "/");
   return parseDate(normalized);
 }
