@@ -118,6 +118,19 @@ const date = (value: string | null | undefined) => {
   return parsed.toLocaleDateString("pt-BR");
 };
 
+const dateTime = (value: string | null | undefined) => {
+  if (!value) return "—";
+
+  const parsed = new Date(value);
+
+  if (Number.isNaN(parsed.getTime())) return "—";
+
+  return parsed.toLocaleString("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+  });
+};
+
 const statusLabel = (status: string | null | undefined) => {
   const labels: Record<string, string> = {
     pending: "Pendente",
@@ -546,7 +559,7 @@ function AdminPage() {
                       <td className="px-3 py-3">{item.phone}</td>
                       <td className="px-3 py-3">{item.city} / {item.state}</td>
                       <td className="px-3 py-3">{item.office_name ?? "—"}</td>
-                      <td className="px-3 py-3">{date(item.submitted_at)}</td>
+                      <td className="px-3 py-3">{dateTime(item.submitted_at)}</td>
                       <td className="px-3 py-3"><div className="flex flex-wrap gap-1">
                         <Button size="sm" variant="outline" onClick={() => void openApplicationDocument(item.crc_document_path)}><FileText className="mr-1 h-3.5 w-3.5" />CRC</Button>
                         <Button size="sm" variant="outline" onClick={() => void openApplicationDocument(item.identity_document_path)}><ExternalLink className="mr-1 h-3.5 w-3.5" />Identidade</Button>
@@ -624,7 +637,7 @@ function AdminPage() {
                       </td>
 
                       <td className="px-3 py-3 whitespace-nowrap">
-                        {date(partner.created_at)}
+                        {dateTime(partner.created_at)}
                       </td>
 
                       <td className="num px-3 py-3">
@@ -744,7 +757,7 @@ function AdminPage() {
                       </td>
 
                       <td className="px-3 py-3">
-                        {date(client.created_at)}
+                        {dateTime(client.created_at)}
                       </td>
 
                       <td className="px-3 py-3">
@@ -811,7 +824,7 @@ function AdminPage() {
                       </td>
 
                       <td className="px-3 py-3">
-                        {date(commission.created_at)}
+                        {dateTime(commission.created_at)}
                       </td>
                     </tr>
                   ))
