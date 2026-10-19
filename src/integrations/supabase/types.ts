@@ -746,6 +746,48 @@ export type Database = {
         }
         Relationships: []
       }
+      partner_application_documents: {
+        Row: {
+          address_document_path: string
+          city: string
+          crc_document_path: string
+          created_at: string
+          identity_document_path: string
+          office_name: string | null
+          phone: string
+          state: string
+          submitted_at: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          address_document_path: string
+          city: string
+          crc_document_path: string
+          created_at?: string
+          identity_document_path: string
+          office_name?: string | null
+          phone: string
+          state: string
+          submitted_at?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          address_document_path?: string
+          city?: string
+          crc_document_path?: string
+          created_at?: string
+          identity_document_path?: string
+          office_name?: string | null
+          phone?: string
+          state?: string
+          submitted_at?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       whatsapp_webhook_events: {
         Row: {
           delivery_id: string
@@ -823,12 +865,16 @@ export type Database = {
         Args: {
           _crc_number: string
           _full_name: string
-          _pix_key: string
-          _pix_type: string
+          _pix_key?: string | null
+          _pix_type?: string | null
           _tax_id: string
         }
         Returns: undefined
-      }
+      },
+      update_partner_payout: {
+        Args: { _pix_key: string; _pix_type: string }
+        Returns: undefined
+      },
       top_risks: {
         Args: { _limit?: number }
         Returns: {
