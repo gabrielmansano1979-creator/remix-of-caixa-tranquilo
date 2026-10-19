@@ -133,7 +133,7 @@ function IndexComponent() {
                 Mais clareza para decidir. <span className="text-emerald-300">Mais controle sobre o caixa.</span>
               </h1>
               <p className="mx-auto mt-6 max-w-xl text-base leading-8 text-zinc-400 sm:text-lg lg:mx-0">
-                Organize a rotina financeira, acompanhe os movimentos e transforme informações do caixa em uma visão mais clara para a gestão do seu negócio.
+                Organize a rotina financeira, importe lançamentos de arquivos CSV, Excel e extratos PDF, e transforme as informações do caixa em uma visão mais clara para a gestão do seu negócio.
               </p>
               <div className="mt-9 flex flex-col justify-center gap-3 sm:flex-row lg:justify-start">
                 <Button onClick={() => handleNavigate(primaryPath)} className="h-12 rounded-xl bg-emerald-400 px-6 text-base font-semibold text-zinc-950 shadow-xl shadow-emerald-950/30 hover:bg-emerald-300">
@@ -197,7 +197,7 @@ function IndexComponent() {
             <div className="mx-auto max-w-2xl text-center">
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-300">Recursos para a rotina</p>
               <h2 className="mt-4 text-3xl font-semibold tracking-tight text-white sm:text-4xl">O essencial para acompanhar seu caixa com mais confiança</h2>
-              <p className="mt-4 leading-7 text-zinc-400">Uma experiência pensada para apoiar a organização, a conferência e a leitura das informações financeiras do negócio.</p>
+              <p className="mt-4 leading-7 text-zinc-400">Importe dados de arquivos CSV e Excel e extratos em PDF, confira a prévia dos lançamentos e organize as informações financeiras do negócio antes de importar.</p>
             </div>
             <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {[
@@ -223,13 +223,13 @@ function IndexComponent() {
             <div className="mx-auto max-w-3xl text-center">
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-300">Planos e preços</p>
               <h2 className="mt-4 text-3xl font-semibold tracking-tight text-white sm:text-4xl">Escolha o nível de controle ideal para o seu negócio</h2>
-              <p className="mt-4 leading-7 text-zinc-400">Todos os planos incluem organização de contas a receber, cobranças manuais pelo WhatsApp, importação de dados por CSV e projeções financeiras. Os limites e as opções de personalização variam por plano.</p>
+              <p className="mt-4 leading-7 text-zinc-400">Todos os planos incluem organização de contas a receber, cobranças manuais pelo WhatsApp, importação de lançamentos por CSV, Excel e extratos PDF, além de projeções financeiras. Os limites de linhas importadas e as opções de personalização variam por plano.</p>
             </div>
             <div className="mt-12 grid gap-5 lg:grid-cols-3">
               {[
-                { name: 'Starter', price: 'R$ 29', annual: 'R$ 290', limit: 'Até 100 contas pendentes', rows: 'CSV com até 100 linhas', risks: 'Top 3 maiores riscos', detail: 'Régua padrão com 4 etapas e projeções de 15 e 30 dias.', popular: false },
-                { name: 'Pro', price: 'R$ 59', annual: 'R$ 590', limit: 'Até 500 contas pendentes', rows: 'CSV com até 500 linhas', risks: 'Top 5 maiores riscos', detail: 'Personalize os dias e ative ou desative etapas da régua de cobrança.', popular: true },
-                { name: 'Business', price: 'R$ 119', annual: 'R$ 1.190', limit: 'Até 2.000 contas pendentes', rows: 'CSV com até 2.000 linhas', risks: 'Top 10 maiores riscos', detail: 'Personalize os dias, as mensagens e as etapas da régua de cobrança.', popular: false },
+                { name: 'Starter', price: 'R$ 29', annual: 'R$ 290', limit: 'Até 100 contas pendentes', rows: 'CSV, Excel e PDF — até 100 linhas importadas', risks: 'Top 3 maiores riscos', detail: 'Régua padrão com 4 etapas e projeções de 15 e 30 dias.', popular: false },
+                { name: 'Pro', price: 'R$ 59', annual: 'R$ 590', limit: 'Até 500 contas pendentes', rows: 'CSV, Excel e PDF — até 500 linhas importadas', risks: 'Top 5 maiores riscos', detail: 'Personalize os dias e ative ou desative etapas da régua de cobrança.', popular: true },
+                { name: 'Business', price: 'R$ 119', annual: 'R$ 1.190', limit: 'Até 2.000 contas pendentes', rows: 'CSV, Excel e PDF — até 2.000 linhas importadas', risks: 'Top 10 maiores riscos', detail: 'Personalize os dias, as mensagens e as etapas da régua de cobrança.', popular: false },
               ].map((plan) => (
                 <article key={plan.name} className={'relative flex flex-col rounded-2xl border bg-[#0c100e] p-6 shadow-xl shadow-black/10 ' + (plan.popular ? 'border-emerald-300/40 ring-1 ring-emerald-300/20' : 'border-white/[0.09]')}>
                   {plan.popular && <span className="absolute -top-3 left-6 rounded-full bg-emerald-300 px-3 py-1 text-xs font-semibold text-zinc-950">Mais escolhido</span>}
@@ -322,6 +322,7 @@ function IndexComponent() {
               {[
                 { q: 'Como acesso o Critical Cash?', a: 'Clique em “Entrar ou criar conta”. Na tela de acesso, você poderá entrar com uma conta existente ou selecionar a opção de criar conta.' },
                 { q: 'O que faço se ainda não tenho cadastro?', a: 'Abra a tela de acesso e selecione “Criar Conta”. Preencha os campos solicitados e siga as instruções apresentadas pelo sistema.' },
+                { q: 'Quais formatos posso importar?', a: 'Você pode importar lançamentos a partir de arquivos CSV, planilhas Excel e extratos em PDF. O sistema apresenta uma prévia para conferência antes da importação; os limites variam conforme o plano.' },
                 { q: 'A página mostra dados financeiros reais?', a: 'Não. A ilustração desta página é apenas demonstrativa. Os dados do seu ambiente ficam disponíveis após o acesso à plataforma.' },
                 { q: 'Quais são os preços dos planos?', a: 'O Starter custa R$ 29 por mês ou R$ 290 por ano; o Pro custa R$ 59 por mês ou R$ 590 por ano; e o Business custa R$ 119 por mês ou R$ 1.190 por ano. O plano anual equivale a 10 mensalidades. Confira as condições finais no checkout.' },
                 { q: 'Como funciona o programa para contadores afiliados?', a: 'Após criar uma conta, acesse a área Contador e envie sua solicitação com os dados e documentos exigidos. Depois da aprovação, você poderá divulgar seu cupom: os clientes recebem 20% de desconto e a comissão do contador varia de 20% a 30%, de acordo com a quantidade de clientes únicos com pagamento confirmado.' },
