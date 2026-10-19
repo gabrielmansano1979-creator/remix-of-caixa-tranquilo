@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseMoney, parseStatementText, parseOfxText, parseQifText } from "./csv";
+import { parseMoney, parseStatementText, parseOfxText, parseQifText, parseBankTable } from "./csv";
 
 describe("parseMoney", () => {
   it("parses Brazilian decimal and thousands separators", () => {
@@ -79,5 +79,22 @@ describe("parseQifText", () => {
     expect(parsed.rows).toHaveLength(2);
     expect(parsed.rows[0].value).toMatchObject({ type: "expense", amount_cents: 8990, due_date: "2026-10-12", description: "PAGAMENTO INTERNET — Conta mensal" });
     expect(parsed.rows[1].value).toMatchObject({ type: "income", amount_cents: 25000, due_date: "2026-10-13" });
+  });
+});
+
+
+describe("parseBankTable", () => {
+  it("recognizes common alternative bank CSV headers and keeps unknown direction for review", () => {
+    const parsed = parseBankTable("Data;Histórico;Valor\\n12/10/2026;Compra mercado;-45,90\\n13/10/2026;Movimentação recebida;120,00");
+    expect(parsed.rows).toHaveLength(2);
+    expect(parsed.rows[0].value).toMatchObject({ type: "expense", amount_cents: 4590, due_date: "2026-10-12" });
+    expect(parsed.rows[1].value).toBeUndefined();
+    expect(parsed.rows[1].errors[0]).toContain("classifique manualmente");
+  });
+
+  it("recognizes separate debit and credit columns", () => {
+    const parsed = parseBankTable("Data;Descrição;Débito;Crédito\\n12/10/2026;Aluguel;1200,00;\\n13/10/2026;Recebimento;;3500,00");
+    expect(parsed.rows[0].value).toMatchObject({ type: "expense", amount_cents: 120000 });
+    expect(parsed.rows[1].value).toMatchObject({ type: "income", amount_cents: 350000 });
   });
 });
