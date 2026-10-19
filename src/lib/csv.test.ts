@@ -43,6 +43,18 @@ describe("parseStatementText", () => {
     expect(parsed.rows[0].raw.vencimento).toBe("2026-10-12");
   });
 
+  it("extracts the sender from an incoming PIX and the recipient from an outgoing PIX", () => {
+    const parsed = parseStatementText([
+      "10/10/2026 PIX RECEBIDO DE MARIA SILVA 1.250,00 C",
+      "11/10/2026 PIX ENVIADO PARA JOAO SOUZA 189,90 D",
+    ].join("\n"));
+
+    expect(parsed.rows[0].raw.nome).toBe("MARIA SILVA");
+    expect(parsed.rows[0].value).toMatchObject({ type: "income", counterparty_name: "MARIA SILVA" });
+    expect(parsed.rows[1].raw.nome).toBe("JOAO SOUZA");
+    expect(parsed.rows[1].value).toMatchObject({ type: "expense", counterparty_name: "JOAO SOUZA" });
+  });
+
   it("ignores statement headings without counting every heading as a failed transaction", () => {
     const parsed = parseStatementText("EXTRATO CONTA CORRENTE\nSALDO ANTERIOR\nAgência 0001");
 
