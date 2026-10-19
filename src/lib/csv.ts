@@ -24,22 +24,27 @@ function splitLine(line: string, sep: string) {
 }
 
 export function parseMoney(s: string): number | null {
-  let t = s.replace(/[R$\s]/g, "");
+  let t = s.replace(/[R$\s]/g, "").replace(/[()]/g, "");
   if (!t) return null;
-  if (t.includes(",")) t = t.replace(/\./g, "").replace(",", ".");
+  // Accept Brazilian (1.234,56) and international (1,234.56) notation.
+  if (/^[-+]?\d{1,3}(,\d{3})+\.\d{2}$/.test(t)) t = t.replace(/,/g, "");
+  else if (t.includes(",")) t = t.replace(/\./g, "").replace(",", ".");
   const n = Number(t);
   return Number.isFinite(n) && n > 0 ? Math.round(n * 100) : null;
 }
 
 export function parseDate(s: string): string | null {
-  let m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  const input = s.trim().replace(/^["']|["']$/g, "");
+  let m = input.match(/^(\d{1,2})[/. -](\d{1,2})[/. -](\d{4})(?:\s+.*)?$/);
   let iso: string | null = null;
-  if (m) iso = `${m[3]}-${m[2]}-${m[1]}`;
-  m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (m) iso = s;
+  // Extratos brasileiros normalmente usam DD/MM/AAAA; não inverter datas ambíguas automaticamente.
+  if (m) iso = `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
+  m = input.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})(?:[T\s].*)?$/);
+  if (m) iso = `${m[1]}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}`;
   if (!iso) return null;
-  const d = new Date(iso + "T12:00:00Z");
-  return isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== iso ? null : iso;
+  const [year, month, day] = iso.split("-").map(Number);
+  const d = new Date(Date.UTC(year, month - 1, day, 12));
+  return Number.isNaN(d.getTime()) || d.getUTCFullYear() !== year || d.getUTCMonth() !== month - 1 || d.getUTCDate() !== day ? null : iso;
 }
 
 import { toE164 } from "./phone";
@@ -77,48 +82,114 @@ export function parseCsv(text: string): { rows: CsvRow[]; headerError?: string }
   return { rows };
 }
 
+function normalizeStatementDate(raw: string): string | null {
+  return parseDate(raw.trim());
+}
+
+function extractTransferParties(transactionText: string): { sender: string; recipient: string } {
+  const text = transactionText.replace(/\s+/g, " ").trim();
+  const pairPatterns = [
+    /\b(?:transfer[eê]ncia|transfer|pix)\s+de\s+(.+?)\s+para\s+(.+)$/i,
+    /\b(?:from|remetente)\s*[:=-]\s*(.+?)\s+\b(?:to|destinat[aá]rio)\s*[:=-]\s*(.+)$/i,
+    /\b(?:origem)\s*[:=-]\s*(.+?)\s+\b(?:destino)\s*[:=-]\s*(.+)$/i,
+  ];
+  for (const pattern of pairPatterns) {
+    const match = text.match(pattern);
+    if (match) return {
+      sender: match[1].replace(/[.;,]+$/, "").trim().slice(0, 120),
+      recipient: match[2].replace(/[.;,]+$/, "").trim().slice(0, 120),
+    };
+  }
+  return { sender: "", recipient: "" };
+}
+
+function extractCounterparty(transactionText: string, type: "income" | "expense" | null): string {
+  const text = transactionText.replace(/\s+/g, " ").trim();
+  if (!text) return "";
+  const patterns = type === "income"
+    ? [
+        /\b(?:pix|ted|doc|transfer[eê]ncia|transfer)\s+(?:recebido|recebida|recebimento)\s+(?:de|do|da|dos|das)\s+(.+)$/i,
+        /\b(?:recebido|recebida|creditado|creditada)\s+(?:de|do|da|dos|das)\s+(.+)$/i,
+        /\b(?:remetente|pagador|ordenante|origem)\s*[:=-]\s*(.+)$/i,
+      ]
+    : [
+        /\b(?:pix|ted|doc|transfer[eê]ncia|transfer)\s+(?:enviado|enviada|feito)\s+(?:para|a|ao|à|pro|pra)\s+(.+)$/i,
+        /\b(?:enviado|enviada|transferido|transferida|pago|paga)\s+(?:para|a|ao|pro|pra)\s+(.+)$/i,
+        /\b(?:destinat[aá]rio|favorecido|benefici[aá]rio|recebedor)\s*[:=-]\s*(.+)$/i,
+      ];
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match?.[1]) return match[1].replace(/[.;,]+$/, "").trim().slice(0, 120);
+  }
+  const explicit = text.match(/\b(?:de|para|favorecido|benefici[aá]rio|remetente|destinat[aá]rio)\s*[:=-]?\s+([A-ZÀ-Ý][A-ZÀ-Ýa-zà-ÿ.' -]{2,100})$/);
+  return explicit?.[1]?.trim().slice(0, 120) ?? "";
+}
+
+function statementAmountMatch(line: string): RegExpMatchArray | null {
+  // Prefer a complete monetary token at the end of the row, optionally followed by bank debit/credit markers.
+  const pattern = /(?:R\$\s*)?([+-]?(?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d{2})?|[+-]?\d{1,3}(?:,\d{3})+\.\d{2})\s*(CR|C|DB|D)?\s*$/i;
+  return line.match(pattern);
+}
+
 export function parseStatementText(text: string): { rows: CsvRow[]; ignored: number } {
-  const lines = text.split(/\r?\n/).map((line) => line.replace(/\s+/g, " ").trim()).filter(Boolean);
-  const datePattern = /(?:^|\s)(\d{2}\/\d{2}\/\d{4}|\d{4}-\d{2}-\d{2})(?=\s|$)/;
-  const amountPattern = /(?:R\$\s*)?([+-]?(?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d{2})?)\s*(CR|C|DB|D)?\s*$/i;
+  const lines = text
+    .replace(/[\u00a0\u2007\u202f]/g, " ")
+    .split(/\r?\n/)
+    .map((line) => line.replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+  const datePattern = /(?:^|\s)(\d{2}[/. -]\d{2}[/. -]\d{4}|\d{4}-\d{2}-\d{2})(?=\s|$)/;
   const rows: CsvRow[] = [];
   let ignored = 0;
 
   for (const [index, line] of lines.entries()) {
     const dateMatch = line.match(datePattern);
-    const amountMatch = line.match(amountPattern);
+    const amountMatch = statementAmountMatch(line);
     if (!dateMatch || !amountMatch) {
-      ignored++;
+      // Ignore headings and balances, but report lines that look transaction-like and could not be parsed.
+      if (/\b(pix|ted|doc|transfer|compra|pagamento|pagto|saque|dep[oó]sito|tarifa|boleto|recebimento|cr[eé]dito|d[eé]bito)\b/i.test(line)) ignored++;
       continue;
     }
 
-    const date = parseDate(dateMatch[1]);
-    const cents = parseMoney(amountMatch[1].replace(/^[+-]/, ""));
+    const date = normalizeStatementDate(dateMatch[1]);
+    const amountToken = amountMatch[1].replace(/^[+-]/, "");
+    const cents = parseMoney(amountToken);
     if (!date || cents === null) {
       ignored++;
       continue;
     }
 
+    const direction = amountMatch[2]?.toUpperCase();
+    const negative = amountMatch[1].startsWith("-");
     const transactionText = line
       .replace(dateMatch[0], " ")
       .replace(amountMatch[0], " ")
+      .replace(/\s+/g, " ")
       .trim();
-    const direction = amountMatch[2]?.toUpperCase();
-    const negative = amountMatch[1].startsWith("-");
-    const type = negative || direction === "D" || direction === "DB"
+    const normalizedText = transactionText.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    const type = negative || direction === "D" || direction === "DB" ||
+      /\b(pagamento|pagto|debito|compra|saida|saque|retirada|tarifa|boleto pago|pix enviado|transferencia enviada)\b/.test(normalizedText)
       ? "expense"
-      : direction === "C" || direction === "CR" || amountMatch[1].startsWith("+") || /\b(receb|cr[eé]dito|dep[oó]sito|entrada)\w*/i.test(transactionText)
+      : direction === "C" || direction === "CR" || amountMatch[1].startsWith("+") ||
+        /\b(receb|credito|deposito|entrada|estorno|salario|pix recebido|transferencia recebida)\w*/.test(normalizedText)
         ? "income"
-        : /\b(pag|d[eé]bito|compra|sa[ií]da|tarifa|retirada)\w*/i.test(transactionText)
-          ? "expense"
-          : null;
-    const errors = type ? [] : ["Não foi possível identificar se o lançamento é entrada ou saída."];
+        : null;
+
+    const errors = type ? [] : ["Não foi possível identificar se o lançamento é entrada ou saída; confira e classifique manualmente."];
     const description = transactionText.slice(0, 200);
+    const parties = extractTransferParties(transactionText);
+    const inferredCounterparty = extractCounterparty(transactionText, type);
+    const counterparty = type === "income"
+      ? parties.sender || inferredCounterparty
+      : type === "expense"
+        ? parties.recipient || inferredCounterparty
+        : inferredCounterparty;
+    if (!parties.sender && type === "income") parties.sender = counterparty;
+    if (!parties.recipient && type === "expense") parties.recipient = counterparty;
     if (!description) errors.push("Descrição não identificada no documento.");
 
     const row: CsvRow = {
       line: index + 1,
-      raw: { descricao: description, valor: amountMatch[1], vencimento: dateMatch[1], tipo: type === "income" ? "entrada" : type === "expense" ? "saida" : "não identificado", nome: "" },
+      raw: { descricao: description, valor: amountToken, vencimento: dateMatch[1], tipo: type === "income" ? "entrada" : type === "expense" ? "saida" : "não identificado", nome: counterparty, remetente: parties.sender, destinatario: parties.recipient },
       errors,
     };
     if (!errors.length && type) {
@@ -127,11 +198,145 @@ export function parseStatementText(text: string): { rows: CsvRow[]; ignored: num
         description,
         amount_cents: cents,
         due_date: date,
-        counterparty_name: "",
+        counterparty_name: counterparty,
         counterparty_email: "",
         counterparty_whatsapp: "",
       };
     }
+    rows.push(row);
+  }
+  return { rows, ignored };
+}
+
+/** Parse bank-exported OFX/QFX files without relying on a specific bank's tag ordering. */
+export function parseOfxText(text: string): { rows: CsvRow[]; ignored: number } {
+  const rows: CsvRow[] = [];
+  const blocks = text.match(/<STMTTRN>[\s\S]*?<\/STMTTRN>/gi) ?? [];
+  let ignored = 0;
+
+  const tag = (block: string, name: string) => {
+    const match = block.match(new RegExp(`<${name}>([^\r\n<]*)`, "i"));
+    return match?.[1]?.trim().replace(/&amp;/gi, "&").replace(/&lt;/gi, "<").replace(/&gt;/gi, ">") ?? "";
+  };
+
+  for (const [index, block] of blocks.entries()) {
+    const posted = tag(block, "DTPOSTED").slice(0, 8);
+    const date = /^\d{8}$/.test(posted)
+      ? parseDate(`${posted.slice(0, 4)}-${posted.slice(4, 6)}-${posted.slice(6, 8)}`)
+      : null;
+    const amountRaw = tag(block, "TRNAMT").replace(/,/g, "");
+    const amountNumber = Number(amountRaw);
+    const amountCents = Number.isFinite(amountNumber) && amountNumber !== 0
+      ? Math.round(Math.abs(amountNumber) * 100)
+      : null;
+    const description = [tag(block, "NAME"), tag(block, "MEMO")].filter(Boolean).join(" — ").slice(0, 200);
+    if (!date || amountCents === null || !description) {
+      ignored++;
+      continue;
+    }
+
+    const type = amountNumber < 0 ? "expense" : "income";
+    rows.push({
+      line: index + 1,
+      raw: {
+        descricao: description,
+        valor: String(Math.abs(amountNumber)),
+        vencimento: date,
+        tipo: type === "income" ? "entrada" : "saida",
+        nome: tag(block, "NAME").slice(0, 120),
+      },
+      errors: [],
+      value: {
+        type,
+        description,
+        amount_cents: amountCents,
+        due_date: date,
+        counterparty_name: tag(block, "NAME").slice(0, 120),
+        counterparty_email: "",
+        counterparty_whatsapp: "",
+      },
+    });
+  }
+  return { rows, ignored };
+}
+
+/** Fallback for bank CSV/TXT tables whose column names differ from the app's template. */
+export function parseBankTable(text: string): { rows: CsvRow[]; headerError?: string; ignored: number } {
+  const lines = text.replace(/^\uFEFF/, "").split(/\r?\n/).filter((line) => line.trim());
+  if (lines.length < 2) return { rows: [], headerError: "A tabela não contém cabeçalho e lançamentos.", ignored: 0 };
+  const first = lines[0];
+  const candidates = [",", ";", "\t", "|"];
+  const separator = candidates.sort((a, b) => splitLine(lines[0], b).length - splitLine(lines[0], a).length)[0];
+  const header = splitLine(first, separator).map((cell) =>
+    cell.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim()
+  );
+  const dateIndex = header.findIndex((h) => /^(data|date|data lancamento|data movimento|dt lancamento|dt movimento|posting date|transaction date|data transacao|data da transacao)$/.test(h));
+  const descriptionIndex = header.findIndex((h) => /^(descricao|historico|lancamento|detalhe|memo|description|payee|beneficiario|estabelecimento|transacao|transaction|nome)$/.test(h));
+  const amountIndex = header.findIndex((h) => /^(valor|amount|quantia|montante|valor r\$|amount brl|total)$/.test(h));
+  const debitIndex = header.findIndex((h) => /^(debito|debit|saidas|saida|withdrawal|debit amount)$/.test(h));
+  const creditIndex = header.findIndex((h) => /^(credito|credit|entradas|entrada|deposit|deposito|credit amount)$/.test(h));
+  const typeIndex = header.findIndex((h) => /^(tipo|type|natureza|operacao|operation|direcao)$/.test(h));
+  const senderIndex = header.findIndex((h) => /^(remetente|pagador|ordenante|origem|sender|payer|from)$/.test(h));
+  const recipientIndex = header.findIndex((h) => /^(destinatario|favorecido|beneficiario|recebedor|payee|recipient|to)$/.test(h));
+  const counterpartyIndex = header.findIndex((h) => /^(nome|contraparte|counterparty|nome contraparte|nome favorecido|nome remetente)$/.test(h));
+  if (dateIndex < 0 || descriptionIndex < 0 || (amountIndex < 0 && debitIndex < 0 && creditIndex < 0)) {
+    return { rows: [], headerError: "Não reconheci as colunas. Preciso identificar data, descrição e valor (ou débito/crédito).", ignored: 0 };
+  }
+
+  const rows: CsvRow[] = [];
+  let ignored = 0;
+  for (const [index, line] of lines.slice(1).entries()) {
+    const cells = splitLine(line, separator);
+    const rawDate = cells[dateIndex] ?? "";
+    const date = normalizeStatementDate(rawDate);
+    const description = (cells[descriptionIndex] ?? "").slice(0, 200);
+    const debitRaw = debitIndex >= 0 ? cells[debitIndex] ?? "" : "";
+    const creditRaw = creditIndex >= 0 ? cells[creditIndex] ?? "" : "";
+    const amountRaw = amountIndex >= 0 ? cells[amountIndex] ?? "" : "";
+    const debit = parseMoney(debitRaw.replace(/^[+-]/, ""));
+    const credit = parseMoney(creditRaw.replace(/^[+-]/, ""));
+    const signedNegative = /^\s*-/.test(amountRaw) || /^\s*\\(.*\\)\s*$/.test(amountRaw);
+    const amount = amountIndex >= 0 ? parseMoney(amountRaw.replace(/^[+-]/, "").replace(/[()]/g, "")) : null;
+    const chosenAmount = debit !== null ? debit : credit !== null ? credit : amount;
+    if (!date || !description || chosenAmount === null) {
+      ignored++;
+      continue;
+    }
+    const rawType = typeIndex >= 0 ? (cells[typeIndex] ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() : "";
+    const type = debit !== null ? "expense"
+      : credit !== null ? "income"
+      : signedNegative || /debito|saida|despesa|pagamento|withdrawal|expense/.test(rawType) ? "expense"
+      : /credito|entrada|receita|deposito|recebimento|income/.test(rawType) ? "income"
+      : null;
+    const errors = type ? [] : ["A linha foi lida, mas o arquivo não informa se o valor é entrada ou saída; classifique manualmente."];
+    const explicitSender = senderIndex >= 0 ? (cells[senderIndex] ?? "").trim().slice(0, 120) : "";
+    const explicitRecipient = recipientIndex >= 0 ? (cells[recipientIndex] ?? "").trim().slice(0, 120) : "";
+    const parties = extractTransferParties(description);
+    const sender = explicitSender || parties.sender || (type === "income" ? extractCounterparty(description, type) : "");
+    const recipient = explicitRecipient || parties.recipient || (type === "expense" ? extractCounterparty(description, type) : "");
+    const explicitCounterparty = type === "income"
+      ? (sender || (counterpartyIndex >= 0 ? cells[counterpartyIndex] ?? "" : ""))
+      : type === "expense"
+        ? (recipient || (counterpartyIndex >= 0 ? cells[counterpartyIndex] ?? "" : ""))
+        : (counterpartyIndex >= 0 ? cells[counterpartyIndex] ?? "" : "");
+    const counterparty = explicitCounterparty.trim().slice(0, 120);
+    const row: CsvRow = {
+      line: index + 2,
+      raw: {
+        descricao: description,
+        valor: String(chosenAmount / 100),
+        vencimento: rawDate,
+        tipo: type === "income" ? "entrada" : type === "expense" ? "saida" : "não identificado",
+        nome: counterparty,
+        remetente: sender,
+        destinatario: recipient,
+      },
+      errors,
+    };
+    if (type) row.value = {
+      type, description, amount_cents: chosenAmount, due_date: date,
+      counterparty_name: counterparty, counterparty_email: "", counterparty_whatsapp: "",
+    };
     rows.push(row);
   }
   return { rows, ignored };

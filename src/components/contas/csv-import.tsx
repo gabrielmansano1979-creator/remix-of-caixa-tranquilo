@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { AlertCircle, CheckCircle2, Download, Upload } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { accessQuery, parseDbError, type LimitKind } from "@/lib/app-data";
-import { CSV_TEMPLATE, parseCsv, parseStatementText, type CsvRow } from "@/lib/csv";
+import { CSV_TEMPLATE, parseCsv, parseBankTable, parseStatementText, parseOfxText, type CsvRow } from "@/lib/csv";
 import { formatBRL, formatDate } from "@/lib/format";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -24,8 +24,8 @@ export function CsvImportDialog({ open, onOpenChange, onLimit }: { open: boolean
     if (!f) return;
     if (f.size > 20_000_000) return setFileErr("Arquivo muito grande (máx. 20 MB).");
     const extension = "." + (f.name.split(".").pop()?.toLowerCase() ?? "");
-    if (![".csv", ".xlsx", ".pdf"].includes(extension)) {
-      setFileErr("Formato não suportado. Envie somente PDF, CSV ou Excel (.xlsx).");
+    if (![".csv", ".xlsx", ".pdf", ".ofx"].includes(extension)) {
+      setFileErr("Formato não suportado. Envie somente CSV, Excel (.xlsx), PDF ou OFX.");
       setRows(null);
       return;
     }
@@ -35,9 +35,17 @@ export function CsvImportDialog({ open, onOpenChange, onLimit }: { open: boolean
     try {
       const extension = f.name.split(".").pop()?.toLowerCase();
       if (extension === "csv") {
-        const parsed = parseCsv(await f.text());
-        if (parsed.headerError) throw new Error(parsed.headerError);
-        setRows(parsed.rows);
+        const text = await f.text();
+        const parsed = parseCsv(text);
+        if (!parsed.headerError) {
+          setRows(parsed.rows);
+          return;
+        }
+        const bankParsed = parseBankTable(text);
+        if (bankParsed.headerError) throw new Error(bankParsed.headerError);
+        if (!bankParsed.rows.length) throw new Error("O CSV foi lido, mas não contém lançamentos reconhecíveis.");
+        setRows(bankParsed.rows);
+        if (bankParsed.ignored) setFileWarning(`${bankParsed.ignored} linha(s) foram ignoradas por não conterem data, descrição e valor válidos.`);
         return;
       }
       if (extension === "xlsx") {
@@ -53,7 +61,9 @@ export function CsvImportDialog({ open, onOpenChange, onLimit }: { open: boolean
             });
             rows.push(values.map((value) => `"${value.replace(/"/g, '""')}"`).join(","));
           });
-          return parseCsv(rows.join("\n"));
+          const csvText = rows.join("\n");
+          const parsed = parseCsv(csvText);
+          return parsed.headerError ? parseBankTable(csvText) : parsed;
         });
         const usableSheets = parsedSheets.filter((parsed) => !parsed.headerError);
         if (!usableSheets.length) throw new Error(parsedSheets[0]?.headerError ?? "Nenhuma aba contém as colunas de lançamentos esperadas.");
@@ -62,6 +72,13 @@ export function CsvImportDialog({ open, onOpenChange, onLimit }: { open: boolean
         setRows(combined.map((row, index) => ({ ...row, line: index + 2 })));
         const skippedSheets = parsedSheets.length - usableSheets.length;
         if (skippedSheets) setFileWarning(`${skippedSheets} aba(s) sem as colunas de lançamentos esperadas foram ignoradas.`);
+        return;
+      }
+      if (extension === "ofx") {
+        const parsed = parseOfxText(await f.text());
+        if (!parsed.rows.length) throw new Error("Não foram encontradas transações reconhecíveis no arquivo OFX.");
+        setRows(parsed.rows);
+        if (parsed.ignored) setFileWarning(`${parsed.ignored} transação(ões) do arquivo não puderam ser interpretadas.`);
         return;
       }
       if (extension === "pdf") {
@@ -73,7 +90,7 @@ export function CsvImportDialog({ open, onOpenChange, onLimit }: { open: boolean
         if (extracted.ocrPages) setFileWarning((current) => `${current ? `${current} ` : ""}${extracted.ocrPages} página(s) precisaram de OCR. Confira cada valor com o PDF original.`);
         return;
       }
-      throw new Error("Formato não suportado. Envie somente PDF, CSV ou Excel (.xlsx).");
+      throw new Error("Formato não suportado. Envie um dos formatos indicados na tela.");
     } catch (error) {
       setFileErr(error instanceof Error ? error.message : "Não foi possível ler o arquivo.");
       setRows(null);
@@ -112,15 +129,15 @@ export function CsvImportDialog({ open, onOpenChange, onLimit }: { open: boolean
       <DialogContent className="max-h-[92vh] overflow-y-auto rounded-2xl sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Importar lançamentos</DialogTitle>
-          <DialogDescription>Selecione CSV, Excel ou extrato PDF (com leitura OCR quando necessário). Confira a prévia antes de importar até {maxRows} linhas.</DialogDescription>
+          <DialogDescription>Importe somente CSV, Excel (.xlsx), PDF ou OFX. PDFs digitalizados podem usar OCR. Confira a prévia antes de importar até {maxRows} linhas.</DialogDescription>
         </DialogHeader>
         {!rows ? (
           <div className="space-y-4">
             <label className="flex cursor-pointer flex-col items-center gap-2 rounded-2xl border-2 border-dashed p-8 text-center hover:border-primary focus-within:border-primary">
               <Upload className="h-8 w-8 text-primary" />
-              <span className="font-medium">Escolher arquivo CSV, Excel ou PDF</span>
-              <span className="text-xs text-muted-foreground">Planilhas: colunas descricao, valor, vencimento, tipo e nome. PDFs passam por revisão antes de gravar.</span>
-              <input type="file" accept=".csv,.xlsx,.pdf,text/csv,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="sr-only" onChange={(e) => onFile(e.target.files?.[0])} />
+              <span className="font-medium">Escolher arquivo financeiro</span>
+              <span className="text-xs text-muted-foreground">Formatos aceitos: CSV, XLSX, PDF e OFX. CSV/XLSX de bancos podem usar nomes de colunas diferentes. Confira tudo antes de gravar.</span>
+              <input type="file" accept=".csv,.xlsx,.pdf,.ofx,text/csv,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="sr-only" onChange={(e) => onFile(e.target.files?.[0])} />
             </label>
             {fileErr && <p className="flex items-center gap-2 rounded-xl bg-danger/10 p-3 text-sm text-danger" role="alert"><AlertCircle className="h-4 w-4" />{fileErr}</p>}
             {fileWarning && <p className="flex items-center gap-2 rounded-xl bg-warning/10 p-3 text-sm text-warning" role="status"><AlertCircle className="h-4 w-4" />{fileWarning}</p>}
@@ -139,7 +156,7 @@ export function CsvImportDialog({ open, onOpenChange, onLimit }: { open: boolean
             <div className="max-h-80 overflow-auto rounded-xl border">
               <table className="w-full text-sm">
                 <thead className="sticky top-0 bg-muted text-left text-xs text-muted-foreground">
-                  <tr><th className="p-2">Linha</th><th className="p-2">Descrição</th><th className="p-2">Valor</th><th className="p-2">Venc.</th><th className="p-2">Situação</th></tr>
+                  <tr><th className="p-2">Linha</th><th className="p-2">Descrição</th><th className="p-2">Valor</th><th className="p-2">Data</th><th className="p-2">Quem enviou</th><th className="p-2">Quem recebeu</th><th className="p-2">Situação</th></tr>
                 </thead>
                 <tbody>
                   {rows.map((r) => (
@@ -148,6 +165,8 @@ export function CsvImportDialog({ open, onOpenChange, onLimit }: { open: boolean
                       <td className="p-2">{r.raw.descricao || "—"}</td>
                       <td className="p-2 num">{r.value ? formatBRL(r.value.amount_cents) : r.raw.valor}</td>
                       <td className="p-2 num">{r.value ? formatDate(r.value.due_date) : r.raw.vencimento}</td>
+                      <td className="p-2">{r.raw.remetente || "Não identificado"}</td>
+                      <td className="p-2">{r.raw.destinatario || "Não identificado"}</td>
                       <td className="p-2">
                         {r.errors.length
                           ? <span className="flex items-start gap-1 text-danger"><AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />{r.errors.join("; ")}</span>
@@ -185,6 +204,7 @@ function excelCellToString(value: unknown): string {
   return "";
 }
 
+
 async function extractPdfText(file: File): Promise<{ text: string; ocrPages: number }> {
   const pdfjs = await import("pdfjs-dist");
   const { createWorker } = await import("tesseract.js");
@@ -199,16 +219,19 @@ async function extractPdfText(file: File): Promise<{ text: string; ocrPages: num
     for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
       const page = await pdf.getPage(pageNumber);
       const content = await page.getTextContent();
+      const positionedItems = content.items
+        .filter((item): item is typeof item & { str: string; transform: number[] } => "str" in item && "transform" in item)
+        .map((item) => ({ text: item.str, x: item.transform[4], y: Math.round(item.transform[5] / 2) * 2 }))
+        .sort((a, b) => b.y - a.y || a.x - b.x);
       const textLines: Array<{ y: number; text: string }> = [];
-      for (const item of content.items) {
-        if (!("str" in item) || !("transform" in item)) continue;
-        const y = Math.round(item.transform[5] / 2) * 2;
+      for (const item of positionedItems) {
         const previous = textLines[textLines.length - 1];
-        if (previous && Math.abs(previous.y - y) <= 2) previous.text += ` ${item.str}`;
-        else textLines.push({ y, text: item.str });
+        if (previous && Math.abs(previous.y - item.y) <= 2) previous.text += ` ${item.text}`;
+        else textLines.push({ y: item.y, text: item.text });
       }
       let text = textLines.map((line) => line.text).join("\n");
-      if (text.replace(/\s/g, "").length < 30) {
+      const hasTransactionLikeLine = /(?:\d{2}[/. -]\d{2}[/. -]\d{4}|\d{4}-\d{2}-\d{2}).*(?:R\$\s*)?[+-]?\d[\d.,]*(?:\s*(?:CR|DB|C|D))?\s*$/im.test(text);
+      if (text.replace(/\s/g, "").length < 30 || !hasTransactionLikeLine) {
         worker ??= await createWorker("por");
         const viewport = page.getViewport({ scale: 1.8 });
         const canvas = document.createElement("canvas");
