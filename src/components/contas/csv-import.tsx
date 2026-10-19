@@ -156,7 +156,7 @@ export function CsvImportDialog({ open, onOpenChange, onLimit }: { open: boolean
             <div className="max-h-80 overflow-auto rounded-xl border">
               <table className="w-full text-sm">
                 <thead className="sticky top-0 bg-muted text-left text-xs text-muted-foreground">
-                  <tr><th className="p-2">Linha</th><th className="p-2">Descrição</th><th className="p-2">Valor</th><th className="p-2">Data</th><th className="p-2">Remetente / destinatário</th><th className="p-2">Situação</th></tr>
+                  <tr><th className="p-2">Linha</th><th className="p-2">Descrição</th><th className="p-2">Valor</th><th className="p-2">Data</th><th className="p-2">Quem enviou</th><th className="p-2">Quem recebeu</th><th className="p-2">Situação</th></tr>
                 </thead>
                 <tbody>
                   {rows.map((r) => (
@@ -165,9 +165,8 @@ export function CsvImportDialog({ open, onOpenChange, onLimit }: { open: boolean
                       <td className="p-2">{r.raw.descricao || "—"}</td>
                       <td className="p-2 num">{r.value ? formatBRL(r.value.amount_cents) : r.raw.valor}</td>
                       <td className="p-2 num">{r.value ? formatDate(r.value.due_date) : r.raw.vencimento}</td>
-                      <td className="p-2">
-                        {r.raw.nome ? <><span className="block text-xs text-muted-foreground">{r.raw.tipo === "entrada" ? "Remetente" : r.raw.tipo === "saida" ? "Destinatário" : "Contraparte"}</span>{r.raw.nome}</> : "Não identificado"}
-                      </td>
+                      <td className="p-2">{r.raw.remetente || "Não identificado"}</td>
+                      <td className="p-2">{r.raw.destinatario || "Não identificado"}</td>
                       <td className="p-2">
                         {r.errors.length
                           ? <span className="flex items-start gap-1 text-danger"><AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />{r.errors.join("; ")}</span>
