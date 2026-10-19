@@ -81,6 +81,8 @@ function IndexComponent() {
 
           <nav className="hidden items-center gap-8 md:flex" aria-label="Navegação principal">
             <a href="#recursos" className="text-sm text-zinc-400 transition hover:text-white">Recursos</a>
+            <a href="#planos" className="text-sm text-zinc-400 transition hover:text-white">Planos</a>
+            <a href="#contadores" className="text-sm text-zinc-400 transition hover:text-white">Contadores afiliados</a>
             <a href="#como-funciona" className="text-sm text-zinc-400 transition hover:text-white">Como funciona</a>
             <a href="#duvidas" className="text-sm text-zinc-400 transition hover:text-white">Dúvidas</a>
           </nav>
@@ -103,6 +105,8 @@ function IndexComponent() {
           <nav className="border-t border-white/10 px-5 py-4 md:hidden" aria-label="Navegação móvel">
             <div className="mx-auto flex max-w-7xl flex-col gap-4">
               <a href="#recursos" onClick={() => setMobileMenuOpen(false)} className="py-1 text-sm text-zinc-300">Recursos</a>
+              <a href="#planos" onClick={() => setMobileMenuOpen(false)} className="py-1 text-sm text-zinc-300">Planos e preços</a>
+              <a href="#contadores" onClick={() => setMobileMenuOpen(false)} className="py-1 text-sm text-zinc-300">Contadores afiliados</a>
               <a href="#como-funciona" onClick={() => setMobileMenuOpen(false)} className="py-1 text-sm text-zinc-300">Como funciona</a>
               <a href="#duvidas" onClick={() => setMobileMenuOpen(false)} className="py-1 text-sm text-zinc-300">Dúvidas</a>
               <Button onClick={() => handleNavigate(primaryPath)} className="w-full rounded-xl bg-emerald-400 font-semibold text-zinc-950 hover:bg-emerald-300">Acessar plataforma <ArrowRight className="ml-2 h-4 w-4" /></Button>
@@ -214,6 +218,75 @@ function IndexComponent() {
           </div>
         </section>
 
+        <section id="planos" className="scroll-mt-24 border-y border-white/[0.07] bg-white/[0.02] px-5 py-20 sm:px-8 sm:py-24">
+          <div className="mx-auto max-w-7xl">
+            <div className="mx-auto max-w-3xl text-center">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-300">Planos e preços</p>
+              <h2 className="mt-4 text-3xl font-semibold tracking-tight text-white sm:text-4xl">Escolha o nível de controle ideal para o seu negócio</h2>
+              <p className="mt-4 leading-7 text-zinc-400">Todos os planos incluem organização de contas a receber, cobranças manuais pelo WhatsApp, importação de dados por CSV e projeções financeiras. Os limites e as opções de personalização variam por plano.</p>
+            </div>
+            <div className="mt-12 grid gap-5 lg:grid-cols-3">
+              {[
+                { name: 'Starter', price: 'R$ 29', annual: 'R$ 290', limit: 'Até 100 contas pendentes', rows: 'CSV com até 100 linhas', risks: 'Top 3 maiores riscos', detail: 'Régua padrão com 4 etapas e projeções de 15 e 30 dias.', popular: false },
+                { name: 'Pro', price: 'R$ 59', annual: 'R$ 590', limit: 'Até 500 contas pendentes', rows: 'CSV com até 500 linhas', risks: 'Top 5 maiores riscos', detail: 'Personalize os dias e ative ou desative etapas da régua de cobrança.', popular: true },
+                { name: 'Business', price: 'R$ 119', annual: 'R$ 1.190', limit: 'Até 2.000 contas pendentes', rows: 'CSV com até 2.000 linhas', risks: 'Top 10 maiores riscos', detail: 'Personalize os dias, as mensagens e as etapas da régua de cobrança.', popular: false },
+              ].map((plan) => (
+                <article key={plan.name} className={'relative flex flex-col rounded-2xl border bg-[#0c100e] p-6 shadow-xl shadow-black/10 ' + (plan.popular ? 'border-emerald-300/40 ring-1 ring-emerald-300/20' : 'border-white/[0.09]')}>
+                  {plan.popular && <span className="absolute -top-3 left-6 rounded-full bg-emerald-300 px-3 py-1 text-xs font-semibold text-zinc-950">Mais escolhido</span>}
+                  <h3 className="text-xl font-semibold text-white">{plan.name}</h3>
+                  <p className="mt-4"><span className="text-4xl font-semibold tracking-tight text-white">{plan.price}</span><span className="text-sm text-zinc-400">/mês</span></p>
+                  <p className="mt-1 text-sm text-zinc-400">ou <span className="font-semibold text-emerald-200">{plan.annual}/ano</span> <span className="text-zinc-500">(2 meses grátis)</span></p>
+                  <div className="my-6 h-px bg-white/[0.08]" />
+                  <ul className="space-y-3 text-sm leading-6 text-zinc-300">
+                    {[plan.limit, 'Cobranças manuais pelo WhatsApp', plan.rows, plan.detail, 'Projeções de 15 e 30 dias', plan.risks, plan.name === 'Starter' ? 'Suporte padrão' : 'Suporte prioritário'].map((feature) => (
+                      <li key={feature} className="flex gap-2"><CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-emerald-300" /><span>{feature}</span></li>
+                    ))}
+                  </ul>
+                  <Button onClick={() => handleNavigate(primaryPath)} className={'mt-7 h-11 w-full rounded-xl font-semibold ' + (plan.popular ? 'bg-emerald-400 text-zinc-950 hover:bg-emerald-300' : 'bg-white/[0.08] text-white hover:bg-white/[0.13]')}>
+                    Começar com {plan.name}<ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </article>
+              ))}
+            </div>
+            <p className="mx-auto mt-6 max-w-3xl text-center text-xs leading-6 text-zinc-500">Valores em reais. No plano anual, o total equivale a 10 mensalidades. O primeiro pagamento via Pix pode ter 10% de desconto; cupons de contador afiliado oferecem 20% de desconto e não são cumulativos com outras ofertas. As condições exibidas no checkout prevalecem.</p>
+          </div>
+        </section>
+
+        <section id="contadores" className="scroll-mt-24 px-5 py-20 sm:px-8 sm:py-24">
+          <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-300">Programa para contadores</p>
+              <h2 className="mt-4 text-3xl font-semibold tracking-tight text-white sm:text-4xl">Indique o Critical Cash aos seus clientes e receba comissões</h2>
+              <p className="mt-5 leading-7 text-zinc-400">Contadores e escritórios contábeis podem se candidatar ao programa de afiliados, compartilhar seu cupom e ajudar clientes a organizar o contas a receber, as cobranças e a visão de caixa.</p>
+              <Button onClick={() => handleNavigate('/login')} className="mt-7 h-12 rounded-xl bg-emerald-400 px-6 font-semibold text-zinc-950 hover:bg-emerald-300">
+                Quero ser contador afiliado<ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+              <p className="mt-3 text-xs leading-5 text-zinc-500">Entre ou crie sua conta e, depois, acesse a área Contador para enviar sua solicitação. A participação depende de aprovação e validação cadastral.</p>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <article className="rounded-2xl border border-white/[0.09] bg-white/[0.025] p-6">
+                <span className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-200">Benefício para o cliente</span>
+                <p className="mt-3 text-4xl font-semibold text-white">20% <span className="text-base font-medium text-zinc-400">OFF</span></p>
+                <p className="mt-3 text-sm leading-6 text-zinc-400">O cupom do contador oferece 20% de desconto conforme as regras do programa, sem acumular com outras ofertas.</p>
+              </article>
+              <article className="rounded-2xl border border-white/[0.09] bg-white/[0.025] p-6">
+                <span className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-200">Comissão por faixa</span>
+                <p className="mt-3 text-4xl font-semibold text-white">20–30%</p>
+                <p className="mt-3 text-sm leading-6 text-zinc-400">A comissão é calculada sobre o valor efetivamente recebido, após descontos, conforme os pagamentos confirmados dos clientes indicados.</p>
+              </article>
+              <article className="rounded-2xl border border-white/[0.09] bg-white/[0.025] p-6 sm:col-span-2">
+                <h3 className="font-semibold text-white">Como evolui a comissão</h3>
+                <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-xl border border-white/[0.08] bg-black/20 p-4"><p className="text-2xl font-semibold text-emerald-200">20%</p><p className="mt-1 text-sm text-zinc-400">De 1 a 5 clientes com pagamento confirmado</p></div>
+                  <div className="rounded-xl border border-white/[0.08] bg-black/20 p-4"><p className="text-2xl font-semibold text-emerald-200">25%</p><p className="mt-1 text-sm text-zinc-400">De 6 a 15 clientes com pagamento confirmado</p></div>
+                  <div className="rounded-xl border border-white/[0.08] bg-black/20 p-4"><p className="text-2xl font-semibold text-emerald-200">30%</p><p className="mt-1 text-sm text-zinc-400">A partir de 16 clientes com pagamento confirmado</p></div>
+                </div>
+                <p className="mt-4 text-xs leading-5 text-zinc-500">As faixas são recalculadas automaticamente conforme o total de clientes únicos com pagamento confirmado. Saques e comissões ficam sujeitos às regras do programa, à aprovação do cadastro e à validação dos dados de recebimento.</p>
+              </article>
+            </div>
+          </div>
+        </section>
+
         <section id="como-funciona" className="scroll-mt-24 border-y border-white/[0.07] bg-white/[0.02] px-5 py-20 sm:px-8 sm:py-24">
           <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
             <div>
@@ -250,7 +323,8 @@ function IndexComponent() {
                 { q: 'Como acesso o Critical Cash?', a: 'Clique em “Entrar ou criar conta”. Na tela de acesso, você poderá entrar com uma conta existente ou selecionar a opção de criar conta.' },
                 { q: 'O que faço se ainda não tenho cadastro?', a: 'Abra a tela de acesso e selecione “Criar Conta”. Preencha os campos solicitados e siga as instruções apresentadas pelo sistema.' },
                 { q: 'A página mostra dados financeiros reais?', a: 'Não. A ilustração desta página é apenas demonstrativa. Os dados do seu ambiente ficam disponíveis após o acesso à plataforma.' },
-                { q: 'Onde consulto planos, valores e condições?', a: 'Consulte as condições apresentadas nos canais oficiais do produto antes de contratar. Esta página não exibe valores para evitar apresentar preços ou condições desatualizados.' },
+                { q: 'Quais são os preços dos planos?', a: 'O Starter custa R$ 29 por mês ou R$ 290 por ano; o Pro custa R$ 59 por mês ou R$ 590 por ano; e o Business custa R$ 119 por mês ou R$ 1.190 por ano. O plano anual equivale a 10 mensalidades. Confira as condições finais no checkout.' },
+                { q: 'Como funciona o programa para contadores afiliados?', a: 'Após criar uma conta, acesse a área Contador e envie sua solicitação com os dados e documentos exigidos. Depois da aprovação, você poderá divulgar seu cupom: os clientes recebem 20% de desconto e a comissão do contador varia de 20% a 30%, de acordo com a quantidade de clientes únicos com pagamento confirmado.' },
               ].map((item) => (
                 <details key={item.q} className="group py-5">
                   <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-left font-medium text-zinc-200 marker:content-none">
