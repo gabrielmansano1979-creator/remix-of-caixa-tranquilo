@@ -734,7 +734,14 @@ function AdminPage() {
 
               <tbody>
                 {clients.length ? (
-                  clients.map((client, index) => (
+                  [...clients]
+                    .sort((a, b) => {
+                      const byCreatedAt =
+                        new Date(b.created_at).getTime() -
+                        new Date(a.created_at).getTime();
+                      return byCreatedAt || b.user_id.localeCompare(a.user_id);
+                    })
+                    .map((client, index) => (
                     <tr
                       key={`${client.user_id}:${client.partner_id}:${index}`}
                       className="border-b border-white/5 last:border-0"
