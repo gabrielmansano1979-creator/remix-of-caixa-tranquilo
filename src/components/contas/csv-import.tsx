@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { AlertCircle, CheckCircle2, Download, Upload } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { accessQuery, parseDbError, type LimitKind } from "@/lib/app-data";
-import { CSV_TEMPLATE, parseCsv, parseStatementText, parseOfxText, parseQifText, type CsvRow } from "@/lib/csv";
+import { CSV_TEMPLATE, parseCsv, parseBankTable, parseStatementText, parseOfxText, parseQifText, type CsvRow } from "@/lib/csv";
 import { formatBRL, formatDate } from "@/lib/format";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -35,9 +35,17 @@ export function CsvImportDialog({ open, onOpenChange, onLimit }: { open: boolean
     try {
       const extension = f.name.split(".").pop()?.toLowerCase();
       if (extension === "csv") {
-        const parsed = parseCsv(await f.text());
-        if (parsed.headerError) throw new Error(parsed.headerError);
-        setRows(parsed.rows);
+        const text = await f.text();
+        const parsed = parseCsv(text);
+        if (!parsed.headerError) {
+          setRows(parsed.rows);
+          return;
+        }
+        const bankParsed = parseBankTable(text);
+        if (bankParsed.headerError) throw new Error(bankParsed.headerError);
+        if (!bankParsed.rows.length) throw new Error("O CSV foi lido, mas não contém lançamentos reconhecíveis.");
+        setRows(bankParsed.rows);
+        if (bankParsed.ignored) setFileWarning(`${bankParsed.ignored} linha(s) foram ignoradas por não conterem data, descrição e valor válidos.`);
         return;
       }
       if (extension === "xlsx") {
@@ -53,7 +61,9 @@ export function CsvImportDialog({ open, onOpenChange, onLimit }: { open: boolean
             });
             rows.push(values.map((value) => `"${value.replace(/"/g, '""')}"`).join(","));
           });
-          return parseCsv(rows.join("\n"));
+          const csvText = rows.join("\n");
+          const parsed = parseCsv(csvText);
+          return parsed.headerError ? parseBankTable(csvText) : parsed;
         });
         const usableSheets = parsedSheets.filter((parsed) => !parsed.headerError);
         if (!usableSheets.length) throw new Error(parsedSheets[0]?.headerError ?? "Nenhuma aba contém as colunas de lançamentos esperadas.");
@@ -149,7 +159,7 @@ export function CsvImportDialog({ open, onOpenChange, onLimit }: { open: boolean
             <label className="flex cursor-pointer flex-col items-center gap-2 rounded-2xl border-2 border-dashed p-8 text-center hover:border-primary focus-within:border-primary">
               <Upload className="h-8 w-8 text-primary" />
               <span className="font-medium">Escolher arquivo financeiro</span>
-              <span className="text-xs text-muted-foreground">Formatos: CSV, XLSX, PDF, OFX, QFX, QIF, TXT, PNG, JPG, WebP e TIFF. Confira tudo antes de gravar.</span>
+              <span className="text-xs text-muted-foreground">Formatos: CSV, XLSX, PDF, OFX, QFX, QIF, TXT, PNG, JPG, WebP e TIFF. CSV/XLSX de bancos podem usar nomes de colunas diferentes. Confira tudo antes de gravar.</span>
               <input type="file" accept=".csv,.xlsx,.pdf,.ofx,.qfx,.qif,.txt,.png,.jpg,.jpeg,.webp,.tif,.tiff,text/csv,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,image/*,text/plain" className="sr-only" onChange={(e) => onFile(e.target.files?.[0])} />
             </label>
             {fileErr && <p className="flex items-center gap-2 rounded-xl bg-danger/10 p-3 text-sm text-danger" role="alert"><AlertCircle className="h-4 w-4" />{fileErr}</p>}
