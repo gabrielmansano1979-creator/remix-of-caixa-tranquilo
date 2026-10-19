@@ -50,9 +50,20 @@ describe("parseStatementText", () => {
     ].join("\n"));
 
     expect(parsed.rows[0].raw.nome).toBe("MARIA SILVA");
+    expect(parsed.rows[0].raw.remetente).toBe("MARIA SILVA");
+    expect(parsed.rows[0].raw.destinatario).toBe("");
     expect(parsed.rows[0].value).toMatchObject({ type: "income", counterparty_name: "MARIA SILVA" });
     expect(parsed.rows[1].raw.nome).toBe("JOAO SOUZA");
+    expect(parsed.rows[1].raw.remetente).toBe("");
+    expect(parsed.rows[1].raw.destinatario).toBe("JOAO SOUZA");
     expect(parsed.rows[1].value).toMatchObject({ type: "expense", counterparty_name: "JOAO SOUZA" });
+  });
+
+  it("extracts both parties when a transfer description names sender and recipient", () => {
+    const parsed = parseStatementText("12/10/2026 TRANSFERENCIA DE MARIA SILVA PARA JOAO SOUZA 500,00 D");
+    expect(parsed.rows[0].raw.remetente).toBe("MARIA SILVA");
+    expect(parsed.rows[0].raw.destinatario).toBe("JOAO SOUZA");
+    expect(parsed.rows[0].raw.nome).toBe("JOAO SOUZA");
   });
 
   it("ignores statement headings without counting every heading as a failed transaction", () => {
