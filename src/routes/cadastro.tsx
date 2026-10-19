@@ -139,7 +139,8 @@ function SignupPage() {
         </>
       }
     >
-      <GoogleButton label="Cadastrar com Google" />
+      {!contador_convite && <GoogleButton label="Cadastrar com Google" />}
+      {contador_convite && <p className="rounded-xl border border-primary/20 bg-primary/5 p-3 text-sm text-muted-foreground">Convite contábil identificado. Para vincular a empresa ao contador que enviou o convite, conclua o cadastro por e-mail nesta página.</p>}
       <Divider />
       <form onSubmit={onSubmit} noValidate className="space-y-4">
         {(
