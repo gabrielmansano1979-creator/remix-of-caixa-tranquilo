@@ -874,7 +874,7 @@ export type Database = {
       update_partner_payout: {
         Args: { _pix_key: string; _pix_type: string }
         Returns: undefined
-      }
+      },
       top_risks: {
         Args: { _limit?: number }
         Returns: {
