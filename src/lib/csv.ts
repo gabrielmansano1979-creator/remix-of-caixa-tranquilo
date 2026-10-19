@@ -160,3 +160,55 @@ export function parseStatementText(text: string): { rows: CsvRow[]; ignored: num
   }
   return { rows, ignored };
 }
+
+/** Parse bank-exported OFX/QFX files without relying on a specific bank's tag ordering. */
+export function parseOfxText(text: string): { rows: CsvRow[]; ignored: number } {
+  const rows: CsvRow[] = [];
+  const blocks = text.match(/<STMTTRN>[\\s\\S]*?<\\/STMTTRN>/gi) ?? [];
+  let ignored = 0;
+
+  const tag = (block: string, name: string) => {
+    const match = block.match(new RegExp(`<${name}>([^\\r\\n<]*)`, "i"));
+    return match?.[1]?.trim().replace(/&amp;/gi, "&").replace(/&lt;/gi, "<").replace(/&gt;/gi, ">") ?? "";
+  };
+
+  for (const [index, block] of blocks.entries()) {
+    const posted = tag(block, "DTPOSTED").slice(0, 8);
+    const date = /^\\d{8}$/.test(posted)
+      ? parseDate(`${posted.slice(0, 4)}-${posted.slice(4, 6)}-${posted.slice(6, 8)}`)
+      : null;
+    const amountRaw = tag(block, "TRNAMT").replace(/,/g, "");
+    const amountNumber = Number(amountRaw);
+    const amountCents = Number.isFinite(amountNumber) && amountNumber !== 0
+      ? Math.round(Math.abs(amountNumber) * 100)
+      : null;
+    const description = [tag(block, "NAME"), tag(block, "MEMO")].filter(Boolean).join(" — ").slice(0, 200);
+    if (!date || amountCents === null || !description) {
+      ignored++;
+      continue;
+    }
+
+    const type = amountNumber < 0 ? "expense" : "income";
+    rows.push({
+      line: index + 1,
+      raw: {
+        descricao: description,
+        valor: String(Math.abs(amountNumber)),
+        vencimento: date,
+        tipo: type === "income" ? "entrada" : "saida",
+        nome: tag(block, "NAME").slice(0, 120),
+      },
+      errors: [],
+      value: {
+        type,
+        description,
+        amount_cents: amountCents,
+        due_date: date,
+        counterparty_name: tag(block, "NAME").slice(0, 120),
+        counterparty_email: "",
+        counterparty_whatsapp: "",
+      },
+    });
+  }
+  return { rows, ignored };
+}
