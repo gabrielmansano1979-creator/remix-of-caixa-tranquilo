@@ -90,6 +90,8 @@ export type ExportOptions = {
   format: ReportFormat;
   channel: ReportChannel;
   companyName: string;
+  businessSize?: string | null;
+  accountantOnly?: boolean;
   accountantName: string;
   accountantWhatsapp: string;
   year?: number;
@@ -112,6 +114,27 @@ export async function generateAccountingReport(options: ExportOptions, rows: Rep
     new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100);
   const fileName = `relatorio-${safeCompany.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "-")}-${options.period}`;
 
+  const expenseByDescription = new Map<string, number>();
+  rows.filter((row) => row.type === "Despesa").forEach((row) => {
+    const description = String(row.description ?? "Despesa sem descrição").trim() || "Despesa sem descrição";
+    expenseByDescription.set(description, (expenseByDescription.get(description) ?? 0) + Number(row.amount_cents ?? 0));
+  });
+  const largestExpenses = [...expenseByDescription.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const summary: Array<[string, string | number]> = [
+    ["Período", label],
+    ...(options.businessSize ? [["Porte empresarial declarado", options.businessSize] as [string, string]] : []),
+    ["Entradas / receitas registradas", money(income)],
+    ["Saídas / despesas registradas", money(expense)],
+    [income >= expense ? "Saldo líquido dos lançamentos" : "Déficit dos lançamentos", money(Math.abs(income - expense))],
+  ];
+  if (options.accountantOnly && options.period === "anual") {
+    summary.push(["Total anual de entradas registradas (não necessariamente faturamento tributável)", money(income)]);
+    summary.push(["Média mensal de entradas (total anual dividido por 12)", money(income / 12)]);
+    summary.push(["Observação", "Média calculada sobre 12 meses; confirme a completude do histórico e classifique transferências, empréstimos e aportes antes de usar como faturamento."]);
+  }
+  summary.push(["Maiores destinos identificáveis pelas descrições (não são categorias contábeis)", largestExpenses.map(([description, cents]) => `${description}: ${money(cents)}`).join(" | ") || "Sem despesas registradas no período"]);
+  summary.push(["Nota tributária", "Documento informativo para análise do contador. Não contém cálculo de tributos nem substitui escrituração ou declaração oficial."]);
+
   await exportReport({
     title: `Relatório financeiro — ${safeCompany}`,
     fileName,
@@ -124,12 +147,7 @@ export async function generateAccountingReport(options: ExportOptions, rows: Rep
       { key: "status", label: "Status" },
     ],
     rows: rows.map((row) => ({ ...row, amount: money(Number(row.amount_cents ?? 0)) })),
-    summary: [
-      ["Período", label],
-      ["Receitas", money(income)],
-      ["Despesas", money(expense)],
-      [income >= expense ? "Saldo" : "Déficit", money(Math.abs(income - expense))],
-    ],
+    summary,
   });
 
   if (options.channel === "whatsapp") {

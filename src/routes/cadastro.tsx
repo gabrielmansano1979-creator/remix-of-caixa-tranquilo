@@ -20,7 +20,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/cadastro")({
-  validateSearch: z.object({ ref: z.string().trim().max(80).optional() }),
+  validateSearch: z.object({ ref: z.string().trim().max(80).optional(), contador_convite: z.string().uuid().optional() }),
   head: () => ({
     meta: [
       { title: "Criar conta | Critical Cash" },
@@ -56,7 +56,7 @@ const schema = z
   });
 
 function SignupPage() {
-  const { ref } = Route.useSearch();
+  const { ref, contador_convite } = Route.useSearch();
   const navigate = useNavigate();
   const [sentTo, setSentTo] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -78,6 +78,7 @@ function SignupPage() {
             business_name: v.business_name,
             notification_whatsapp: toE164(v.whatsapp),
             ...(ref ? { affiliate_referral_code: ref.toUpperCase() } : {}),
+            ...(contador_convite ? { accountant_business_invite_token: contador_convite } : {}),
           },
         },
       });
@@ -138,7 +139,8 @@ function SignupPage() {
         </>
       }
     >
-      <GoogleButton label="Cadastrar com Google" />
+      {!contador_convite && <GoogleButton label="Cadastrar com Google" />}
+      {contador_convite && <p className="rounded-xl border border-primary/20 bg-primary/5 p-3 text-sm text-muted-foreground">Convite contábil identificado. Para vincular a empresa ao contador que enviou o convite, conclua o cadastro por e-mail nesta página.</p>}
       <Divider />
       <form onSubmit={onSubmit} noValidate className="space-y-4">
         {(

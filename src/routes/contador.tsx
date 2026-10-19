@@ -15,6 +15,7 @@ import {
   getPartnerAffiliateLinks,
   type ReportFormat,
 } from "@/lib/reporting";
+import { AccountantClientManagement } from "@/components/accountant-client-management";
 
 export const Route = createFileRoute("/contador")({
   beforeLoad: async () => {
@@ -528,6 +529,7 @@ function AccountantPage() {
           Acompanhe indicações, comissões e os clientes que autorizaram acesso aos seus relatórios.
         </p>
       </header>
+      <AccountantClientManagement />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Metric
           label="Comissões acumuladas"

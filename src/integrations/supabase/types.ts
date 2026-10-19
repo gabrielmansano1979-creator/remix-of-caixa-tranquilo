@@ -447,6 +447,7 @@ export type Database = {
         Row: {
           balance_date: string
           business_name: string | null
+          business_size: string | null
           created_at: string
           cushion_cents: number
           email: string | null
@@ -466,6 +467,7 @@ export type Database = {
         Insert: {
           balance_date?: string
           business_name?: string | null
+          business_size?: string | null
           created_at?: string
           cushion_cents?: number
           email?: string | null
@@ -485,6 +487,7 @@ export type Database = {
         Update: {
           balance_date?: string
           business_name?: string | null
+          business_size?: string | null
           created_at?: string
           cushion_cents?: number
           email?: string | null
@@ -853,6 +856,12 @@ export type Database = {
       import_entries: { Args: { _rows: Json }; Returns: number }
       my_access: { Args: never; Returns: Json }
       my_accountant_access: { Args: never; Returns: Json }
+      my_accountant_client_invite: { Args: never; Returns: Json }
+      my_accountant_financial_audit: { Args: never; Returns: Json }
+      my_accountant_portal_invites: { Args: never; Returns: Json }
+      request_accountant_access: { Args: { _token: string }; Returns: undefined }
+      decide_accountant_access: { Args: { _request_id: string; _approve: boolean }; Returns: undefined }
+      accept_accountant_business_invite: { Args: { _token: string }; Returns: undefined }
       my_partner_status: { Args: never; Returns: Json }
       my_usage: { Args: never; Returns: Json }
       partner_dashboard: { Args: never; Returns: Json }
