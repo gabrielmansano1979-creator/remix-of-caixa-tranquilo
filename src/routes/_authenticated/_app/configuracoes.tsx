@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { Camera, Download, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
-import { parseDbError, profileQuery, todaySP } from "@/lib/app-data";
+import { accessQuery, parseDbError, profileQuery, todaySP } from "@/lib/app-data";
 import { deleteAccount } from "@/lib/account.functions";
 import { MoneyInput } from "@/components/money-input";
 import { FieldError, PasswordStrength, passwordScore, translateAuthError } from "@/components/auth-shell";
@@ -34,22 +34,25 @@ const bizSchema = z.object({
 
 function ConfigPage() {
   const { data: profile, isLoading, isError, refetch } = useQuery(profileQuery);
+  const { data: access } = useQuery(accessQuery);
+  const canWrite = access?.can_write === true;
   if (isLoading) return <div className="space-y-4"><Skeleton className="h-72 rounded-2xl" /><Skeleton className="h-40 rounded-2xl" /></div>;
   if (isError || !profile) return <div className={card}><p className="text-danger">Não foi possível carregar.</p><Button variant="outline" className="mt-3 h-11" onClick={() => refetch()}>Tentar novamente</Button></div>;
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold tracking-tight">Configurações</h1>
-      <ProfilePhoto />
-      <BusinessForm profile={profile} />
+      {!canWrite && <div className="rounded-xl border border-warning/30 bg-warning/10 p-4 text-sm" role="status">Seu teste grátis terminou. As informações ficam disponíveis para consulta, mas a edição está bloqueada até a contratação de um plano.</div>}
+      <ProfilePhoto canWrite={canWrite} />
+      <BusinessForm profile={profile} canWrite={canWrite} />
       <Notifications />
-      <AccountantSharing />
+      <AccountantSharing canWrite={canWrite} />
       <PasswordForm />
       <DataSection />
     </div>
   );
 }
 
-function ProfilePhoto() {
+function ProfilePhoto({ canWrite }: { canWrite: boolean }) {
   const [avatarUrl, setAvatarUrl] = useState("");
   const [busy, setBusy] = useState(false);
   const [userId, setUserId] = useState("");
@@ -68,6 +71,7 @@ function ProfilePhoto() {
 
   const uploadPhoto = async (file?: File) => {
     if (!file) return;
+    if (!canWrite) return toast.error("Sua conta está em modo somente leitura. Assine um plano para editar.");
     setInputKey((value) => value + 1);
     if (file.type !== "image/jpeg" || !/\.jpe?g$/i.test(file.name)) {
       toast.error("Formato inválido. Escolha uma foto JPEG (.jpg ou .jpeg).");
@@ -118,17 +122,17 @@ function ProfilePhoto() {
           {avatarUrl ? <img src={avatarUrl} alt="Foto de perfil atual" className="h-full w-full object-cover" /> : <Camera className="h-8 w-8 text-muted-foreground" />}
         </div>
         <label className="inline-flex cursor-pointer">
-          <span className="inline-flex h-11 items-center rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground">
+          <span aria-disabled={!canWrite} className={`inline-flex h-11 items-center rounded-xl px-4 text-sm font-medium ${canWrite ? "bg-primary text-primary-foreground" : "cursor-not-allowed bg-muted text-muted-foreground"}`}>
             {busy ? "Enviando..." : "Escolher foto JPEG"}
           </span>
-          <input key={inputKey} type="file" accept=".jpg,.jpeg,image/jpeg" disabled={busy} className="sr-only" onChange={(event) => void uploadPhoto(event.target.files?.[0])} />
+          <input key={inputKey} type="file" accept=".jpg,.jpeg,image/jpeg" disabled={!canWrite || busy} className="sr-only" onChange={(event) => void uploadPhoto(event.target.files?.[0])} />
         </label>
       </div>
     </section>
   );
 }
 
-function BusinessForm({ profile }: { profile: Tables<"profiles"> }) {
+function BusinessForm({ profile, canWrite }: { profile: Tables<"profiles">; canWrite: boolean }) {
   const qc = useQueryClient();
   const { register, handleSubmit, control, formState } = useForm<z.infer<typeof bizSchema>>({
     resolver: zodResolver(bizSchema),
@@ -144,6 +148,7 @@ function BusinessForm({ profile }: { profile: Tables<"profiles"> }) {
   });
   return (
     <form onSubmit={onSubmit} noValidate className={`${card} space-y-4`}>
+      <fieldset disabled={!canWrite} className="min-w-0 space-y-4">
       <h2 className="font-semibold">Perfil e negócio</h2>
       <div className="grid gap-4 sm:grid-cols-2">
         <div><Label htmlFor="bn">Nome do negócio</Label><Input id="bn" className="mt-1.5 h-11 rounded-xl" {...register("business_name")} /><FieldError msg={formState.errors.business_name?.message} /></div>
@@ -155,7 +160,8 @@ function BusinessForm({ profile }: { profile: Tables<"profiles"> }) {
         </div>
         <div><Label htmlFor="tz">Fuso horário</Label><Input id="tz" value="America/Sao_Paulo (Brasília)" disabled className="mt-1.5 h-11 rounded-xl" /></div>
       </div>
-      <Button type="submit" className="h-11 rounded-xl" disabled={formState.isSubmitting}>Salvar</Button>
+      <Button type="submit" className="h-11 rounded-xl" disabled={!canWrite || formState.isSubmitting}>Salvar</Button>
+      </fieldset>
     </form>
   );
 }
@@ -169,7 +175,7 @@ function Notifications() {
   );
 }
 
-function AccountantSharing() {
+function AccountantSharing({ canWrite }: { canWrite: boolean }) {
   const queryClient = useQueryClient();
   const { data, isLoading } = useQuery({
     queryKey: ["accountant-sharing"],
@@ -221,8 +227,8 @@ function AccountantSharing() {
         </div>
       ) : (
         <div className="flex flex-col gap-3 sm:flex-row">
-          <Input aria-label="Cupom do contador" maxLength={80} value={code} onChange={(event) => setCode(event.target.value)} placeholder="Informe o cupom exclusivo do contador" />
-          <Button type="button" disabled={busy} onClick={grant}>Conceder acesso</Button>
+          <Input aria-label="Cupom do contador" maxLength={80} disabled={!canWrite} value={code} onChange={(event) => setCode(event.target.value)} placeholder="Informe o cupom exclusivo do contador" />
+          <Button type="button" disabled={!canWrite || busy} onClick={grant}>Conceder acesso</Button>
         </div>
       )}
     </section>
