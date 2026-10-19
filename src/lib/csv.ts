@@ -245,3 +245,69 @@ export function parseQifText(text: string): { rows: CsvRow[]; ignored: number } 
   }
   return { rows, ignored };
 }
+
+/** Fallback for bank CSV/TXT tables whose column names differ from the app's template. */
+export function parseBankTable(text: string): { rows: CsvRow[]; headerError?: string; ignored: number } {
+  const lines = text.replace(/^\\uFEFF/, "").split(/\\r?\\n/).filter((line) => line.trim());
+  if (lines.length < 2) return { rows: [], headerError: "A tabela não contém cabeçalho e lançamentos.", ignored: 0 };
+  const first = lines[0];
+  const candidates = [",", ";", "\\t", "|"];
+  const separator = candidates.sort((a, b) => splitLine(lines[0], b).length - splitLine(lines[0], a).length)[0];
+  const header = splitLine(first, separator).map((cell) =>
+    cell.toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").replace(/[_-]+/g, " ").replace(/\\s+/g, " ").trim()
+  );
+  const dateIndex = header.findIndex((h) => /^(data|date|data lancamento|data movimento|dt lancamento|dt movimento|posting date|transaction date|data transacao|data da transacao)$/.test(h));
+  const descriptionIndex = header.findIndex((h) => /^(descricao|historico|lancamento|detalhe|memo|description|payee|beneficiario|estabelecimento|transacao|transaction|nome)$/.test(h));
+  const amountIndex = header.findIndex((h) => /^(valor|amount|quantia|montante|valor r\$|amount brl|total)$/.test(h));
+  const debitIndex = header.findIndex((h) => /^(debito|debit|saidas|saida|withdrawal|debit amount)$/.test(h));
+  const creditIndex = header.findIndex((h) => /^(credito|credit|entradas|entrada|deposit|deposito|credit amount)$/.test(h));
+  const typeIndex = header.findIndex((h) => /^(tipo|type|natureza|operacao|operation|direcao)$/.test(h));
+  if (dateIndex < 0 || descriptionIndex < 0 || (amountIndex < 0 && debitIndex < 0 && creditIndex < 0)) {
+    return { rows: [], headerError: "Não reconheci as colunas. Preciso identificar data, descrição e valor (ou débito/crédito).", ignored: 0 };
+  }
+
+  const rows: CsvRow[] = [];
+  let ignored = 0;
+  for (const [index, line] of lines.slice(1).entries()) {
+    const cells = splitLine(line, separator);
+    const rawDate = cells[dateIndex] ?? "";
+    const date = normalizeStatementDate(rawDate);
+    const description = (cells[descriptionIndex] ?? "").slice(0, 200);
+    const debitRaw = debitIndex >= 0 ? cells[debitIndex] ?? "" : "";
+    const creditRaw = creditIndex >= 0 ? cells[creditIndex] ?? "" : "";
+    const amountRaw = amountIndex >= 0 ? cells[amountIndex] ?? "" : "";
+    const debit = parseMoney(debitRaw.replace(/^[+-]/, ""));
+    const credit = parseMoney(creditRaw.replace(/^[+-]/, ""));
+    const signedNegative = /^\\s*-/.test(amountRaw) || /^\\s*\\(.*\\)\\s*$/.test(amountRaw);
+    const amount = amountIndex >= 0 ? parseMoney(amountRaw.replace(/^[+-]/, "").replace(/[()]/g, "")) : null;
+    const chosenAmount = debit !== null ? debit : credit !== null ? credit : amount;
+    if (!date || !description || chosenAmount === null) {
+      ignored++;
+      continue;
+    }
+    const rawType = typeIndex >= 0 ? (cells[typeIndex] ?? "").normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toLowerCase() : "";
+    const type = debit !== null ? "expense"
+      : credit !== null ? "income"
+      : signedNegative || /debito|saida|despesa|pagamento|withdrawal|expense/.test(rawType) ? "expense"
+      : /credito|entrada|receita|deposito|recebimento|income/.test(rawType) ? "income"
+      : null;
+    const errors = type ? [] : ["A linha foi lida, mas o arquivo não informa se o valor é entrada ou saída; classifique manualmente."];
+    const row: CsvRow = {
+      line: index + 2,
+      raw: {
+        descricao: description,
+        valor: String(chosenAmount / 100),
+        vencimento: rawDate,
+        tipo: type === "income" ? "entrada" : type === "expense" ? "saida" : "não identificado",
+        nome: "",
+      },
+      errors,
+    };
+    if (type) row.value = {
+      type, description, amount_cents: chosenAmount, due_date: date,
+      counterparty_name: "", counterparty_email: "", counterparty_whatsapp: "",
+    };
+    rows.push(row);
+  }
+  return { rows, ignored };
+}
