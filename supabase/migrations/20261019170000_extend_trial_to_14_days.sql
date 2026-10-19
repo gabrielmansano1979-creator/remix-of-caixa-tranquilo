@@ -65,5 +65,47 @@ BEGIN
 END
 $function$;
 
+ 
+-- Expired trials and non-paying accounts can read profile data but cannot edit
+-- any business/profile fields. Service-role operations remain available to trusted
+-- billing and administrative workflows.
+CREATE OR REPLACE FUNCTION public.enforce_profile_finance_entitlement()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO public, pg_temp
+AS $function$
+DECLARE
+  uid uuid := auth.uid();
+  access_data jsonb;
+BEGIN
+  IF COALESCE(auth.role(), '') = 'service_role'
+     OR session_user IN ('postgres', 'supabase_admin') THEN
+    RETURN NEW;
+  END IF;
+
+  IF uid IS NULL OR OLD.user_id IS DISTINCT FROM uid OR NEW.user_id IS DISTINCT FROM uid THEN
+    RAISE EXCEPTION 'not authenticated or profile owner mismatch' USING ERRCODE = '42501';
+  END IF;
+
+  IF to_jsonb(NEW) IS DISTINCT FROM to_jsonb(OLD) THEN
+    access_data := public.my_access();
+    IF NOT COALESCE((access_data->>'can_write')::boolean, false) THEN
+      RAISE EXCEPTION 'READ_ONLY' USING ERRCODE = '42501';
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$function$;
+
+DROP TRIGGER IF EXISTS profiles_enforce_finance_entitlement ON public.profiles;
+CREATE TRIGGER profiles_enforce_finance_entitlement
+BEFORE UPDATE ON public.profiles
+FOR EACH ROW EXECUTE FUNCTION public.enforce_profile_finance_entitlement();
+
+REVOKE ALL ON FUNCTION public.enforce_profile_finance_entitlement() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.enforce_profile_finance_entitlement() TO authenticated, service_role;
+
 NOTIFY pgrst, 'reload schema';
 COMMIT;
