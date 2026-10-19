@@ -24,9 +24,9 @@ export const Route = createFileRoute("/cadastro")({
   head: () => ({
     meta: [
       { title: "Criar conta | Critical Cash" },
-      { name: "description", content: "Teste o Critical Cash por 7 dias sem cartão de crédito." },
+      { name: "description", content: "Teste o Critical Cash por 14 dias sem cartão de crédito." },
       { property: "og:title", content: "Criar conta — Critical Cash" },
-      { property: "og:description", content: "Comece seu teste de 7 dias sem cartão." },
+      { property: "og:description", content: "Comece seu teste de 14 dias sem cartão." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -127,7 +127,7 @@ function SignupPage() {
 
   return (
     <AuthShell
-      title="Comece seus 7 dias grátis"
+      title="Comece seus 14 dias grátis"
       subtitle="Passo 1 de 3 · Sem cartão de crédito."
       footer={
         <>
@@ -200,7 +200,7 @@ function SignupPage() {
           </p>
         )}
         <Button type="submit" className="h-11 w-full rounded-xl" disabled={formState.isSubmitting}>
-          {formState.isSubmitting ? "Criando conta…" : "Testar Grátis por 7 Dias"}
+          {formState.isSubmitting ? "Criando conta…" : "Testar Grátis por 14 Dias"}
         </Button>
         <p className="text-center text-xs text-muted-foreground">
           Ao criar a conta você aceita os{" "}
