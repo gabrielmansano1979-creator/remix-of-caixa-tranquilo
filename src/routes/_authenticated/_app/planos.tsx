@@ -4,7 +4,7 @@ import { PlanPicker } from "@/components/plan-picker";
 
 export const Route = createFileRoute("/_authenticated/_app/planos")({
   validateSearch: z.object({ ref: z.string().trim().max(80).optional() }),
-  head: () => ({ meta: [{ title: "Planos — Critical Cash" }, { name: "description", content: "Compare planos e escolha sua assinatura após os 7 dias grátis." }, { property: "og:title", content: "Planos — Critical Cash" }, { property: "og:description", content: "Compare planos e escolha sua assinatura após os 7 dias grátis." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }, { name: "robots", content: "noindex" }] }),
+  head: () => ({ meta: [{ title: "Planos — Critical Cash" }, { name: "description", content: "Compare planos e escolha sua assinatura após os 14 dias grátis." }, { property: "og:title", content: "Planos — Critical Cash" }, { property: "og:description", content: "Compare planos e escolha sua assinatura após os 14 dias grátis." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }, { name: "robots", content: "noindex" }] }),
   component: PlansPage,
 });
 

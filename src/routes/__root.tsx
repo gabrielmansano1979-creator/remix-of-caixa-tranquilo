@@ -144,7 +144,7 @@ function RootComponent() {
       const task = setTimeout(() => {
         pendingTasks.delete(task);
         if (event === "SIGNED_IN" && session) {
-          // Idempotente: cria profile (trial 7 dias), assinatura 'trialing' e régua padrão.
+          // Idempotente: cria profile (trial 14 dias), assinatura 'trialing' e régua padrão.
           void supabase.rpc("ensure_user_setup").then(
             ({ error }) => {
               if (error) console.error("Falha ao preparar a conta autenticada:", error);

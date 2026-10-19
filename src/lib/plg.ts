@@ -1,10 +1,11 @@
 import { z } from "zod";
 import { toE164 } from "@/lib/phone";
 import { formatBRL, formatDate } from "@/lib/format";
+import { TRIAL_DAYS } from "@/config/plans";
 
 export const trialProgress = (ends: string, now = Date.now()) => {
-  const remaining = Math.max(0, Math.min(7, Math.ceil((Date.parse(ends) - now) / 86400000)));
-  return { remaining, day: Math.min(7, Math.max(1, 8 - remaining)) };
+  const remaining = Math.max(0, Math.min(TRIAL_DAYS, Math.ceil((Date.parse(ends) - now) / 86400000)));
+  return { remaining, day: Math.min(TRIAL_DAYS, Math.max(1, TRIAL_DAYS + 1 - remaining)) };
 };
 
 export function manualWhatsAppLink(entry: { counterparty_whatsapp: string | null; counterparty_name: string | null; amount_cents: number; due_date: string; description: string }, company: string) {
