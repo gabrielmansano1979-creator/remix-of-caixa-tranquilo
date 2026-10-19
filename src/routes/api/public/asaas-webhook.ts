@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { calculateCommissionAmountCents } from "@/lib/affiliate-commission";
+import { calculateCommissionAmountCents, recurringAffiliateDiscountPercent } from "@/lib/affiliate-commission";
 import { getPlan, type PlanId } from "@/config/plans";
 import { nextBillingDate, type BillingInterval } from "@/lib/billing-cycle";
 
@@ -466,7 +466,7 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
 
             const interval: BillingInterval = legacySub.billing_interval === "year" ? "year" : "month";
             const plan = getPlan(legacySub.plan as PlanId);
-            const recurringDiscount = legacySub.affiliate_discount_percent ?? 0;
+            const recurringDiscount = recurringAffiliateDiscountPercent(interval, legacySub.affiliate_discount_percent);
             const recurringAmountCents = Math.round(
               (interval === "year" ? plan.priceYearCents : plan.priceMonthCents) * (1 - recurringDiscount / 100),
             );

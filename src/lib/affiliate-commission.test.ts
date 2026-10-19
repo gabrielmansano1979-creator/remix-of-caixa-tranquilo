@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculateCommissionAmountCents, commissionRateForConfirmedClients } from "./affiliate-commission";
+import { calculateCommissionAmountCents, commissionRateForConfirmedClients, recurringAffiliateDiscountPercent } from "./affiliate-commission";
 
 describe("affiliate commission tiers", () => {
   it.each([
@@ -58,5 +58,22 @@ describe("affiliate commission cents", () => {
 
   it.each([-1, 1.5, Number.NaN, Number.POSITIVE_INFINITY])("rejects invalid payment cents %s", (amount) => {
     expect(() => calculateCommissionAmountCents(amount, 20)).toThrow(RangeError);
+  });
+});
+
+
+describe("affiliate recurring discount", () => {
+  it("keeps the affiliate discount for the first two monthly payments", () => {
+    expect(recurringAffiliateDiscountPercent("month", 20)).toBe(20);
+  });
+
+  it("does not discount annual renewals after the acquisition payment", () => {
+    expect(recurringAffiliateDiscountPercent("year", 20)).toBe(0);
+  });
+
+  it("does not apply a renewal discount without a valid affiliate rate", () => {
+    expect(recurringAffiliateDiscountPercent("month", null)).toBe(0);
+    expect(recurringAffiliateDiscountPercent("month", -1)).toBe(0);
+    expect(recurringAffiliateDiscountPercent("month", 101)).toBe(0);
   });
 });

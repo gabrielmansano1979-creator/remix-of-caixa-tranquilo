@@ -402,7 +402,7 @@ function AccountantPage() {
                 <p>1. Preencha seus dados profissionais e fiscais.</p>
                 <p>2. Envie a comprovação de registro no CRC, um documento de identidade e um comprovante de endereço.</p>
                 <p>3. O administrador analisará o cadastro e registrará a decisão. Se aprovado, você terá acesso ao painel, aos links de indicação e ao acompanhamento das comissões.</p>
-                <p className="border-t pt-3">Comissão recorrente: 20% para 1–5 clientes pagantes, 25% para 6–15 e 30% para 16–30. A partir do 31º cliente, a comissão continua em 30%. Só contam clientes únicos com pagamento confirmado. Clientes indicados recebem 20% de desconto nas duas primeiras mensalidades; a terceira volta ao preço normal. Cada cliente mantém a taxa de comissão do nível vigente quando foi adquirido.</p>
+                <p className="border-t pt-3">Comissão recorrente: 20% para 1–5 clientes pagantes, 25% para 6–15 e 30% para 16–30. A partir do 31º cliente, a comissão continua em 30%. Só contam clientes únicos com pagamento confirmado. Clientes indicados recebem 20% de desconto nas duas primeiras mensalidades (a partir da terceira, preço normal) ou somente no primeiro pagamento anual. Cada cliente mantém a taxa de comissão vigente quando foi adquirido.</p>
               </CardContent>
             </Card>
             <Button className="h-12 w-full rounded-xl text-base sm:w-auto" onClick={() => setShowApplicationForm(true)}>Quero ser um contador afiliado <ArrowLeft className="ml-2 h-4 w-4 rotate-180" /></Button>
@@ -561,7 +561,7 @@ function AccountantPage() {
                 ? <p className="text-sm text-muted-foreground">Faixa atual: 30% para 16–30 clientes pagantes. A comissão permanece em 30% após o 30º cliente.</p>
                 : <p className="text-sm text-muted-foreground">Você já ultrapassou 30 clientes pagantes: sua comissão recorrente continua em 30%.</p>}
           <p className="text-xs text-muted-foreground">As metas consideram pagamentos confirmados, não apenas cadastros ou cliques no cupom.</p>
-          <p className="rounded-lg border bg-muted/30 p-3 text-sm text-muted-foreground">Seus clientes indicados recebem 20% de desconto nas duas primeiras mensalidades; a terceira volta ao preço normal. A comissão é calculada sobre o valor efetivamente pago em cada cobrança, usando a taxa de 20%, 25% ou 30% que estava vigente quando aquele cliente foi adquirido.</p>
+          <p className="rounded-lg border bg-muted/30 p-3 text-sm text-muted-foreground">Seus clientes indicados recebem 20% de desconto nas duas primeiras mensalidades (a partir da terceira, preço normal) ou somente no primeiro pagamento anual. A comissão é calculada sobre o valor efetivamente pago em cada cobrança, usando a taxa de 20%, 25% ou 30% vigente quando aquele cliente foi adquirido.</p>
         </CardContent>
       </Card>
 

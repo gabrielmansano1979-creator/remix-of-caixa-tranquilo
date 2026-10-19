@@ -252,7 +252,7 @@ function IndexComponent() {
                 </article>
               ))}
             </div>
-            <p className="mx-auto mt-6 max-w-3xl text-center text-xs leading-6 text-zinc-500">Valores em reais. No plano anual, o total equivale a 10 mensalidades. O primeiro pagamento via Pix pode ter 10% de desconto; cupons de contador afiliado oferecem 20% de desconto e não são cumulativos com outras ofertas. As condições exibidas no checkout prevalecem.</p>
+            <p className="mx-auto mt-6 max-w-3xl text-center text-xs leading-6 text-zinc-500">Valores em reais. No plano anual, o total equivale a 10 mensalidades. Sem cupom válido, você tem 10% de desconto somente no primeiro pagamento via Pix. Com cupom válido de contador: 20% nas duas primeiras mensalidades ou somente no primeiro pagamento anual; depois, preço integral. Descontos não cumulativos.</p>
           </div>
         </section>
 
@@ -271,12 +271,12 @@ function IndexComponent() {
               <article className="rounded-2xl border border-white/[0.09] bg-white/[0.025] p-6">
                 <span className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-200">Benefício para o cliente</span>
                 <p className="mt-3 text-4xl font-semibold text-white">20% <span className="text-base font-medium text-zinc-400">OFF</span></p>
-                <p className="mt-3 text-sm leading-6 text-zinc-400">O cupom do contador oferece 20% de desconto conforme as regras do programa, sem acumular com outras ofertas.</p>
+                <p className="mt-3 text-sm leading-6 text-zinc-400">O cupom válido oferece 20% de desconto nas duas primeiras mensalidades ou somente no primeiro pagamento anual. Depois, o preço é integral. Não cumulativo com outras ofertas.</p>
               </article>
               <article className="rounded-2xl border border-white/[0.09] bg-white/[0.025] p-6">
                 <span className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-200">Comissão por faixa</span>
                 <p className="mt-3 text-4xl font-semibold text-white">20–30%</p>
-                <p className="mt-3 text-sm leading-6 text-zinc-400">A comissão é calculada sobre o valor efetivamente recebido, após descontos, conforme os pagamentos confirmados dos clientes indicados.</p>
+                <p className="mt-3 text-sm leading-6 text-zinc-400">A comissão é de 20%, 25% ou 30% conforme a faixa vigente quando cada cliente é adquirido. Essa taxa fica fixa para aquele cliente, mesmo que o contador suba de nível depois.</p>
               </article>
               <article className="rounded-2xl border border-white/[0.09] bg-white/[0.025] p-6 sm:col-span-2">
                 <h3 className="font-semibold text-white">Como evolui a comissão</h3>
@@ -285,7 +285,7 @@ function IndexComponent() {
                   <div className="rounded-xl border border-white/[0.08] bg-black/20 p-4"><p className="text-2xl font-semibold text-emerald-200">25%</p><p className="mt-1 text-sm text-zinc-400">De 6 a 15 clientes com pagamento confirmado</p></div>
                   <div className="rounded-xl border border-white/[0.08] bg-black/20 p-4"><p className="text-2xl font-semibold text-emerald-200">30%</p><p className="mt-1 text-sm text-zinc-400">A partir de 16 clientes com pagamento confirmado</p></div>
                 </div>
-                <p className="mt-4 text-xs leading-5 text-zinc-500">As faixas são recalculadas automaticamente conforme o total de clientes únicos com pagamento confirmado. Saques e comissões ficam sujeitos às regras do programa, à aprovação do cadastro e à validação dos dados de recebimento.</p>
+                <p className="mt-4 text-xs leading-5 text-zinc-500">As faixas são recalculadas conforme os clientes únicos com pagamento confirmado, mas a mudança de nível vale somente para novos clientes. Para cada cliente já indicado, a comissão permanece na taxa vigente no momento da aquisição. Saques sujeitos às regras do programa e à validação cadastral.</p>
               </article>
             </div>
           </div>
@@ -330,7 +330,7 @@ function IndexComponent() {
                 { q: 'Quais formatos posso importar?', a: 'Você pode importar lançamentos a partir de arquivos CSV, planilhas Excel e extratos em PDF. O sistema apresenta uma prévia para conferência antes da importação; os limites variam conforme o plano.' },
                 { q: 'A página mostra dados financeiros reais?', a: 'Não. A ilustração desta página é apenas demonstrativa. Os dados do seu ambiente ficam disponíveis após o acesso à plataforma.' },
                 { q: 'Quais são os preços dos planos?', a: 'O Starter custa R$ 29 por mês ou R$ 290 por ano; o Pro custa R$ 59 por mês ou R$ 590 por ano; e o Business custa R$ 119 por mês ou R$ 1.190 por ano. O plano anual equivale a 10 mensalidades. Confira as condições finais no checkout.' },
-                { q: 'Como funciona o programa para contadores afiliados?', a: 'Após criar uma conta, acesse a área Contador e envie sua solicitação com os dados e documentos exigidos. Depois da aprovação, você poderá divulgar seu cupom: os clientes recebem 20% de desconto e a comissão do contador varia de 20% a 30%, de acordo com a quantidade de clientes únicos com pagamento confirmado.' },
+                { q: 'Como funciona o programa para contadores afiliados?', a: 'Após criar uma conta, acesse a área Contador e envie sua solicitação com os dados e documentos exigidos. Após aprovação, divulgue seu cupom: o cliente recebe 20% de desconto nas duas primeiras mensalidades ou somente no primeiro pagamento anual. Sem cupom válido, o desconto é de 10% apenas no primeiro pagamento via Pix. A comissão varia de 20% a 30% por faixa e fica congelada para cada cliente conforme o nível do contador no momento da aquisição; subir de nível só altera a comissão de novos clientes.' },
               ].map((item) => (
                 <details key={item.q} className="group py-5">
                   <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-left font-medium text-zinc-200 marker:content-none">
