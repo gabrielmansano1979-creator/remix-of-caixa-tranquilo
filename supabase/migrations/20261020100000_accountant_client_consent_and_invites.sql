@@ -202,3 +202,93 @@ GRANT EXECUTE ON FUNCTION public.request_accountant_access(uuid) TO authenticate
 GRANT EXECUTE ON FUNCTION public.decide_accountant_access(uuid, boolean) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.my_accountant_portal_invites() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.accept_accountant_business_invite(uuid) TO authenticated;
+
+
+-- Business size is declared by the customer and used as report context, not as a tax calculation.
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS business_size text;
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_business_size_check;
+ALTER TABLE public.profiles ADD CONSTRAINT profiles_business_size_check
+  CHECK (business_size IS NULL OR business_size IN ('MEI','ME','EPP','OUTRO'));
+
+-- Financial audit events are visible to the accountant only while the customer has granted access.
+CREATE TABLE IF NOT EXISTS public.financial_audit_logs (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  client_user_id uuid NOT NULL REFERENCES public.profiles(user_id) ON DELETE CASCADE,
+  actor_user_id uuid,
+  action text NOT NULL CHECK (action IN ('insert','update','delete')),
+  entity_type text NOT NULL,
+  entity_id uuid,
+  details jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS financial_audit_logs_client_created_idx
+  ON public.financial_audit_logs(client_user_id, created_at DESC);
+ALTER TABLE public.financial_audit_logs ENABLE ROW LEVEL SECURITY;
+GRANT SELECT ON public.financial_audit_logs TO authenticated;
+GRANT ALL ON public.financial_audit_logs TO service_role;
+DROP POLICY IF EXISTS financial_audit_logs_no_direct_read ON public.financial_audit_logs;
+CREATE POLICY financial_audit_logs_no_direct_read ON public.financial_audit_logs
+  FOR SELECT TO authenticated USING (false);
+
+CREATE OR REPLACE FUNCTION public.capture_financial_entry_audit()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $function$
+DECLARE old_row jsonb; new_row jsonb; owner_id uuid; row_id uuid; action_name text;
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    new_row := to_jsonb(NEW); owner_id := NEW.user_id; row_id := NEW.id; action_name := 'insert';
+  ELSIF TG_OP = 'UPDATE' THEN
+    old_row := to_jsonb(OLD); new_row := to_jsonb(NEW); owner_id := NEW.user_id; row_id := NEW.id; action_name := 'update';
+  ELSE
+    old_row := to_jsonb(OLD); owner_id := OLD.user_id; row_id := OLD.id; action_name := 'delete';
+  END IF;
+  INSERT INTO public.financial_audit_logs(client_user_id, actor_user_id, action, entity_type, entity_id, details)
+  VALUES (
+    owner_id,
+    auth.uid(),
+    action_name,
+    'entry',
+    row_id,
+    jsonb_build_object(
+      'before', CASE WHEN old_row IS NULL THEN NULL ELSE jsonb_build_object('type', old_row->>'type', 'description', old_row->>'description', 'amount_cents', old_row->>'amount_cents', 'due_date', old_row->>'due_date', 'status', old_row->>'status', 'counterparty_name', old_row->>'counterparty_name') END,
+      'after', CASE WHEN new_row IS NULL THEN NULL ELSE jsonb_build_object('type', new_row->>'type', 'description', new_row->>'description', 'amount_cents', new_row->>'amount_cents', 'due_date', new_row->>'due_date', 'status', new_row->>'status', 'counterparty_name', new_row->>'counterparty_name') END
+    )
+  );
+  RETURN COALESCE(NEW, OLD);
+END
+$function$;
+REVOKE ALL ON FUNCTION public.capture_financial_entry_audit() FROM PUBLIC, anon, authenticated;
+DROP TRIGGER IF EXISTS entries_capture_financial_audit ON public.entries;
+CREATE TRIGGER entries_capture_financial_audit
+AFTER INSERT OR UPDATE OR DELETE ON public.entries
+FOR EACH ROW EXECUTE FUNCTION public.capture_financial_entry_audit();
+
+CREATE OR REPLACE FUNCTION public.my_accountant_financial_audit()
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $function$
+DECLARE uid uuid := auth.uid(); partner_record_id uuid; result jsonb;
+BEGIN
+  IF uid IS NULL THEN RAISE EXCEPTION 'not authenticated'; END IF;
+  SELECT id INTO partner_record_id FROM public.partner_requests WHERE user_id = uid AND status = 'approved';
+  IF partner_record_id IS NULL THEN RAISE EXCEPTION 'approved accountant registration required'; END IF;
+  SELECT COALESCE(jsonb_agg(jsonb_build_object(
+    'id', a.id,
+    'client_user_id', a.client_user_id,
+    'client_name', COALESCE(NULLIF(trim(p.business_name), ''), NULLIF(trim(p.full_name), ''), 'Empresa'),
+    'action', a.action,
+    'entity_type', a.entity_type,
+    'entity_id', a.entity_id,
+    'details', a.details,
+    'created_at', a.created_at
+  ) ORDER BY a.created_at DESC), '[]'::jsonb)
+  INTO result
+  FROM (
+    SELECT * FROM public.financial_audit_logs
+    WHERE client_user_id IN (SELECT client_user_id FROM public.accountant_access WHERE partner_id = partner_record_id)
+    ORDER BY created_at DESC LIMIT 500
+  ) a
+  JOIN public.profiles p ON p.user_id = a.client_user_id;
+  RETURN result;
+END
+$function$;
+REVOKE ALL ON FUNCTION public.my_accountant_financial_audit() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.my_accountant_financial_audit() TO authenticated;
