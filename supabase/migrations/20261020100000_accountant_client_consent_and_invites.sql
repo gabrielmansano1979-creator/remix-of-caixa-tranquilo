@@ -254,7 +254,8 @@ BEGIN
       'after', CASE WHEN new_row IS NULL THEN NULL ELSE jsonb_build_object('type', new_row->>'type', 'description', new_row->>'description', 'amount_cents', new_row->>'amount_cents', 'due_date', new_row->>'due_date', 'status', new_row->>'status', 'counterparty_name', new_row->>'counterparty_name') END
     )
   );
-  RETURN COALESCE(NEW, OLD);
+  IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
+  RETURN NEW;
 END
 $function$;
 REVOKE ALL ON FUNCTION public.capture_financial_entry_audit() FROM PUBLIC, anon, authenticated;
