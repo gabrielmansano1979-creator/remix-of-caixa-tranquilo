@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Building2, Clipboard, FileText, History, ShieldCheck, Users } from "lucide-react";
+import { Building2, Clipboard, Download, FileText, History, ShieldCheck, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { generateAccountingReport } from "@/lib/reporting";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -46,6 +47,36 @@ export function AccountantClientManagement() {
       toast.success(message);
     } catch {
       toast.error("Não foi possível copiar o link. Selecione e copie o endereço manualmente.");
+    }
+  };
+  const downloadClientReport = async (client: AccountantPortal["authorized_clients"][number], period: "mensal" | "anual") => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    const prefix = period === "anual" ? String(year) : `${year}-${String(month).padStart(2, "0")}`;
+    const rows = client.entries
+      .filter((entry) => entry.due_date.startsWith(prefix))
+      .map((entry) => ({
+        type: entry.type === "income" ? "Receita" : "Despesa",
+        description: entry.description,
+        amount_cents: entry.amount_cents,
+        due_date: entry.due_date,
+        status: entry.status === "paid" ? "Pago" : "Pendente",
+      }));
+    try {
+      await generateAccountingReport({
+        period,
+        format: "pdf",
+        channel: "download",
+        companyName: client.client_name,
+        accountantName: "",
+        accountantWhatsapp: "",
+        year,
+        ...(period === "mensal" ? { month } : {}),
+      }, rows);
+      toast.success(`Relatório ${period} de ${client.client_name} gerado.`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível gerar o relatório.");
     }
   };
 
@@ -98,7 +129,7 @@ export function AccountantClientManagement() {
           {data.authorized_clients.length ? <div className="space-y-4">{data.authorized_clients.map((client) => {
             const income = client.entries.filter((entry) => entry.type === "income").reduce((sum, entry) => sum + entry.amount_cents, 0);
             const expense = client.entries.filter((entry) => entry.type === "expense").reduce((sum, entry) => sum + entry.amount_cents, 0);
-            return <div key={client.client_user_id} className="rounded-xl border p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-semibold">{client.client_name}</h3><p className="text-xs text-muted-foreground">Autorizado em {date(client.granted_at)} · {client.entries.length} lançamentos</p></div><span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs text-emerald-600">Acesso autorizado</span></div><div className="mt-3 grid gap-3 sm:grid-cols-3"><div className="rounded-lg bg-muted/30 p-3"><p className="text-xs text-muted-foreground">Entradas cadastradas</p><p className="font-semibold">{money(income)}</p></div><div className="rounded-lg bg-muted/30 p-3"><p className="text-xs text-muted-foreground">Saídas cadastradas</p><p className="font-semibold">{money(expense)}</p></div><div className="rounded-lg bg-muted/30 p-3"><p className="text-xs text-muted-foreground">Saldo líquido dos lançamentos</p><p className="font-semibold">{money(income - expense)}</p></div></div><details className="mt-3"><summary className="cursor-pointer text-sm font-medium text-primary">Ver lançamentos financeiros</summary><div className="mt-3 overflow-x-auto"><table className="w-full min-w-[650px] text-left text-sm"><thead><tr className="border-b text-xs text-muted-foreground"><th className="px-2 py-2">Descrição</th><th className="px-2 py-2">Tipo</th><th className="px-2 py-2">Valor</th><th className="px-2 py-2">Data</th><th className="px-2 py-2">Situação</th></tr></thead><tbody>{client.entries.map((entry, i) => <tr key={client.client_user_id + entry.description + entry.due_date + i} className="border-b last:border-0"><td className="px-2 py-2">{entry.description}</td><td className="px-2 py-2">{entry.type === "income" ? "Entrada" : "Saída"}</td><td className="px-2 py-2">{money(entry.amount_cents)}</td><td className="px-2 py-2">{date(entry.due_date)}</td><td className="px-2 py-2">{entry.status === "paid" ? "Pago" : "Pendente"}</td></tr>)}</tbody></table></div></details></div>;
+            return <div key={client.client_user_id} className="rounded-xl border p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-semibold">{client.client_name}</h3><p className="text-xs text-muted-foreground">Autorizado em {date(client.granted_at)} · {client.entries.length} lançamentos</p></div><span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs text-emerald-600">Acesso autorizado</span></div><div className="mt-3 grid gap-3 sm:grid-cols-3"><div className="rounded-lg bg-muted/30 p-3"><p className="text-xs text-muted-foreground">Entradas cadastradas</p><p className="font-semibold">{money(income)}</p></div><div className="rounded-lg bg-muted/30 p-3"><p className="text-xs text-muted-foreground">Saídas cadastradas</p><p className="font-semibold">{money(expense)}</p></div><div className="rounded-lg bg-muted/30 p-3"><p className="text-xs text-muted-foreground">Saldo líquido dos lançamentos</p><p className="font-semibold">{money(income - expense)}</p></div></div><div className="mt-3 flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={() => void downloadClientReport(client, "mensal")}><Download className="mr-2 h-4 w-4" />Baixar PDF do mês atual</Button><Button size="sm" variant="outline" onClick={() => void downloadClientReport(client, "anual")}><Download className="mr-2 h-4 w-4" />Baixar PDF do ano atual</Button></div><p className="mt-2 text-xs text-muted-foreground">Os relatórios incluem somente os lançamentos cadastrados e identificam despesas por descrição, não como classificação contábil oficial.</p><details className="mt-3"><summary className="cursor-pointer text-sm font-medium text-primary">Ver lançamentos financeiros</summary><div className="mt-3 overflow-x-auto"><table className="w-full min-w-[650px] text-left text-sm"><thead><tr className="border-b text-xs text-muted-foreground"><th className="px-2 py-2">Descrição</th><th className="px-2 py-2">Tipo</th><th className="px-2 py-2">Valor</th><th className="px-2 py-2">Data</th><th className="px-2 py-2">Situação</th></tr></thead><tbody>{client.entries.map((entry, i) => <tr key={client.client_user_id + entry.description + entry.due_date + i} className="border-b last:border-0"><td className="px-2 py-2">{entry.description}</td><td className="px-2 py-2">{entry.type === "income" ? "Entrada" : "Saída"}</td><td className="px-2 py-2">{money(entry.amount_cents)}</td><td className="px-2 py-2">{date(entry.due_date)}</td><td className="px-2 py-2">{entry.status === "paid" ? "Pago" : "Pendente"}</td></tr>)}</tbody></table></div></details></div>;
           })}</div> : <p className="text-sm text-muted-foreground">Nenhum cliente autorizou o acesso ainda.</p>}
         </CardContent>
       </Card>
