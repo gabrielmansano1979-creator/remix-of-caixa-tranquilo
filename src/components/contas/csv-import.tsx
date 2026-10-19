@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { AlertCircle, CheckCircle2, Download, Upload } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { accessQuery, parseDbError, type LimitKind } from "@/lib/app-data";
-import { CSV_TEMPLATE, parseCsv, parseBankTable, parseStatementText, parseOfxText, parseQifText, type CsvRow } from "@/lib/csv";
+import { CSV_TEMPLATE, parseCsv, parseBankTable, parseStatementText, parseOfxText, type CsvRow } from "@/lib/csv";
 import { formatBRL, formatDate } from "@/lib/format";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -24,8 +24,8 @@ export function CsvImportDialog({ open, onOpenChange, onLimit }: { open: boolean
     if (!f) return;
     if (f.size > 20_000_000) return setFileErr("Arquivo muito grande (máx. 20 MB).");
     const extension = "." + (f.name.split(".").pop()?.toLowerCase() ?? "");
-    if (![".csv", ".xlsx", ".pdf", ".ofx", ".qfx", ".qif", ".txt", ".png", ".jpg", ".jpeg", ".webp", ".tif", ".tiff"].includes(extension)) {
-      setFileErr("Formato não suportado. Envie CSV, Excel (.xlsx), PDF, OFX/QFX, QIF, TXT ou imagem (PNG/JPG/WebP/TIFF).");
+    if (![".csv", ".xlsx", ".pdf", ".ofx"].includes(extension)) {
+      setFileErr("Formato não suportado. Envie somente CSV, Excel (.xlsx), PDF ou OFX.");
       setRows(null);
       return;
     }
@@ -74,34 +74,11 @@ export function CsvImportDialog({ open, onOpenChange, onLimit }: { open: boolean
         if (skippedSheets) setFileWarning(`${skippedSheets} aba(s) sem as colunas de lançamentos esperadas foram ignoradas.`);
         return;
       }
-      if (extension === "ofx" || extension === "qfx") {
+      if (extension === "ofx") {
         const parsed = parseOfxText(await f.text());
-        if (!parsed.rows.length) throw new Error("Não foram encontradas transações reconhecíveis no arquivo OFX/QFX.");
+        if (!parsed.rows.length) throw new Error("Não foram encontradas transações reconhecíveis no arquivo OFX.");
         setRows(parsed.rows);
         if (parsed.ignored) setFileWarning(`${parsed.ignored} transação(ões) do arquivo não puderam ser interpretadas.`);
-        return;
-      }
-      if (extension === "qif") {
-        const parsed = parseQifText(await f.text());
-        if (!parsed.rows.length) throw new Error("Não foram encontradas transações reconhecíveis no arquivo QIF.");
-        setRows(parsed.rows);
-        if (parsed.ignored) setFileWarning(`${parsed.ignored} registro(s) QIF não puderam ser interpretados.`);
-        return;
-      }
-      if (extension === "txt") {
-        const parsed = parseStatementText(await f.text());
-        if (!parsed.rows.length) throw new Error("O TXT foi lido, mas não foram encontradas transações com data, valor e descrição reconhecíveis.");
-        setRows(parsed.rows);
-        if (parsed.ignored) setFileWarning(`${parsed.ignored} linha(s) do TXT não foram reconhecidas como lançamentos.`);
-        return;
-      }
-      if (["png", "jpg", "jpeg", "webp", "tif", "tiff"].includes(extension ?? "")) {
-        const extracted = await extractImageText(f);
-        const parsed = parseStatementText(extracted);
-        if (!parsed.rows.length) throw new Error("A imagem foi lida por OCR, mas não foram encontradas transações reconhecíveis. Use uma imagem nítida, completa e sem cortes.");
-        setRows(parsed.rows);
-        if (parsed.ignored) setFileWarning(`${parsed.ignored} linha(s) da imagem não foram reconhecidas. Confira a prévia com o original.`);
-        else setFileWarning("Leitura por OCR concluída. Confira datas, descrições e valores com a imagem original antes de importar.");
         return;
       }
       if (extension === "pdf") {
@@ -152,15 +129,15 @@ export function CsvImportDialog({ open, onOpenChange, onLimit }: { open: boolean
       <DialogContent className="max-h-[92vh] overflow-y-auto rounded-2xl sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Importar lançamentos</DialogTitle>
-          <DialogDescription>Importe CSV, Excel (.xlsx), PDF, OFX/QFX, QIF, TXT ou imagem. PDFs e imagens podem usar OCR. Confira a prévia antes de importar até {maxRows} linhas.</DialogDescription>
+          <DialogDescription>Importe somente CSV, Excel (.xlsx), PDF ou OFX. PDFs digitalizados podem usar OCR. Confira a prévia antes de importar até {maxRows} linhas.</DialogDescription>
         </DialogHeader>
         {!rows ? (
           <div className="space-y-4">
             <label className="flex cursor-pointer flex-col items-center gap-2 rounded-2xl border-2 border-dashed p-8 text-center hover:border-primary focus-within:border-primary">
               <Upload className="h-8 w-8 text-primary" />
               <span className="font-medium">Escolher arquivo financeiro</span>
-              <span className="text-xs text-muted-foreground">Formatos: CSV, XLSX, PDF, OFX, QFX, QIF, TXT, PNG, JPG, WebP e TIFF. CSV/XLSX de bancos podem usar nomes de colunas diferentes. Confira tudo antes de gravar.</span>
-              <input type="file" accept=".csv,.xlsx,.pdf,.ofx,.qfx,.qif,.txt,.png,.jpg,.jpeg,.webp,.tif,.tiff,text/csv,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,image/*,text/plain" className="sr-only" onChange={(e) => onFile(e.target.files?.[0])} />
+              <span className="text-xs text-muted-foreground">Formatos aceitos: CSV, XLSX, PDF e OFX. CSV/XLSX de bancos podem usar nomes de colunas diferentes. Confira tudo antes de gravar.</span>
+              <input type="file" accept=".csv,.xlsx,.pdf,.ofx,text/csv,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="sr-only" onChange={(e) => onFile(e.target.files?.[0])} />
             </label>
             {fileErr && <p className="flex items-center gap-2 rounded-xl bg-danger/10 p-3 text-sm text-danger" role="alert"><AlertCircle className="h-4 w-4" />{fileErr}</p>}
             {fileWarning && <p className="flex items-center gap-2 rounded-xl bg-warning/10 p-3 text-sm text-warning" role="status"><AlertCircle className="h-4 w-4" />{fileWarning}</p>}
@@ -225,19 +202,6 @@ function excelCellToString(value: unknown): string {
   return "";
 }
 
-
-async function extractImageText(file: File): Promise<string> {
-  const { createWorker } = await import("tesseract.js");
-  const worker = await createWorker("por");
-  const url = URL.createObjectURL(file);
-  try {
-    const result = await worker.recognize(url);
-    return result.data.text;
-  } finally {
-    URL.revokeObjectURL(url);
-    await worker.terminate();
-  }
-}
 
 async function extractPdfText(file: File): Promise<{ text: string; ocrPages: number }> {
   const pdfjs = await import("pdfjs-dist");
