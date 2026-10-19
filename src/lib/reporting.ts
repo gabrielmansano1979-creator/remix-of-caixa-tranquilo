@@ -112,6 +112,24 @@ export async function generateAccountingReport(options: ExportOptions, rows: Rep
     new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100);
   const fileName = `relatorio-${safeCompany.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "-")}-${options.period}`;
 
+  const expenseByDescription = new Map<string, number>();
+  rows.filter((row) => row.type === "Despesa").forEach((row) => {
+    const description = String(row.description ?? "Despesa sem descrição").trim() || "Despesa sem descrição";
+    expenseByDescription.set(description, (expenseByDescription.get(description) ?? 0) + Number(row.amount_cents ?? 0));
+  });
+  const largestExpenses = [...expenseByDescription.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const summary: Array<[string, string | number]> = [
+    ["Período", label],
+    ["Entradas / receitas registradas", money(income)],
+    ["Saídas / despesas registradas", money(expense)],
+    [income >= expense ? "Saldo líquido dos lançamentos" : "Déficit dos lançamentos", money(Math.abs(income - expense))],
+  ];
+  if (options.period === "anual") {
+    summary.push(["Média mensal de entradas (total anual dividido por 12)", money(income / 12)]);
+    summary.push(["Observação", "A média considera os 12 meses do ano; confirme se o histórico está completo."]);
+  }
+  summary.push(["Maiores destinos identificáveis pelas descrições (não são categorias contábeis)", largestExpenses.map(([description, cents]) => `${description}: ${money(cents)}`).join(" | ") || "Sem despesas registradas no período"]);
+
   await exportReport({
     title: `Relatório financeiro — ${safeCompany}`,
     fileName,
@@ -124,12 +142,7 @@ export async function generateAccountingReport(options: ExportOptions, rows: Rep
       { key: "status", label: "Status" },
     ],
     rows: rows.map((row) => ({ ...row, amount: money(Number(row.amount_cents ?? 0)) })),
-    summary: [
-      ["Período", label],
-      ["Receitas", money(income)],
-      ["Despesas", money(expense)],
-      [income >= expense ? "Saldo" : "Déficit", money(Math.abs(income - expense))],
-    ],
+    summary,
   });
 
   if (options.channel === "whatsapp") {
