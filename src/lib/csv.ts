@@ -215,7 +215,7 @@ export function parseOfxText(text: string): { rows: CsvRow[]; ignored: number } 
 
 /** Parse Quicken Interchange Format (QIF) records exported by banks and finance apps. */
 export function parseQifText(text: string): { rows: CsvRow[]; ignored: number } {
-  const records = text.replace(/^\uFEFF/, "").split(/^\\^\s*$/m);
+  const records = text.replace(/^\uFEFF/, "").split(/^\^\s*$/m);
   const rows: CsvRow[] = [];
   let ignored = 0;
 
