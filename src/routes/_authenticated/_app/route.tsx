@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { FeedbackPrompt } from "@/components/feedback-prompt";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/_app")({
   beforeLoad: async ({ context }) => {
@@ -35,6 +36,30 @@ function AppShell() {
   const navigate = useNavigate();
   const { data: access } = useQuery(accessQuery);
   const { data: profile } = useQuery(profileQuery);
+  const { data: accountantSharing, refetch: refetchAccountantSharing } = useQuery({
+    queryKey: ["accountant-sharing"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("my_accountant_client_invite");
+      if (error) throw error;
+      return data as { pending_requests?: Array<{ id: string; accountant_name: string; crc_number: string | null; requested_at: string }> };
+    },
+    refetchInterval: 15_000,
+  });
+  const [accountantDecisionBusy, setAccountantDecisionBusy] = useState(false);
+  const decideAccountantRequest = async (requestId: string, approve: boolean) => {
+    setAccountantDecisionBusy(true);
+    try {
+      const { error } = await supabase.rpc("decide_accountant_access", { _request_id: requestId, _approve: approve });
+      if (error) throw error;
+      await refetchAccountantSharing();
+      await qc.invalidateQueries({ queryKey: ["accountant-client-management"] });
+      toast.success(approve ? "Você autorizou o acesso do contador." : "Solicitação do contador recusada.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível responder à solicitação.");
+    } finally {
+      setAccountantDecisionBusy(false);
+    }
+  };
   useEffect(() => {
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) setCurrentUser(session.user);
@@ -203,6 +228,25 @@ function AppShell() {
           </div>
         )}
 
+        {accountantSharing?.pending_requests?.length ? (
+          <section className="border-b border-primary/20 bg-primary/5 px-4 py-4 md:px-8" role="status" aria-live="polite">
+            <div className="mx-auto flex w-full max-w-[1440px] flex-wrap items-start gap-3">
+              <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold">Solicitação de acesso do contador</p>
+                <p className="mt-1 text-sm text-muted-foreground">Você precisa autorizar antes que o contador possa consultar e baixar seus documentos financeiros.</p>
+                <div className="mt-3 space-y-2">
+                  {accountantSharing.pending_requests.map((request) => (
+                    <div key={request.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-background p-3">
+                      <div><p className="font-medium">{request.accountant_name}</p><p className="text-xs text-muted-foreground">{request.crc_number ? `CRC ${request.crc_number} · ` : ""}Solicitado em {new Date(request.requested_at).toLocaleDateString("pt-BR")}</p></div>
+                      <div className="flex gap-2"><Button size="sm" disabled={accountantDecisionBusy} onClick={() => void decideAccountantRequest(request.id, true)}>{accountantDecisionBusy ? "Processando..." : "Autorizar acesso"}</Button><Button size="sm" variant="outline" disabled={accountantDecisionBusy} onClick={() => void decideAccountantRequest(request.id, false)}>Recusar</Button></div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </section>
+        ) : null}
         <main className="mx-auto w-full max-w-[1440px] flex-1 px-4 pb-28 pt-7 md:px-9 md:pb-12 md:pt-9 xl:px-12">
           <Outlet />
           <FeedbackPrompt createdAt={profile?.created_at} />
