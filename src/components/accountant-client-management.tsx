@@ -71,6 +71,7 @@ export function AccountantClientManagement() {
         channel: "download",
         companyName: client.client_name,
         businessSize: client.business_size,
+        accountantOnly: true,
         accountantName: "",
         accountantWhatsapp: "",
         year,
