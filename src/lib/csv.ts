@@ -213,39 +213,6 @@ export function parseOfxText(text: string): { rows: CsvRow[]; ignored: number } 
   return { rows, ignored };
 }
 
-/** Parse Quicken Interchange Format (QIF) records exported by banks and finance apps. */
-export function parseQifText(text: string): { rows: CsvRow[]; ignored: number } {
-  const records = text.replace(/^\uFEFF/, "").split(/^\^\s*$/m);
-  const rows: CsvRow[] = [];
-  let ignored = 0;
-
-  for (const [index, record] of records.entries()) {
-    const fields = record.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-    const get = (prefix: string) => fields.find((line) => line.startsWith(prefix))?.slice(1).trim() ?? "";
-    const dateRaw = get("D").replace(/['’](\d{2})$/, "/20$1");
-    const date = parseDate(dateRaw);
-    const amountRaw = get("T");
-    const negative = amountRaw.startsWith("-");
-    const amountCents = parseMoney(amountRaw.replace(/^[+-]/, ""));
-    const description = [get("P"), get("M")].filter(Boolean).join(" — ").slice(0, 200);
-    if (!date || amountCents === null || !description) {
-      if (fields.some((line) => /^[DTPM]/.test(line))) ignored++;
-      continue;
-    }
-    const type = negative ? "expense" : "income";
-    rows.push({
-      line: index + 1,
-      raw: { descricao: description, valor: String(amountCents / 100), vencimento: dateRaw, tipo: type === "income" ? "entrada" : "saida", nome: get("P").slice(0, 120) },
-      errors: [],
-      value: {
-        type, description, amount_cents: amountCents, due_date: date,
-        counterparty_name: get("P").slice(0, 120), counterparty_email: "", counterparty_whatsapp: "",
-      },
-    });
-  }
-  return { rows, ignored };
-}
-
 /** Fallback for bank CSV/TXT tables whose column names differ from the app's template. */
 export function parseBankTable(text: string): { rows: CsvRow[]; headerError?: string; ignored: number } {
   const lines = text.replace(/^\uFEFF/, "").split(/\r?\n/).filter((line) => line.trim());
