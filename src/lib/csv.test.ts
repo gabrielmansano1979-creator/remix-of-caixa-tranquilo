@@ -75,7 +75,7 @@ describe("parseOfxText", () => {
 
 describe("parseQifText", () => {
   it("parses QIF date, signed amount, payee and memo", () => {
-    const parsed = parseQifText("!Type:Bank\\nD12/10/2026\\nT-89.90\\nPPAGAMENTO INTERNET\\nMConta mensal\\n^\\nD13/10/2026\\nT250.00\\nPCLIENTE\\n^");
+    const parsed = parseQifText("!Type:Bank\nD12/10/2026\nT-89.90\nPPAGAMENTO INTERNET\nMConta mensal\n^\nD13/10/2026\nT250.00\nPCLIENTE\n^");
     expect(parsed.rows).toHaveLength(2);
     expect(parsed.rows[0].value).toMatchObject({ type: "expense", amount_cents: 8990, due_date: "2026-10-12", description: "PAGAMENTO INTERNET — Conta mensal" });
     expect(parsed.rows[1].value).toMatchObject({ type: "income", amount_cents: 25000, due_date: "2026-10-13" });
@@ -85,7 +85,7 @@ describe("parseQifText", () => {
 
 describe("parseBankTable", () => {
   it("recognizes common alternative bank CSV headers and keeps unknown direction for review", () => {
-    const parsed = parseBankTable("Data;Histórico;Valor\\n12/10/2026;Compra mercado;-45,90\\n13/10/2026;Movimentação recebida;120,00");
+    const parsed = parseBankTable("Data;Histórico;Valor\n12/10/2026;Compra mercado;-45,90\n13/10/2026;Movimentação recebida;120,00");
     expect(parsed.rows).toHaveLength(2);
     expect(parsed.rows[0].value).toMatchObject({ type: "expense", amount_cents: 4590, due_date: "2026-10-12" });
     expect(parsed.rows[1].value).toBeUndefined();
@@ -93,7 +93,7 @@ describe("parseBankTable", () => {
   });
 
   it("recognizes separate debit and credit columns", () => {
-    const parsed = parseBankTable("Data;Descrição;Débito;Crédito\\n12/10/2026;Aluguel;1200,00;\\n13/10/2026;Recebimento;;3500,00");
+    const parsed = parseBankTable("Data;Descrição;Débito;Crédito\n12/10/2026;Aluguel;1200,00;\n13/10/2026;Recebimento;;3500,00");
     expect(parsed.rows[0].value).toMatchObject({ type: "expense", amount_cents: 120000 });
     expect(parsed.rows[1].value).toMatchObject({ type: "income", amount_cents: 350000 });
   });
