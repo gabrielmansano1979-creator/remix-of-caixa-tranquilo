@@ -164,17 +164,17 @@ export function parseStatementText(text: string): { rows: CsvRow[]; ignored: num
 /** Parse bank-exported OFX/QFX files without relying on a specific bank's tag ordering. */
 export function parseOfxText(text: string): { rows: CsvRow[]; ignored: number } {
   const rows: CsvRow[] = [];
-  const blocks = text.match(/<STMTTRN>[\\s\\S]*?<\\/STMTTRN>/gi) ?? [];
+  const blocks = text.match(/<STMTTRN>[\s\S]*?<\/STMTTRN>/gi) ?? [];
   let ignored = 0;
 
   const tag = (block: string, name: string) => {
-    const match = block.match(new RegExp(`<${name}>([^\\r\\n<]*)`, "i"));
+    const match = block.match(new RegExp(`<${name}>([^\r\n<]*)`, "i"));
     return match?.[1]?.trim().replace(/&amp;/gi, "&").replace(/&lt;/gi, "<").replace(/&gt;/gi, ">") ?? "";
   };
 
   for (const [index, block] of blocks.entries()) {
     const posted = tag(block, "DTPOSTED").slice(0, 8);
-    const date = /^\\d{8}$/.test(posted)
+    const date = /^\d{8}$/.test(posted)
       ? parseDate(`${posted.slice(0, 4)}-${posted.slice(4, 6)}-${posted.slice(6, 8)}`)
       : null;
     const amountRaw = tag(block, "TRNAMT").replace(/,/g, "");
@@ -215,14 +215,14 @@ export function parseOfxText(text: string): { rows: CsvRow[]; ignored: number } 
 
 /** Parse Quicken Interchange Format (QIF) records exported by banks and finance apps. */
 export function parseQifText(text: string): { rows: CsvRow[]; ignored: number } {
-  const records = text.replace(/^\\uFEFF/, "").split(/^\\^\\s*$/m);
+  const records = text.replace(/^\uFEFF/, "").split(/^\\^\s*$/m);
   const rows: CsvRow[] = [];
   let ignored = 0;
 
   for (const [index, record] of records.entries()) {
-    const fields = record.split(/\\r?\\n/).map((line) => line.trim()).filter(Boolean);
+    const fields = record.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
     const get = (prefix: string) => fields.find((line) => line.startsWith(prefix))?.slice(1).trim() ?? "";
-    const dateRaw = get("D").replace(/['’](\\d{2})$/, "/20$1");
+    const dateRaw = get("D").replace(/['’](\d{2})$/, "/20$1");
     const date = parseDate(dateRaw);
     const amountRaw = get("T");
     const negative = amountRaw.startsWith("-");
@@ -248,13 +248,13 @@ export function parseQifText(text: string): { rows: CsvRow[]; ignored: number } 
 
 /** Fallback for bank CSV/TXT tables whose column names differ from the app's template. */
 export function parseBankTable(text: string): { rows: CsvRow[]; headerError?: string; ignored: number } {
-  const lines = text.replace(/^\\uFEFF/, "").split(/\\r?\\n/).filter((line) => line.trim());
+  const lines = text.replace(/^\uFEFF/, "").split(/\r?\n/).filter((line) => line.trim());
   if (lines.length < 2) return { rows: [], headerError: "A tabela não contém cabeçalho e lançamentos.", ignored: 0 };
   const first = lines[0];
   const candidates = [",", ";", "\\t", "|"];
   const separator = candidates.sort((a, b) => splitLine(lines[0], b).length - splitLine(lines[0], a).length)[0];
   const header = splitLine(first, separator).map((cell) =>
-    cell.toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").replace(/[_-]+/g, " ").replace(/\\s+/g, " ").trim()
+    cell.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim()
   );
   const dateIndex = header.findIndex((h) => /^(data|date|data lancamento|data movimento|dt lancamento|dt movimento|posting date|transaction date|data transacao|data da transacao)$/.test(h));
   const descriptionIndex = header.findIndex((h) => /^(descricao|historico|lancamento|detalhe|memo|description|payee|beneficiario|estabelecimento|transacao|transaction|nome)$/.test(h));
@@ -278,14 +278,14 @@ export function parseBankTable(text: string): { rows: CsvRow[]; headerError?: st
     const amountRaw = amountIndex >= 0 ? cells[amountIndex] ?? "" : "";
     const debit = parseMoney(debitRaw.replace(/^[+-]/, ""));
     const credit = parseMoney(creditRaw.replace(/^[+-]/, ""));
-    const signedNegative = /^\\s*-/.test(amountRaw) || /^\\s*\\(.*\\)\\s*$/.test(amountRaw);
+    const signedNegative = /^\s*-/.test(amountRaw) || /^\s*\\(.*\\)\s*$/.test(amountRaw);
     const amount = amountIndex >= 0 ? parseMoney(amountRaw.replace(/^[+-]/, "").replace(/[()]/g, "")) : null;
     const chosenAmount = debit !== null ? debit : credit !== null ? credit : amount;
     if (!date || !description || chosenAmount === null) {
       ignored++;
       continue;
     }
-    const rawType = typeIndex >= 0 ? (cells[typeIndex] ?? "").normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toLowerCase() : "";
+    const rawType = typeIndex >= 0 ? (cells[typeIndex] ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() : "";
     const type = debit !== null ? "expense"
       : credit !== null ? "income"
       : signedNegative || /debito|saida|despesa|pagamento|withdrawal|expense/.test(rawType) ? "expense"
