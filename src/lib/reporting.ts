@@ -91,6 +91,7 @@ export type ExportOptions = {
   channel: ReportChannel;
   companyName: string;
   businessSize?: string | null;
+  accountantOnly?: boolean;
   accountantName: string;
   accountantWhatsapp: string;
   year?: number;
@@ -126,7 +127,7 @@ export async function generateAccountingReport(options: ExportOptions, rows: Rep
     ["Saídas / despesas registradas", money(expense)],
     [income >= expense ? "Saldo líquido dos lançamentos" : "Déficit dos lançamentos", money(Math.abs(income - expense))],
   ];
-  if (options.period === "anual") {
+  if (options.accountantOnly && options.period === "anual") {
     summary.push(["Média mensal de entradas (total anual dividido por 12)", money(income / 12)]);
     summary.push(["Observação", "A média considera os 12 meses do ano; confirme se o histórico está completo."]);
   }
