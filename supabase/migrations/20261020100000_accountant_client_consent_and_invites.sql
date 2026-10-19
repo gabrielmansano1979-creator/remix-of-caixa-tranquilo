@@ -120,6 +120,10 @@ BEGIN
   SELECT * INTO req FROM public.accountant_access_requests WHERE id = _request_id AND client_user_id = uid AND status = 'pending' FOR UPDATE;
   IF req.id IS NULL THEN RAISE EXCEPTION 'request not found or already processed'; END IF;
   IF _approve THEN
+    -- Preserve the consent history when the customer switches accountants.
+    UPDATE public.accountant_access_requests
+      SET status = 'revoked', decided_at = now()
+      WHERE client_user_id = uid AND status = 'approved';
     DELETE FROM public.accountant_access WHERE client_user_id = uid;
     INSERT INTO public.accountant_access(client_user_id, partner_id, granted_at)
     VALUES (uid, req.partner_id, now())
@@ -294,3 +298,24 @@ END
 $function$;
 REVOKE ALL ON FUNCTION public.my_accountant_financial_audit() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.my_accountant_financial_audit() TO authenticated;
+
+
+-- Revoke the legacy coupon-based grant path: new financial sharing requires an explicit
+-- request from the accountant and a separate decision by the customer.
+REVOKE ALL ON FUNCTION public.grant_accountant_access(text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.grant_accountant_access(text) TO service_role;
+
+-- Keep an explicit revocation record instead of only deleting the active permission.
+CREATE OR REPLACE FUNCTION public.revoke_accountant_access()
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $function$
+DECLARE uid uuid := auth.uid();
+BEGIN
+  IF uid IS NULL THEN RAISE EXCEPTION 'not authenticated'; END IF;
+  UPDATE public.accountant_access_requests
+    SET status = 'revoked', decided_at = now()
+    WHERE client_user_id = uid AND status = 'approved';
+  DELETE FROM public.accountant_access WHERE client_user_id = uid;
+END
+$function$;
+REVOKE ALL ON FUNCTION public.revoke_accountant_access() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.revoke_accountant_access() TO authenticated;
