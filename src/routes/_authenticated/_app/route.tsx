@@ -198,7 +198,7 @@ function AppShell() {
         )}
         {access?.status === "trialing" && access.trial_ends_at && (
           <div className="sticky top-16 z-10 flex flex-wrap items-center justify-center gap-2 border-b bg-accent px-4 py-3 text-center text-sm text-accent-foreground md:px-8">
-            <span>Você está no dia {trialProgress(access.trial_ends_at).day} de 7 do seu teste gratuito. {trialProgress(access.trial_ends_at).remaining} dia(s) restante(s).</span>
+            <span>Você está no dia {trialProgress(access.trial_ends_at).day} de 14 do seu teste gratuito. {trialProgress(access.trial_ends_at).remaining} dia(s) restante(s).</span>
             <Button asChild variant="ghost" size="sm" className="min-h-11"><Link to="/planos">Assinar com 20% Off</Link></Button>
           </div>
         )}

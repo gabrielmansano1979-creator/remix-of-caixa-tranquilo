@@ -125,6 +125,10 @@ function IndexComponent() {
 
           <div className="mx-auto grid max-w-7xl items-center gap-14 lg:grid-cols-[1.04fr_0.96fr] lg:gap-16">
             <div className="mx-auto max-w-2xl text-center lg:mx-0 lg:text-left">
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-emerald-300/30 bg-emerald-300/[0.12] px-4 py-2 text-sm font-semibold tracking-wide text-emerald-100 sm:text-base">
+                <CheckCircle2 className="h-4 w-4" />
+                14 dias grátis, sem cartão de crédito
+              </div>
               <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-300/[0.07] px-3.5 py-2 text-xs font-medium tracking-wide text-emerald-200 sm:text-sm">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />
                 Gestão de caixa com visão executiva e apoio à auditoria
@@ -320,6 +324,7 @@ function IndexComponent() {
             </div>
             <div className="mt-10 divide-y divide-white/[0.08] border-y border-white/[0.08]">
               {[
+                { q: 'Quanto tempo dura o teste grátis?', a: 'Você pode testar o Critical Cash por 14 dias, sem cartão de crédito. Ao final do período, para continuar com os recursos de edição e lembretes, será necessário contratar um plano.' },
                 { q: 'Como acesso o Critical Cash?', a: 'Clique em “Entrar ou criar conta”. Na tela de acesso, você poderá entrar com uma conta existente ou selecionar a opção de criar conta.' },
                 { q: 'O que faço se ainda não tenho cadastro?', a: 'Abra a tela de acesso e selecione “Criar Conta”. Preencha os campos solicitados e siga as instruções apresentadas pelo sistema.' },
                 { q: 'Quais formatos posso importar?', a: 'Você pode importar lançamentos a partir de arquivos CSV, planilhas Excel e extratos em PDF. O sistema apresenta uma prévia para conferência antes da importação; os limites variam conforme o plano.' },

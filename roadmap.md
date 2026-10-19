@@ -4,8 +4,8 @@
 - [x] Banco ativo revisado: as migrations de documentos de parceiros e repasse constam no histórico do Supabase `dygwbadhvwzajordpmst`.
 - [x] Esquema ativo contém `partner_application_documents` e a função `update_partner_payout(text, text)`.
 - [x] Tipos gerados atuais incluem `partner_application_documents` e `update_partner_payout`; a anotação antiga de 22 erros de TypeScript não deve ser tratada como diagnóstico atual sem reproduzir o typecheck.
-- [x] Banco ativo revisado: `profiles.trial_ends_at` usa prazo de 7 dias e `ensure_user_setup()` cria trial de 7 dias.
-- [x] Criada nesta branch migration corretiva para que ambientes novos/reconstruídos mantenham o mesmo trial de 7 dias após a migration histórica de 03/10.
+- [x] Banco ativo revisado: `profiles.trial_ends_at` usa prazo de 14 dias e `ensure_user_setup()` cria trial de 14 dias.
+- [x] Criada nesta branch migration corretiva para que ambientes novos/reconstruídos mantenham o mesmo trial de 14 dias após a migration histórica de 03/10.
 - [x] CI do commit de código validado: sintaxe das migrations, testes unitários, TypeScript e build passaram no GitHub Actions (run 39319301859). A versão publicada ainda não foi validada.
 - [ ] Verificar os avisos dos Supabase Advisors e separar falsos positivos de funções SECURITY DEFINER que precisam de revisão individual. Não revogar permissões em lote sem confirmar os fluxos de autenticação e autorização.
 - [ ] Confirmar no ambiente publicado que navegador e funções de servidor usam o backend esperado. Não alterar o login nem trocar de backend durante esta correção.
@@ -28,7 +28,7 @@
 - [ ] Confirmar e-mail/celular apenas após definir um serviço de envio e verificar eventuais tarifas.
 
 ## Reformulação PLG — Critical Cash
-- [x] Restaurar trial de 7 dias para novas contas e alinhar CTAs/preços/desconto Pix.
+- [x] Restaurar trial de 14 dias para novas contas e alinhar CTAs/preços/desconto Pix.
 - [x] Reformular página inicial e prévias multicanal.
 - [x] Persistir canais por etapa e implementar envio/status multicanal.
 - [x] Cadastro e onboarding real em 3 passos.
