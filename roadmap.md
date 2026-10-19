@@ -6,7 +6,7 @@
 - [x] Vencimento no fuso de Brasília — `createPixCharge` usa a data de America/Sao_Paulo (antes UTC virava "amanhã" após 21h); 64 testes aprovados
 - [x] Esquema de cobrança confirmado no banco ativo — `pending_billing_changes` e `subscriptions.asaas_subscription_id` existem (revalidado em 16/10)
 - [ ] Aplicar migrations de `partner_application_documents` e `update_partner_payout` + regenerar tipos — 22 erros de typecheck em `contador.tsx`/`admin/index.tsx`; aguarda autorização do dono (mudança de banco)
-- [ ] Migration corretiva do trial — a migration de 03/10 zera `trial_ends_at` no repo, mas o banco ativo tem 7 dias; risco só em ambientes novos; aguarda autorização
+- [x] Migration corretiva do trial: nova migration define 14 dias no backend para novas contas, sem alterar datas de trials existentes.
 
 ## Login no Supabase próprio (dygwbadhvwzajordpmst)
 - [x] Diagnóstico e levantamento somente leitura (site publicado usa backend antigo)
@@ -21,7 +21,7 @@
 - [ ] Confirmar e-mail e celular por códigos; WhatsApp via Twilio — aguarda conexão e configuração do serviço de confirmação.
 
 ## Reformulação PLG — Critical Cash
-- [x] Restaurar trial de 7 dias para novas contas e alinhar CTAs/preços/desconto Pix
+- [x] Configurar trial de 14 dias para novas contas e alinhar os textos da experiência.
 - [x] Reformular página inicial e prévias multicanal
 - [x] Persistir canais por etapa e implementar envio/status multicanal
 - [x] Cadastro e onboarding real em 3 passos
