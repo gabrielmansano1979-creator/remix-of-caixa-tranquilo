@@ -251,7 +251,7 @@ export function parseBankTable(text: string): { rows: CsvRow[]; headerError?: st
   const lines = text.replace(/^\uFEFF/, "").split(/\r?\n/).filter((line) => line.trim());
   if (lines.length < 2) return { rows: [], headerError: "A tabela não contém cabeçalho e lançamentos.", ignored: 0 };
   const first = lines[0];
-  const candidates = [",", ";", "\\t", "|"];
+  const candidates = [",", ";", "\t", "|"];
   const separator = candidates.sort((a, b) => splitLine(lines[0], b).length - splitLine(lines[0], a).length)[0];
   const header = splitLine(first, separator).map((cell) =>
     cell.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim()
