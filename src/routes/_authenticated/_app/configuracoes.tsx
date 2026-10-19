@@ -28,6 +28,7 @@ export const Route = createFileRoute("/_authenticated/_app/configuracoes")({
 const card = "rounded-2xl border bg-card p-6 shadow-[var(--shadow-soft)]";
 const bizSchema = z.object({
   business_name: z.string().trim().min(2, "Informe o nome do negócio.").max(120),
+  business_size: z.enum(["", "MEI", "ME", "EPP", "OUTRO"]),
   initial_balance_cents: z.number().int(),
   cushion_cents: z.number().int().min(0),
 });
@@ -132,12 +133,12 @@ function BusinessForm({ profile }: { profile: Tables<"profiles"> }) {
   const qc = useQueryClient();
   const { register, handleSubmit, control, formState } = useForm<z.infer<typeof bizSchema>>({
     resolver: zodResolver(bizSchema),
-    defaultValues: { business_name: profile.business_name ?? "", initial_balance_cents: profile.initial_balance_cents, cushion_cents: profile.cushion_cents },
+    defaultValues: { business_name: profile.business_name ?? "", business_size: profile.business_size ?? "", initial_balance_cents: profile.initial_balance_cents, cushion_cents: profile.cushion_cents },
   });
   const onSubmit = handleSubmit(async (v) => {
     if (!profile.user_id) return toast.error("Perfil indisponível. Atualize a página e tente novamente.");
     const balChanged = v.initial_balance_cents !== profile.initial_balance_cents;
-    const { error } = await supabase.from("profiles").update({ ...v, ...(balChanged ? { balance_date: todaySP() } : {}) }).eq("user_id", profile.user_id);
+    const { error } = await supabase.from("profiles").update({ ...v, business_size: v.business_size || null, ...(balChanged ? { balance_date: todaySP() } : {}) }).eq("user_id", profile.user_id);
     if (error) return toast.error(parseDbError(error).message);
     qc.invalidateQueries({ queryKey: ["profile"] }); qc.invalidateQueries({ queryKey: ["projection"] });
     toast.success("Dados salvos.");
@@ -147,6 +148,7 @@ function BusinessForm({ profile }: { profile: Tables<"profiles"> }) {
       <h2 className="font-semibold">Perfil e negócio</h2>
       <div className="grid gap-4 sm:grid-cols-2">
         <div><Label htmlFor="bn">Nome do negócio</Label><Input id="bn" className="mt-1.5 h-11 rounded-xl" {...register("business_name")} /><FieldError msg={formState.errors.business_name?.message} /></div>
+        <div><Label htmlFor="business-size">Porte empresarial</Label><select id="business-size" className="mt-1.5 h-11 w-full rounded-xl border bg-background px-3 text-sm" {...register("business_size")}><option value="">Selecione o porte</option><option value="MEI">MEI</option><option value="ME">ME</option><option value="EPP">EPP</option><option value="OUTRO">Outro / ainda não definido</option></select><p className="mt-1 text-xs text-muted-foreground">Informe o enquadramento atual. O sistema não determina automaticamente o porte nem calcula tributos nesta tela.</p></div>
         <div><Label htmlFor="ib">Saldo atual</Label><Controller control={control} name="initial_balance_cents" render={({ field }) => <MoneyInput id="ib" value={field.value} onChange={field.onChange} allowNegative />} /></div>
         <div>
           <Label htmlFor="cu">Reserva mínima (colchão)</Label>
