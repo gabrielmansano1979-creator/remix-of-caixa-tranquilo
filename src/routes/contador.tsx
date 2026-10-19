@@ -15,6 +15,7 @@ import {
   getPartnerAffiliateLinks,
   type ReportFormat,
 } from "@/lib/reporting";
+import { AccountantClientManagement } from "@/components/accountant-client-management";
 
 export const Route = createFileRoute("/contador")({
   beforeLoad: async () => {
