@@ -40,6 +40,7 @@ type PartnerRow = {
   name: string | null;
   email: string | null;
   status: string | null;
+  created_at: string;
   tax_id: string | null;
   crc_number: string | null;
   pix_type: string | null;
@@ -115,6 +116,19 @@ const date = (value: string | null | undefined) => {
   if (Number.isNaN(parsed.getTime())) return "—";
 
   return parsed.toLocaleDateString("pt-BR");
+};
+
+const dateTime = (value: string | null | undefined) => {
+  if (!value) return "—";
+
+  const parsed = new Date(value);
+
+  if (Number.isNaN(parsed.getTime())) return "—";
+
+  return parsed.toLocaleString("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+  });
 };
 
 const statusLabel = (status: string | null | undefined) => {
@@ -260,7 +274,7 @@ function AdminPage() {
       const { data, error } = await supabase
         .from("partner_application_documents")
         .select("*")
-        .order("submitted_at", { ascending: false });
+        .order("submitted_at", { ascending: true });
       if (error) throw error;
       return (data ?? []) as PartnerApplicationDocument[];
     },
@@ -545,7 +559,7 @@ function AdminPage() {
                       <td className="px-3 py-3">{item.phone}</td>
                       <td className="px-3 py-3">{item.city} / {item.state}</td>
                       <td className="px-3 py-3">{item.office_name ?? "—"}</td>
-                      <td className="px-3 py-3">{date(item.submitted_at)}</td>
+                      <td className="px-3 py-3">{dateTime(item.submitted_at)}</td>
                       <td className="px-3 py-3"><div className="flex flex-wrap gap-1">
                         <Button size="sm" variant="outline" onClick={() => void openApplicationDocument(item.crc_document_path)}><FileText className="mr-1 h-3.5 w-3.5" />CRC</Button>
                         <Button size="sm" variant="outline" onClick={() => void openApplicationDocument(item.identity_document_path)}><ExternalLink className="mr-1 h-3.5 w-3.5" />Identidade</Button>
@@ -571,7 +585,7 @@ function AdminPage() {
 
         <CardContent>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] text-left text-sm">
+            <table className="w-full min-w-[900px] text-left text-sm">
               <thead>
                 <tr className="border-b border-white/10 text-xs text-zinc-400">
                   {[
@@ -580,6 +594,7 @@ function AdminPage() {
                     "CPF/CNPJ e CRC",
                     "PIX para recebimento",
                     "Status",
+                    "Solicitada em",
                     "Indicações pagantes",
                     "Ações",
                   ].map((title) => (
@@ -619,6 +634,10 @@ function AdminPage() {
 
                       <td className="px-3 py-3">
                         {statusLabel(partner.status)}
+                      </td>
+
+                      <td className="px-3 py-3 whitespace-nowrap">
+                        {dateTime(partner.created_at)}
                       </td>
 
                       <td className="num px-3 py-3">
@@ -672,7 +691,7 @@ function AdminPage() {
                   ))
                 ) : (
                   <EmptyRow
-                    colSpan={7}
+                    colSpan={8}
                     message="Nenhuma solicitação de contador encontrada."
                   />
                 )}
@@ -715,7 +734,14 @@ function AdminPage() {
 
               <tbody>
                 {clients.length ? (
-                  clients.map((client, index) => (
+                  [...clients]
+                    .sort((a, b) => {
+                      const byCreatedAt =
+                        new Date(b.created_at).getTime() -
+                        new Date(a.created_at).getTime();
+                      return byCreatedAt || b.user_id.localeCompare(a.user_id);
+                    })
+                    .map((client, index) => (
                     <tr
                       key={`${client.user_id}:${client.partner_id}:${index}`}
                       className="border-b border-white/5 last:border-0"
@@ -738,7 +764,7 @@ function AdminPage() {
                       </td>
 
                       <td className="px-3 py-3">
-                        {date(client.created_at)}
+                        {dateTime(client.created_at)}
                       </td>
 
                       <td className="px-3 py-3">
@@ -805,7 +831,7 @@ function AdminPage() {
                       </td>
 
                       <td className="px-3 py-3">
-                        {date(commission.created_at)}
+                        {dateTime(commission.created_at)}
                       </td>
                     </tr>
                   ))
