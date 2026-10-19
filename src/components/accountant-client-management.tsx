@@ -1,7 +1,6 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Building2, Clipboard, ExternalLink, FileText, ShieldCheck, Users } from "lucide-react";
+import { Building2, Clipboard, FileText, ShieldCheck, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,8 +21,7 @@ const money = (cents: number) => new Intl.NumberFormat("pt-BR", { style: "curren
 const date = (value: string) => new Date(value).toLocaleDateString("pt-BR");
 
 export function AccountantClientManagement() {
-  const qc = useQueryClient();
-  const [busy, setBusy] = useState(false);
+
   const query = useQuery({
     queryKey: ["accountant-client-management"],
     queryFn: async () => {
@@ -45,20 +43,7 @@ export function AccountantClientManagement() {
       toast.error("Não foi possível copiar o link. Selecione e copie o endereço manualmente.");
     }
   };
-  const refresh = () => qc.invalidateQueries({ queryKey: ["accountant-client-management"] });
-  const decide = async (id: string, approve: boolean) => {
-    setBusy(true);
-    try {
-      const { error } = await supabase.rpc("decide_accountant_access", { _request_id: id, _approve: approve });
-      if (error) throw error;
-      await refresh();
-      toast.success(approve ? "Acesso concedido ao contador." : "Solicitação recusada.");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Não foi possível atualizar a solicitação.");
-    } finally {
-      setBusy(false);
-    }
-  };
+
 
   if (query.isLoading) return <Card><CardContent className="p-6 text-sm text-muted-foreground">Carregando clientes e convites...</CardContent></Card>;
   if (query.isError || !data) return <Card><CardContent className="space-y-3 p-6"><p className="text-sm text-danger">Não foi possível carregar os clientes e convites contábeis.</p><Button variant="outline" onClick={() => query.refetch()}>Tentar novamente</Button></CardContent></Card>;
