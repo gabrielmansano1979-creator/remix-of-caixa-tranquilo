@@ -18,6 +18,7 @@ import { Route as EsqueciSenhaRouteImport } from './routes/esqueci-senha'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as PrivacidadeRouteImport } from './routes/privacidade'
 import { Route as RedefinirSenhaRouteImport } from './routes/redefinir-senha'
+import { Route as SolicitarAcessoContadorRouteImport } from './routes/solicitar-acesso-contador'
 import { Route as TermosRouteImport } from './routes/termos'
 import { Route as AuthenticatedAppRouteRouteImport } from './routes/_authenticated/_app/route'
 import { Route as AuthenticatedOnboardingRouteImport } from './routes/_authenticated/onboarding'
@@ -54,6 +55,11 @@ const CheckoutRoute = CheckoutRouteImport.update({
 const ContadorRoute = ContadorRouteImport.update({
   id: '/contador',
   path: '/contador',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SolicitarAcessoContadorRoute = SolicitarAcessoContadorRouteImport.update({
+  id: '/solicitar-acesso-contador',
+  path: '/solicitar-acesso-contador',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EsqueciSenhaRoute = EsqueciSenhaRouteImport.update({
@@ -153,6 +159,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/privacidade': typeof PrivacidadeRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
+  '/solicitar-acesso-contador': typeof SolicitarAcessoContadorRoute
   '/termos': typeof TermosRoute
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/dashboard/parceiro': typeof DashboardParceiroRoute
@@ -175,6 +182,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/privacidade': typeof PrivacidadeRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
+  '/solicitar-acesso-contador': typeof SolicitarAcessoContadorRoute
   '/termos': typeof TermosRoute
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/dashboard/parceiro': typeof DashboardParceiroRoute
@@ -199,6 +207,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/privacidade': typeof PrivacidadeRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
+  '/solicitar-acesso-contador': typeof SolicitarAcessoContadorRoute
   '/termos': typeof TermosRoute
   '/_authenticated/_app': typeof AuthenticatedAppRouteRouteWithChildren
   '/_authenticated/onboarding': typeof AuthenticatedOnboardingRoute
@@ -224,6 +233,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/privacidade'
     | '/redefinir-senha'
+    | '/solicitar-acesso-contador'
     | '/termos'
     | '/onboarding'
     | '/dashboard/parceiro'
@@ -246,6 +256,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/privacidade'
     | '/redefinir-senha'
+    | '/solicitar-acesso-contador'
     | '/termos'
     | '/onboarding'
     | '/dashboard/parceiro'
@@ -269,6 +280,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/privacidade'
     | '/redefinir-senha'
+    | '/solicitar-acesso-contador'
     | '/termos'
     | '/_authenticated/_app'
     | '/_authenticated/onboarding'
@@ -294,6 +306,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   PrivacidadeRoute: typeof PrivacidadeRoute
   RedefinirSenhaRoute: typeof RedefinirSenhaRoute
+  SolicitarAcessoContadorRoute: typeof SolicitarAcessoContadorRoute
   TermosRoute: typeof TermosRoute
   DashboardParceiroRoute: typeof DashboardParceiroRoute
   AdminIndexRoute: typeof AdminIndexRoute
@@ -364,6 +377,13 @@ declare module '@tanstack/react-router' {
       path: '/redefinir-senha'
       fullPath: '/redefinir-senha'
       preLoaderRoute: typeof RedefinirSenhaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/solicitar-acesso-contador': {
+      id: '/solicitar-acesso-contador'
+      path: '/solicitar-acesso-contador'
+      fullPath: '/solicitar-acesso-contador'
+      preLoaderRoute: typeof SolicitarAcessoContadorRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/termos': {
@@ -506,6 +526,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   PrivacidadeRoute: PrivacidadeRoute,
   RedefinirSenhaRoute: RedefinirSenhaRoute,
+  SolicitarAcessoContadorRoute: SolicitarAcessoContadorRoute,
   TermosRoute: TermosRoute,
   DashboardParceiroRoute: DashboardParceiroRoute,
   AdminIndexRoute: AdminIndexRoute,
