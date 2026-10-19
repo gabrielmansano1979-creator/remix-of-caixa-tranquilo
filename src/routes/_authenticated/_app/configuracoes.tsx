@@ -6,7 +6,7 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Camera, Download, Trash2 } from "lucide-react";
+import { Camera, Clipboard, Download, ShieldCheck, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import { parseDbError, profileQuery, todaySP } from "@/lib/app-data";
@@ -28,6 +28,7 @@ export const Route = createFileRoute("/_authenticated/_app/configuracoes")({
 const card = "rounded-2xl border bg-card p-6 shadow-[var(--shadow-soft)]";
 const bizSchema = z.object({
   business_name: z.string().trim().min(2, "Informe o nome do negócio.").max(120),
+  business_size: z.enum(["", "MEI", "ME", "EPP", "OUTRO"]),
   initial_balance_cents: z.number().int(),
   cushion_cents: z.number().int().min(0),
 });
@@ -132,12 +133,12 @@ function BusinessForm({ profile }: { profile: Tables<"profiles"> }) {
   const qc = useQueryClient();
   const { register, handleSubmit, control, formState } = useForm<z.infer<typeof bizSchema>>({
     resolver: zodResolver(bizSchema),
-    defaultValues: { business_name: profile.business_name ?? "", initial_balance_cents: profile.initial_balance_cents, cushion_cents: profile.cushion_cents },
+    defaultValues: { business_name: profile.business_name ?? "", business_size: profile.business_size ?? "", initial_balance_cents: profile.initial_balance_cents, cushion_cents: profile.cushion_cents },
   });
   const onSubmit = handleSubmit(async (v) => {
     if (!profile.user_id) return toast.error("Perfil indisponível. Atualize a página e tente novamente.");
     const balChanged = v.initial_balance_cents !== profile.initial_balance_cents;
-    const { error } = await supabase.from("profiles").update({ ...v, ...(balChanged ? { balance_date: todaySP() } : {}) }).eq("user_id", profile.user_id);
+    const { error } = await supabase.from("profiles").update({ ...v, business_size: v.business_size || null, ...(balChanged ? { balance_date: todaySP() } : {}) }).eq("user_id", profile.user_id);
     if (error) return toast.error(parseDbError(error).message);
     qc.invalidateQueries({ queryKey: ["profile"] }); qc.invalidateQueries({ queryKey: ["projection"] });
     toast.success("Dados salvos.");
@@ -147,6 +148,7 @@ function BusinessForm({ profile }: { profile: Tables<"profiles"> }) {
       <h2 className="font-semibold">Perfil e negócio</h2>
       <div className="grid gap-4 sm:grid-cols-2">
         <div><Label htmlFor="bn">Nome do negócio</Label><Input id="bn" className="mt-1.5 h-11 rounded-xl" {...register("business_name")} /><FieldError msg={formState.errors.business_name?.message} /></div>
+        <div><Label htmlFor="business-size">Porte empresarial</Label><select id="business-size" className="mt-1.5 h-11 w-full rounded-xl border bg-background px-3 text-sm" {...register("business_size")}><option value="">Selecione o porte</option><option value="MEI">MEI</option><option value="ME">ME</option><option value="EPP">EPP</option><option value="OUTRO">Outro / ainda não definido</option></select><p className="mt-1 text-xs text-muted-foreground">Informe o enquadramento atual. O sistema não determina automaticamente o porte nem calcula tributos nesta tela.</p></div>
         <div><Label htmlFor="ib">Saldo atual</Label><Controller control={control} name="initial_balance_cents" render={({ field }) => <MoneyInput id="ib" value={field.value} onChange={field.onChange} allowNegative />} /></div>
         <div>
           <Label htmlFor="cu">Reserva mínima (colchão)</Label>
@@ -171,59 +173,88 @@ function Notifications() {
 
 function AccountantSharing() {
   const queryClient = useQueryClient();
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["accountant-sharing"],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("my_accountant_access");
+      const { data, error } = await supabase.rpc("my_accountant_client_invite");
       if (error) throw error;
-      return data as { coupon_code?: string; partner_name?: string; granted_at?: string };
+      return data as {
+        token?: string;
+        accountant_name?: string | null;
+        granted_at?: string | null;
+        pending_requests?: Array<{ id: string; accountant_name: string; crc_number: string | null; requested_at: string }>;
+      };
     },
   });
-  const [code, setCode] = useState("");
-  const [busy, setBusy] = useState(false);
-  const grant = async () => {
-    if (!code.trim()) return toast.error("Informe o cupom do contador.");
-    setBusy(true);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const origin = typeof window === "undefined" ? "" : window.location.origin;
+  const inviteUrl = data?.token ? `${origin}/solicitar-acesso-contador?token=${encodeURIComponent(data.token)}` : "";
+  const copyInvite = async () => {
+    if (!inviteUrl) return;
     try {
-      const { error } = await supabase.rpc("grant_accountant_access", { _coupon_code: code.trim() });
+      await navigator.clipboard.writeText(inviteUrl);
+      toast.success("Link para convidar o contador copiado.");
+    } catch {
+      toast.error("Não foi possível copiar o link. Copie o endereço exibido manualmente.");
+    }
+  };
+  const decide = async (id: string, approve: boolean) => {
+    setBusyId(id);
+    try {
+      const { error } = await supabase.rpc("decide_accountant_access", { _request_id: id, _approve: approve });
       if (error) throw error;
-      setCode("");
       await queryClient.invalidateQueries({ queryKey: ["accountant-sharing"] });
-      toast.success("Acesso concedido ao contador informado.");
+      await queryClient.invalidateQueries({ queryKey: ["accountant-client-management"] });
+      toast.success(approve ? "Acesso concedido ao contador." : "Solicitação recusada.");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Não foi possível conceder o acesso.");
+      toast.error(error instanceof Error ? error.message : "Não foi possível atualizar a solicitação.");
     } finally {
-      setBusy(false);
+      setBusyId(null);
     }
   };
   const revoke = async () => {
-    setBusy(true);
+    setBusyId("revoke");
     try {
       const { error } = await supabase.rpc("revoke_accountant_access");
       if (error) throw error;
       await queryClient.invalidateQueries({ queryKey: ["accountant-sharing"] });
+      await queryClient.invalidateQueries({ queryKey: ["accountant-client-management"] });
       toast.success("Acesso do contador revogado.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível revogar o acesso.");
     } finally {
-      setBusy(false);
+      setBusyId(null);
     }
   };
-  const granted = !!data?.coupon_code;
   return (
     <section className={`${card} space-y-4`}>
-      <h2 className="font-semibold">Compartilhamento com contador</h2>
-      <p className="text-sm text-muted-foreground">Ao informar o cupom e conceder acesso, você autoriza o contador parceiro a consultar seus resumos de caixa e relatórios em modo somente leitura. Você pode revogar essa permissão quando quiser.</p>
-      {isLoading ? <p className="text-sm text-muted-foreground">Consultando autorização...</p> : granted ? (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-success/20 bg-success/5 p-4">
-          <p className="text-sm">Acesso ativo para <strong>{data.partner_name}</strong> (cupom {data.coupon_code}).</p>
-          <Button type="button" variant="outline" disabled={busy} onClick={revoke}>Revogar acesso</Button>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <Input aria-label="Cupom do contador" maxLength={80} value={code} onChange={(event) => setCode(event.target.value)} placeholder="Informe o cupom exclusivo do contador" />
-          <Button type="button" disabled={busy} onClick={grant}>Conceder acesso</Button>
-        </div>
+      <div className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-primary" /><h2 className="font-semibold">Acesso do contador e autorização de documentos</h2></div>
+      <p className="text-sm text-muted-foreground">Copie o link e envie ao seu contador. Quando ele abrir o convite e clicar em “Enviar pedido de autorização”, uma solicitação ficará disponível aqui. Nenhum dado é liberado antes da sua aprovação.</p>
+      {isLoading ? <p className="text-sm text-muted-foreground">Preparando link seguro...</p> : isError ? <div className="space-y-2"><p className="text-sm text-danger">Não foi possível carregar o link de convite.</p><Button type="button" variant="outline" onClick={() => refetch()}>Tentar novamente</Button></div> : (
+        <>
+          <div className="break-all rounded-xl border bg-muted/30 p-3 text-xs">{inviteUrl}</div>
+          <Button type="button" variant="outline" disabled={!inviteUrl} onClick={() => void copyInvite()}><Clipboard className="mr-2 h-4 w-4" />Copiar link para enviar ao contador</Button>
+          {data?.accountant_name && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+              <div><p className="text-sm font-medium">Contador autorizado: {data.accountant_name}</p><p className="mt-1 text-xs text-muted-foreground">Acesso concedido em {data.granted_at ? new Date(data.granted_at).toLocaleDateString("pt-BR") : "data não informada"}.</p></div>
+              <Button type="button" variant="outline" disabled={busyId !== null} onClick={() => void revoke()}>Revogar acesso</Button>
+            </div>
+          )}
+          <div className="space-y-3 pt-2">
+            <h3 className="font-medium">Solicitações de autorização</h3>
+            {(data?.pending_requests ?? []).length ? (
+              <>
+                <p className="text-xs text-muted-foreground">Ao aprovar outro contador, o acesso atualmente ativo será substituído. Você pode recusar qualquer solicitação.</p>
+                {(data?.pending_requests ?? []).map((request) => (
+                  <div key={request.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4">
+                    <div><p className="font-medium">{request.accountant_name}</p><p className="text-xs text-muted-foreground">{request.crc_number ? `CRC ${request.crc_number} · ` : ""}Solicitado em {new Date(request.requested_at).toLocaleDateString("pt-BR")}</p></div>
+                    <div className="flex gap-2"><Button type="button" disabled={busyId !== null} onClick={() => void decide(request.id, true)}>{busyId === request.id ? "Processando..." : "Autorizar"}</Button><Button type="button" variant="outline" disabled={busyId !== null} onClick={() => void decide(request.id, false)}>Recusar</Button></div>
+                  </div>
+                ))}
+              </>
+            ) : <p className="text-sm text-muted-foreground">Nenhuma solicitação pendente. As novas solicitações aparecerão aqui para você decidir.</p>}
+          </div>
+        </>
       )}
     </section>
   );
