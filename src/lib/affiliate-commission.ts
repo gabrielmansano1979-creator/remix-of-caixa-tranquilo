@@ -12,6 +12,20 @@ export function commissionRateForConfirmedClients(confirmedClients: number): 20 
 }
 
 /**
+ * Referral discount is recurring only for monthly billing; annual billing is discounted
+ * on the acquisition payment only. Invalid/missing rates safely result in no renewal discount.
+ */
+export function recurringAffiliateDiscountPercent(
+  interval: "month" | "year",
+  discountPercent: number | null | undefined,
+): number {
+  if (interval !== "month" || !Number.isInteger(discountPercent) || discountPercent! < 0 || discountPercent! > 100) {
+    return 0;
+  }
+  return discountPercent!;
+}
+
+/**
  * Calculates commission on the amount actually paid, using integer cents only.
  * Fractions of a cent are rounded half-up to the nearest cent (not always down),
  * avoiding systematic underpayment over many transactions.
