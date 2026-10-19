@@ -224,20 +224,21 @@ export function parseQifText(text: string): { rows: CsvRow[]; ignored: number } 
     const get = (prefix: string) => fields.find((line) => line.startsWith(prefix))?.slice(1).trim() ?? "";
     const dateRaw = get("D").replace(/['’](\\d{2})$/, "/20$1");
     const date = parseDate(dateRaw);
-    const amountRaw = get("T").replace(/,/g, "");
-    const amount = Number(amountRaw);
+    const amountRaw = get("T");
+    const negative = amountRaw.startsWith("-");
+    const amountCents = parseMoney(amountRaw.replace(/^[+-]/, ""));
     const description = [get("P"), get("M")].filter(Boolean).join(" — ").slice(0, 200);
-    if (!date || !Number.isFinite(amount) || amount === 0 || !description) {
+    if (!date || amountCents === null || !description) {
       if (fields.some((line) => /^[DTPM]/.test(line))) ignored++;
       continue;
     }
-    const type = amount < 0 ? "expense" : "income";
+    const type = negative ? "expense" : "income";
     rows.push({
       line: index + 1,
-      raw: { descricao: description, valor: String(Math.abs(amount)), vencimento: dateRaw, tipo: type === "income" ? "entrada" : "saida", nome: get("P").slice(0, 120) },
+      raw: { descricao: description, valor: String(amountCents / 100), vencimento: dateRaw, tipo: type === "income" ? "entrada" : "saida", nome: get("P").slice(0, 120) },
       errors: [],
       value: {
-        type, description, amount_cents: Math.round(Math.abs(amount) * 100), due_date: date,
+        type, description, amount_cents: amountCents, due_date: date,
         counterparty_name: get("P").slice(0, 120), counterparty_email: "", counterparty_whatsapp: "",
       },
     });
