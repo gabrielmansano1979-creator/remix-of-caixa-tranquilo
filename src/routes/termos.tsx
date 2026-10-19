@@ -19,7 +19,7 @@ export const Route = createFileRoute("/termos")({
       <h2>1. O serviço</h2>
       <p>O Critical Cash projeta o fluxo de caixa de curto prazo com base nas informações que você cadastra e envia lembretes de cobrança por e-mail aos seus clientes. As projeções são estimativas e não constituem consultoria financeira.</p>
       <h2>2. Conta e teste grátis</h2>
-      <p>O teste grátis dura 7 dias, sem cartão. Ao final, sem assinatura, a conta passa a modo somente leitura e os lembretes são pausados. Dados são preservados por 90 dias.</p>
+      <p>O teste grátis dura 14 dias, sem cartão. Ao final, sem assinatura, a conta passa a modo somente leitura e os lembretes são pausados. Dados são preservados por 90 dias.</p>
       <h2>3. Assinatura e pagamento</h2>
       <ul><li>Cobrança recorrente mensal ou anual, processada pela Stripe.</li><li>Cancelamento a qualquer momento; o acesso segue até o fim do período pago.</li><li>Não há reembolso proporcional, salvo exigência legal.</li></ul>
       <h2>4. Uso aceitável</h2>
