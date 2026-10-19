@@ -466,7 +466,7 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
 
             const interval: BillingInterval = legacySub.billing_interval === "year" ? "year" : "month";
             const plan = getPlan(legacySub.plan as PlanId);
-            const recurringDiscount = legacySub.affiliate_discount_percent ?? 0;
+            const recurringDiscount = interval === "month" ? (legacySub.affiliate_discount_percent ?? 0) : 0;
             const recurringAmountCents = Math.round(
               (interval === "year" ? plan.priceYearCents : plan.priceMonthCents) * (1 - recurringDiscount / 100),
             );
