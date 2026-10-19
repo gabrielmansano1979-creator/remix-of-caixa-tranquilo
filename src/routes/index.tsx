@@ -129,7 +129,7 @@ function IndexComponent() {
                 <CheckCircle2 className="h-4 w-4" />
                 14 dias grátis, sem cartão de crédito
               </div>
-              <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-300/[0.07] px-3.5 py-2 text-xs font-medium tracking-wide text-emerald-200 sm:text-sm>
+              <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-300/[0.07] px-3.5 py-2 text-xs font-medium tracking-wide text-emerald-200 sm:text-sm">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />
                 Gestão de caixa com visão executiva e apoio à auditoria
               </div>
