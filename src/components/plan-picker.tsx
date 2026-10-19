@@ -80,7 +80,7 @@ export function PlanPicker({ referralCode }: { referralCode?: string }) {
         </div>
       </div>
       <div className="mt-4 text-center text-sm text-muted-foreground">
-        {referralCode ? "Cupom de contador afiliado com 20% de desconto aplicado. Não cumulativo com outras ofertas." : "Primeiro pagamento via Pix com 10% de desconto e confirmação automática em poucos segundos."}
+        {referralCode ? (yearly ? "Cupom de contador afiliado: 20% de desconto somente no primeiro pagamento anual. Não cumulativo com outras ofertas." : "Cupom de contador afiliado: 20% de desconto nas duas primeiras mensalidades; a terceira é cobrada integralmente. Não cumulativo com outras ofertas.") : "Sem cupom válido: 10% de desconto somente no primeiro pagamento da assinatura, via Pix."}
       </div>
       <div className="mx-auto mt-6 max-w-xs">
         <label htmlFor="legal-name" className="text-sm font-medium">Nome civil completo (como consta no documento)</label>
