@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Building2, Clipboard, FileText, ShieldCheck, Users } from "lucide-react";
+import { Building2, Clipboard, FileText, History, ShieldCheck, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,6 +15,7 @@ type AccountantPortal = {
   }>;
   pending_requests: Array<{ id: string; client_name: string; requested_at: string }>;
   invited_companies: Array<{ client_name: string; accepted_at: string; access_granted: boolean }>;
+  audit_logs: Array<{ id: string; client_user_id: string; client_name: string; action: "insert" | "update" | "delete"; entity_type: string; entity_id: string; details: { before?: Record<string, string | null>; after?: Record<string, string | null> }; created_at: string }>;
 };
 
 const money = (cents: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100);
@@ -25,9 +26,13 @@ export function AccountantClientManagement() {
   const query = useQuery({
     queryKey: ["accountant-client-management"],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("my_accountant_portal_invites");
-      if (error) throw error;
-      return data as unknown as AccountantPortal;
+      const [portal, audit] = await Promise.all([
+        supabase.rpc("my_accountant_portal_invites"),
+        supabase.rpc("my_accountant_financial_audit"),
+      ]);
+      if (portal.error) throw portal.error;
+      if (audit.error) throw audit.error;
+      return { ...(portal.data as unknown as Omit<AccountantPortal, "audit_logs">), audit_logs: (audit.data ?? []) as AccountantPortal["audit_logs"] };
     },
   });
   const data = query.data;
@@ -95,6 +100,14 @@ export function AccountantClientManagement() {
             const expense = client.entries.filter((entry) => entry.type === "expense").reduce((sum, entry) => sum + entry.amount_cents, 0);
             return <div key={client.client_user_id} className="rounded-xl border p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-semibold">{client.client_name}</h3><p className="text-xs text-muted-foreground">Autorizado em {date(client.granted_at)} · {client.entries.length} lançamentos</p></div><span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs text-emerald-600">Acesso autorizado</span></div><div className="mt-3 grid gap-3 sm:grid-cols-3"><div className="rounded-lg bg-muted/30 p-3"><p className="text-xs text-muted-foreground">Entradas cadastradas</p><p className="font-semibold">{money(income)}</p></div><div className="rounded-lg bg-muted/30 p-3"><p className="text-xs text-muted-foreground">Saídas cadastradas</p><p className="font-semibold">{money(expense)}</p></div><div className="rounded-lg bg-muted/30 p-3"><p className="text-xs text-muted-foreground">Saldo líquido dos lançamentos</p><p className="font-semibold">{money(income - expense)}</p></div></div><details className="mt-3"><summary className="cursor-pointer text-sm font-medium text-primary">Ver lançamentos financeiros</summary><div className="mt-3 overflow-x-auto"><table className="w-full min-w-[650px] text-left text-sm"><thead><tr className="border-b text-xs text-muted-foreground"><th className="px-2 py-2">Descrição</th><th className="px-2 py-2">Tipo</th><th className="px-2 py-2">Valor</th><th className="px-2 py-2">Data</th><th className="px-2 py-2">Situação</th></tr></thead><tbody>{client.entries.map((entry, i) => <tr key={client.client_user_id + entry.description + entry.due_date + i} className="border-b last:border-0"><td className="px-2 py-2">{entry.description}</td><td className="px-2 py-2">{entry.type === "income" ? "Entrada" : "Saída"}</td><td className="px-2 py-2">{money(entry.amount_cents)}</td><td className="px-2 py-2">{date(entry.due_date)}</td><td className="px-2 py-2">{entry.status === "paid" ? "Pago" : "Pendente"}</td></tr>)}</tbody></table></div></details></div>;
           })}</div> : <p className="text-sm text-muted-foreground">Nenhum cliente autorizou o acesso ainda.</p>}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="flex items-center gap-2"><History className="h-5 w-5" />Auditoria financeira</CardTitle></CardHeader>
+        <CardContent>
+          <p className="mb-4 text-sm text-muted-foreground">Registro de inclusão, alteração e exclusão de lançamentos dos clientes que autorizaram seu acesso. Exibimos até os 500 eventos mais recentes disponíveis.</p>
+          {data.audit_logs.length ? <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left text-sm"><thead><tr className="border-b text-xs text-muted-foreground"><th className="px-3 py-3">Data</th><th className="px-3 py-3">Empresa</th><th className="px-3 py-3">Ação</th><th className="px-3 py-3">Descrição</th><th className="px-3 py-3">Valor</th></tr></thead><tbody>{data.audit_logs.map((item) => { const row = item.details.after ?? item.details.before ?? {}; const action = item.action === "insert" ? "Inclusão" : item.action === "update" ? "Alteração" : "Exclusão"; return <tr key={item.id} className="border-b last:border-0"><td className="px-3 py-3">{date(item.created_at)}</td><td className="px-3 py-3 font-medium">{item.client_name}</td><td className="px-3 py-3">{action}</td><td className="px-3 py-3">{row.description ?? "—"}</td><td className="px-3 py-3">{row.amount_cents ? money(Number(row.amount_cents)) : "—"}</td></tr>; })}</tbody></table></div> : <p className="text-sm text-muted-foreground">Nenhuma alteração financeira registrada para os clientes autorizados. Novos lançamentos e alterações serão registrados automaticamente.</p>}
         </CardContent>
       </Card>
     </section>
