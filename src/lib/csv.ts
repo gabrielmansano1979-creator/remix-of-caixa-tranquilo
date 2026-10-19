@@ -24,9 +24,11 @@ function splitLine(line: string, sep: string) {
 }
 
 export function parseMoney(s: string): number | null {
-  let t = s.replace(/[R$\s]/g, "");
+  let t = s.replace(/[R$\s]/g, "").replace(/[()]/g, "");
   if (!t) return null;
-  if (t.includes(",")) t = t.replace(/\./g, "").replace(",", ".");
+  // Accept Brazilian (1.234,56) and international (1,234.56) notation.
+  if (/^[-+]?\d{1,3}(,\d{3})+\.\d{2}$/.test(t)) t = t.replace(/,/g, "");
+  else if (t.includes(",")) t = t.replace(/\./g, "").replace(",", ".");
   const n = Number(t);
   return Number.isFinite(n) && n > 0 ? Math.round(n * 100) : null;
 }
@@ -34,6 +36,8 @@ export function parseMoney(s: string): number | null {
 export function parseDate(s: string): string | null {
   let m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
   let iso: string | null = null;
+  if (m) iso = `${m[3]}-${m[2]}-${m[1]}`;
+  m = s.match(/^(\d{2})[-.](\d{2})[-.](\d{4})$/);
   if (m) iso = `${m[3]}-${m[2]}-${m[1]}`;
   m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (m) iso = s;
@@ -77,48 +81,67 @@ export function parseCsv(text: string): { rows: CsvRow[]; headerError?: string }
   return { rows };
 }
 
+function normalizeStatementDate(raw: string): string | null {
+  const normalized = raw.replace(/[.-]/g, "/");
+  return parseDate(normalized);
+}
+
+function statementAmountMatch(line: string): RegExpMatchArray | null {
+  // Prefer a complete monetary token at the end of the row, optionally followed by bank debit/credit markers.
+  const pattern = /(?:R\$\s*)?([+-]?(?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d{2})?|[+-]?\d{1,3}(?:,\d{3})+\.\d{2})\s*(CR|C|DB|D)?\s*$/i;
+  return line.match(pattern);
+}
+
 export function parseStatementText(text: string): { rows: CsvRow[]; ignored: number } {
-  const lines = text.split(/\r?\n/).map((line) => line.replace(/\s+/g, " ").trim()).filter(Boolean);
-  const datePattern = /(?:^|\s)(\d{2}\/\d{2}\/\d{4}|\d{4}-\d{2}-\d{2})(?=\s|$)/;
-  const amountPattern = /(?:R\$\s*)?([+-]?(?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d{2})?)\s*(CR|C|DB|D)?\s*$/i;
+  const lines = text
+    .replace(/[\u00a0\u2007\u202f]/g, " ")
+    .split(/\r?\n/)
+    .map((line) => line.replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+  const datePattern = /(?:^|\s)(\d{2}[/. -]\d{2}[/. -]\d{4}|\d{4}-\d{2}-\d{2})(?=\s|$)/;
   const rows: CsvRow[] = [];
   let ignored = 0;
 
   for (const [index, line] of lines.entries()) {
     const dateMatch = line.match(datePattern);
-    const amountMatch = line.match(amountPattern);
+    const amountMatch = statementAmountMatch(line);
     if (!dateMatch || !amountMatch) {
-      ignored++;
+      // Ignore headings and balances, but report lines that look transaction-like and could not be parsed.
+      if (/\b(pix|ted|doc|transfer|compra|pagamento|pagto|saque|dep[oó]sito|tarifa|boleto|recebimento|cr[eé]dito|d[eé]bito)\b/i.test(line)) ignored++;
       continue;
     }
 
-    const date = parseDate(dateMatch[1]);
-    const cents = parseMoney(amountMatch[1].replace(/^[+-]/, ""));
+    const date = normalizeStatementDate(dateMatch[1]);
+    const amountToken = amountMatch[1].replace(/^[+-]/, "");
+    const cents = parseMoney(amountToken);
     if (!date || cents === null) {
       ignored++;
       continue;
     }
 
+    const direction = amountMatch[2]?.toUpperCase();
+    const negative = amountMatch[1].startsWith("-");
     const transactionText = line
       .replace(dateMatch[0], " ")
       .replace(amountMatch[0], " ")
+      .replace(/\s+/g, " ")
       .trim();
-    const direction = amountMatch[2]?.toUpperCase();
-    const negative = amountMatch[1].startsWith("-");
-    const type = negative || direction === "D" || direction === "DB"
+    const normalizedText = transactionText.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    const type = negative || direction === "D" || direction === "DB" ||
+      /\b(pagamento|pagto|debito|compra|saida|saque|retirada|tarifa|boleto pago|pix enviado|transferencia enviada)\b/.test(normalizedText)
       ? "expense"
-      : direction === "C" || direction === "CR" || amountMatch[1].startsWith("+") || /\b(receb|cr[eé]dito|dep[oó]sito|entrada)\w*/i.test(transactionText)
+      : direction === "C" || direction === "CR" || amountMatch[1].startsWith("+") ||
+        /\b(receb|credito|deposito|entrada|estorno|salario|pix recebido|transferencia recebida)\w*/.test(normalizedText)
         ? "income"
-        : /\b(pag|d[eé]bito|compra|sa[ií]da|tarifa|retirada)\w*/i.test(transactionText)
-          ? "expense"
-          : null;
-    const errors = type ? [] : ["Não foi possível identificar se o lançamento é entrada ou saída."];
+        : null;
+
+    const errors = type ? [] : ["Não foi possível identificar se o lançamento é entrada ou saída; confira e classifique manualmente."];
     const description = transactionText.slice(0, 200);
     if (!description) errors.push("Descrição não identificada no documento.");
 
     const row: CsvRow = {
       line: index + 1,
-      raw: { descricao: description, valor: amountMatch[1], vencimento: dateMatch[1], tipo: type === "income" ? "entrada" : type === "expense" ? "saida" : "não identificado", nome: "" },
+      raw: { descricao: description, valor: amountToken, vencimento: dateMatch[1], tipo: type === "income" ? "entrada" : type === "expense" ? "saida" : "não identificado", nome: "" },
       errors,
     };
     if (!errors.length && type) {
