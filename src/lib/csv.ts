@@ -34,16 +34,17 @@ export function parseMoney(s: string): number | null {
 }
 
 export function parseDate(s: string): string | null {
-  let m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  const input = s.trim().replace(/^["']|["']$/g, "");
+  let m = input.match(/^(\d{1,2})[/. -](\d{1,2})[/. -](\d{4})(?:\s+.*)?$/);
   let iso: string | null = null;
-  if (m) iso = `${m[3]}-${m[2]}-${m[1]}`;
-  m = s.match(/^(\d{2})[-.](\d{2})[-.](\d{4})$/);
-  if (m) iso = `${m[3]}-${m[2]}-${m[1]}`;
-  m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (m) iso = s;
+  // Extratos brasileiros normalmente usam DD/MM/AAAA; não inverter datas ambíguas automaticamente.
+  if (m) iso = `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
+  m = input.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})(?:[T\s].*)?$/);
+  if (m) iso = `${m[1]}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}`;
   if (!iso) return null;
-  const d = new Date(iso + "T12:00:00Z");
-  return isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== iso ? null : iso;
+  const [year, month, day] = iso.split("-").map(Number);
+  const d = new Date(Date.UTC(year, month - 1, day, 12));
+  return Number.isNaN(d.getTime()) || d.getUTCFullYear() !== year || d.getUTCMonth() !== month - 1 || d.getUTCDate() !== day ? null : iso;
 }
 
 import { toE164 } from "./phone";
@@ -82,9 +83,29 @@ export function parseCsv(text: string): { rows: CsvRow[]; headerError?: string }
 }
 
 function normalizeStatementDate(raw: string): string | null {
-  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return parseDate(raw);
-  const normalized = raw.replace(/[.-]/g, "/");
-  return parseDate(normalized);
+  return parseDate(raw.trim());
+}
+
+function extractCounterparty(transactionText: string, type: "income" | "expense" | null): string {
+  const text = transactionText.replace(/\s+/g, " ").trim();
+  if (!text) return "";
+  const patterns = type === "income"
+    ? [
+        /\b(?:pix|ted|doc|transfer[eê]ncia|transfer)\s+(?:recebido|recebida|recebimento)\s+(?:de|do|da|dos|das)\s+(.+)$/i,
+        /\b(?:recebido|recebida|creditado|creditada)\s+(?:de|do|da|dos|das)\s+(.+)$/i,
+        /\b(?:remetente|pagador|ordenante|origem)\s*[:=-]\s*(.+)$/i,
+      ]
+    : [
+        /\b(?:pix|ted|doc|transfer[eê]ncia|transfer)\s+(?:enviado|enviada|feito)\s+(?:para|a|ao|à|pro|pra)\s+(.+)$/i,
+        /\b(?:enviado|enviada|transferido|transferida|pago|paga)\s+(?:para|a|ao|pro|pra)\s+(.+)$/i,
+        /\b(?:destinat[aá]rio|favorecido|benefici[aá]rio|recebedor)\s*[:=-]\s*(.+)$/i,
+      ];
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match?.[1]) return match[1].replace(/[.;,]+$/, "").trim().slice(0, 120);
+  }
+  const explicit = text.match(/\b(?:de|para|favorecido|benefici[aá]rio|remetente|destinat[aá]rio)\s*[:=-]?\s+([A-ZÀ-Ý][A-ZÀ-Ýa-zà-ÿ.' -]{2,100})$/);
+  return explicit?.[1]?.trim().slice(0, 120) ?? "";
 }
 
 function statementAmountMatch(line: string): RegExpMatchArray | null {
@@ -138,11 +159,12 @@ export function parseStatementText(text: string): { rows: CsvRow[]; ignored: num
 
     const errors = type ? [] : ["Não foi possível identificar se o lançamento é entrada ou saída; confira e classifique manualmente."];
     const description = transactionText.slice(0, 200);
+    const counterparty = extractCounterparty(transactionText, type);
     if (!description) errors.push("Descrição não identificada no documento.");
 
     const row: CsvRow = {
       line: index + 1,
-      raw: { descricao: description, valor: amountToken, vencimento: dateMatch[1], tipo: type === "income" ? "entrada" : type === "expense" ? "saida" : "não identificado", nome: "" },
+      raw: { descricao: description, valor: amountToken, vencimento: dateMatch[1], tipo: type === "income" ? "entrada" : type === "expense" ? "saida" : "não identificado", nome: counterparty },
       errors,
     };
     if (!errors.length && type) {
@@ -151,7 +173,7 @@ export function parseStatementText(text: string): { rows: CsvRow[]; ignored: num
         description,
         amount_cents: cents,
         due_date: date,
-        counterparty_name: "",
+        counterparty_name: counterparty,
         counterparty_email: "",
         counterparty_whatsapp: "",
       };
@@ -229,6 +251,9 @@ export function parseBankTable(text: string): { rows: CsvRow[]; headerError?: st
   const debitIndex = header.findIndex((h) => /^(debito|debit|saidas|saida|withdrawal|debit amount)$/.test(h));
   const creditIndex = header.findIndex((h) => /^(credito|credit|entradas|entrada|deposit|deposito|credit amount)$/.test(h));
   const typeIndex = header.findIndex((h) => /^(tipo|type|natureza|operacao|operation|direcao)$/.test(h));
+  const senderIndex = header.findIndex((h) => /^(remetente|pagador|ordenante|origem|sender|payer|from)$/.test(h));
+  const recipientIndex = header.findIndex((h) => /^(destinatario|favorecido|beneficiario|recebedor|payee|recipient|to)$/.test(h));
+  const counterpartyIndex = header.findIndex((h) => /^(nome|contraparte|counterparty|nome contraparte|nome favorecido|nome remetente)$/.test(h));
   if (dateIndex < 0 || descriptionIndex < 0 || (amountIndex < 0 && debitIndex < 0 && creditIndex < 0)) {
     return { rows: [], headerError: "Não reconheci as colunas. Preciso identificar data, descrição e valor (ou débito/crédito).", ignored: 0 };
   }
@@ -259,6 +284,12 @@ export function parseBankTable(text: string): { rows: CsvRow[]; headerError?: st
       : /credito|entrada|receita|deposito|recebimento|income/.test(rawType) ? "income"
       : null;
     const errors = type ? [] : ["A linha foi lida, mas o arquivo não informa se o valor é entrada ou saída; classifique manualmente."];
+    const explicitCounterparty = type === "income"
+      ? (senderIndex >= 0 ? cells[senderIndex] ?? "" : counterpartyIndex >= 0 ? cells[counterpartyIndex] ?? "" : "")
+      : type === "expense"
+        ? (recipientIndex >= 0 ? cells[recipientIndex] ?? "" : counterpartyIndex >= 0 ? cells[counterpartyIndex] ?? "" : "")
+        : (counterpartyIndex >= 0 ? cells[counterpartyIndex] ?? "" : "");
+    const counterparty = explicitCounterparty.trim().slice(0, 120) || extractCounterparty(description, type);
     const row: CsvRow = {
       line: index + 2,
       raw: {
@@ -266,13 +297,13 @@ export function parseBankTable(text: string): { rows: CsvRow[]; headerError?: st
         valor: String(chosenAmount / 100),
         vencimento: rawDate,
         tipo: type === "income" ? "entrada" : type === "expense" ? "saida" : "não identificado",
-        nome: "",
+        nome: counterparty,
       },
       errors,
     };
     if (type) row.value = {
       type, description, amount_cents: chosenAmount, due_date: date,
-      counterparty_name: "", counterparty_email: "", counterparty_whatsapp: "",
+      counterparty_name: counterparty, counterparty_email: "", counterparty_whatsapp: "",
     };
     rows.push(row);
   }
