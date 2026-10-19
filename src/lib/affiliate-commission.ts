@@ -19,10 +19,10 @@ export function recurringAffiliateDiscountPercent(
   interval: "month" | "year",
   discountPercent: number | null | undefined,
 ): number {
-  if (interval !== "month" || !Number.isInteger(discountPercent) || discountPercent! < 0 || discountPercent! > 100) {
+  if (interval !== "month" || typeof discountPercent !== "number" || !Number.isInteger(discountPercent) || discountPercent < 0 || discountPercent > 100) {
     return 0;
   }
-  return discountPercent!;
+  return discountPercent;
 }
 
 /**
