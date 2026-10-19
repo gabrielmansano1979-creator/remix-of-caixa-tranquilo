@@ -146,6 +146,7 @@ BEGIN
       SELECT jsonb_agg(jsonb_build_object(
         'client_user_id', aa.client_user_id,
         'client_name', COALESCE(NULLIF(trim(p.business_name), ''), NULLIF(trim(p.full_name), ''), 'Empresa'),
+        'business_size', p.business_size,
         'granted_at', aa.granted_at,
         'entries', COALESCE((
           SELECT jsonb_agg(jsonb_build_object('description', e.description, 'type', e.type, 'amount_cents', e.amount_cents, 'due_date', e.due_date, 'status', e.status, 'paid_at', e.paid_at) ORDER BY e.due_date)
