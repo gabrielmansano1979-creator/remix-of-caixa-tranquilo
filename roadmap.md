@@ -6,7 +6,7 @@
 - [x] Tipos gerados atuais incluem `partner_application_documents` e `update_partner_payout`; a anotação antiga de 22 erros de TypeScript não deve ser tratada como diagnóstico atual sem reproduzir o typecheck.
 - [x] Banco ativo revisado: `profiles.trial_ends_at` usa prazo de 7 dias e `ensure_user_setup()` cria trial de 7 dias.
 - [x] Criada nesta branch migration corretiva para que ambientes novos/reconstruídos mantenham o mesmo trial de 7 dias após a migration histórica de 03/10.
-- [ ] Executar/confirmar CI completo desta branch: testes, TypeScript, build e sintaxe SQL. Não declarar publicação pronta antes dos resultados.
+- [x] CI do commit de código validado: sintaxe das migrations, testes unitários, TypeScript e build passaram no GitHub Actions (run 39319301859). A versão publicada ainda não foi validada.
 - [ ] Verificar os avisos dos Supabase Advisors e separar falsos positivos de funções SECURITY DEFINER que precisam de revisão individual. Não revogar permissões em lote sem confirmar os fluxos de autenticação e autorização.
 - [ ] Confirmar no ambiente publicado que navegador e funções de servidor usam o backend esperado. Não alterar o login nem trocar de backend durante esta correção.
 
