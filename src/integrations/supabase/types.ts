@@ -447,6 +447,7 @@ export type Database = {
         Row: {
           balance_date: string
           business_name: string | null
+          business_size: string | null
           created_at: string
           cushion_cents: number
           email: string | null
@@ -466,6 +467,7 @@ export type Database = {
         Insert: {
           balance_date?: string
           business_name?: string | null
+          business_size?: string | null
           created_at?: string
           cushion_cents?: number
           email?: string | null
