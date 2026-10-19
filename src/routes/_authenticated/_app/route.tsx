@@ -1,6 +1,6 @@
 import { createFileRoute, Link, Outlet, redirect, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bell, CreditCard, ListChecks, LogOut, Settings, Wallet, AlertTriangle, Moon, Sun, UserRound, Menu } from "lucide-react";
+import { Bell, CreditCard, ListChecks, LogOut, Settings, Wallet, AlertTriangle, Moon, Sun, UserRound, Menu, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Logo } from "@/components/brand";
