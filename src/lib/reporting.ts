@@ -90,6 +90,7 @@ export type ExportOptions = {
   format: ReportFormat;
   channel: ReportChannel;
   companyName: string;
+  businessSize?: string | null;
   accountantName: string;
   accountantWhatsapp: string;
   year?: number;
@@ -120,6 +121,7 @@ export async function generateAccountingReport(options: ExportOptions, rows: Rep
   const largestExpenses = [...expenseByDescription.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
   const summary: Array<[string, string | number]> = [
     ["Período", label],
+    ...(options.businessSize ? [["Porte empresarial declarado", options.businessSize] as [string, string]] : []),
     ["Entradas / receitas registradas", money(income)],
     ["Saídas / despesas registradas", money(expense)],
     [income >= expense ? "Saldo líquido dos lançamentos" : "Déficit dos lançamentos", money(Math.abs(income - expense))],
@@ -129,6 +131,7 @@ export async function generateAccountingReport(options: ExportOptions, rows: Rep
     summary.push(["Observação", "A média considera os 12 meses do ano; confirme se o histórico está completo."]);
   }
   summary.push(["Maiores destinos identificáveis pelas descrições (não são categorias contábeis)", largestExpenses.map(([description, cents]) => `${description}: ${money(cents)}`).join(" | ") || "Sem despesas registradas no período"]);
+  summary.push(["Nota tributária", "Documento informativo para análise do contador. Não contém cálculo de tributos nem substitui escrituração ou declaração oficial."]);
 
   await exportReport({
     title: `Relatório financeiro — ${safeCompany}`,
