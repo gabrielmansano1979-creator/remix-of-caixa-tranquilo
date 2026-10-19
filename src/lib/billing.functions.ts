@@ -4,6 +4,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { getPlan, FIRST_PIX_DISCOUNT } from "@/config/plans";
 import { isValidCpfCnpj, normalizeCpfCnpj } from "@/lib/identity";
 import { checkoutErrorMessage } from "./billing-errors";
+import { recurringAffiliateDiscountPercent } from "./affiliate-commission";
 
 type Out = { url?: string; error?: string; qrCode?: string; copyPaste?: string; paymentId?: string };
 const origin = async () => {
@@ -211,7 +212,7 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       // Affiliate referrals get the discount on the acquisition payment and the first
       // monthly renewal. The webhook restores full price after the second paid invoice,
       // so the third monthly charge uses the plan's normal price. Annual renewals are full price.
-      const recurringDiscountPercent = data.interval === "month" ? (affiliate?.discountPercent ?? 0) : 0;
+      const recurringDiscountPercent = recurringAffiliateDiscountPercent(data.interval, affiliate?.discountPercent);
       const recurringPriceCents = Math.round(basePrice * (1 - recurringDiscountPercent / 100));
       stage = "customer_lookup_or_create";
       const customerId = await ensureCustomer(userId, customerEmail, customerName, data.cpfCnpj);
