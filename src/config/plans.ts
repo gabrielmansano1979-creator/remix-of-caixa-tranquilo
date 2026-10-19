@@ -17,7 +17,7 @@ export interface PlanConfig {
   features: string[];
 }
 
-export const TRIAL_DAYS = 7; // teste sem cartão, com recursos Pro
+export const TRIAL_DAYS = 14; // teste sem cartão, com recursos Pro
 /** Desconto da primeira assinatura paga via Pix. */
 export const FIRST_PIX_DISCOUNT = 0.1;
 export const TRIAL_PLAN: PlanId = "pro";
