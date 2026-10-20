@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { AlertCircle, CheckCircle2, Download, Upload } from "lucide-react";
+import { AlertCircle, CheckCircle2, Download, LoaderCircle, Upload } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { accessQuery, parseDbError, type LimitKind } from "@/lib/app-data";
 import { CSV_TEMPLATE, parseCsv, parseBankTable, parseStatementText, parseCoraStatementText, parsePdfStatementText, parseOfxText, type CsvRow } from "@/lib/csv";
@@ -16,6 +16,7 @@ export function CsvImportDialog({ open, onOpenChange, onLimit }: { open: boolean
   const [rows, setRows] = useState<CsvRow[] | null>(null);
   const [fileErr, setFileErr] = useState<string | null>(null);
   const [fileWarning, setFileWarning] = useState<string | null>(null);
+  const [isReading, setIsReading] = useState(false);
   const valid = rows?.filter((r) => r.value) ?? [];
   const maxRows = access?.limits.csv_rows ?? 0;
 
@@ -23,22 +24,26 @@ export function CsvImportDialog({ open, onOpenChange, onLimit }: { open: boolean
 
   const onFile = async (f?: File) => {
     if (!f) return;
-    if (f.size > 20_000_000) return setFileErr("Arquivo muito grande (máx. 20 MB).");
-    const extension = "." + (f.name.split(".").pop()?.toLowerCase() ?? "");
-    if (![".csv", ".xlsx", ".pdf", ".ofx"].includes(extension)) {
-      setFileErr("Formato não suportado. Envie somente CSV, Excel (.xlsx), PDF ou OFX.");
-      setRows(null);
-      return;
-    }
     setFileErr(null);
     setFileWarning(null);
     setRows(null);
+    if (f.size > 20_000_000) {
+      setFileErr("Arquivo muito grande (máx. 20 MB).");
+      return;
+    }
+    const extension = "." + (f.name.split(".").pop()?.toLowerCase() ?? "");
+    if (![".csv", ".xlsx", ".pdf", ".ofx"].includes(extension)) {
+      setFileErr("Formato não suportado. Envie somente CSV, Excel (.xlsx), PDF ou OFX.");
+      return;
+    }
+    setIsReading(true);
     try {
       const extension = f.name.split(".").pop()?.toLowerCase();
       if (extension === "csv") {
         const text = await f.text();
         const parsed = parseCsv(text);
         if (!parsed.headerError) {
+          if (!parsed.rows.length) throw new Error("O CSV foi aberto, mas não contém lançamentos reconhecíveis. Confira se a primeira linha contém os cabeçalhos e se o arquivo não está vazio.");
           setRows(parsed.rows);
           return;
         }
@@ -69,6 +74,7 @@ export function CsvImportDialog({ open, onOpenChange, onLimit }: { open: boolean
         const usableSheets = parsedSheets.filter((parsed) => !parsed.headerError);
         if (!usableSheets.length) throw new Error(parsedSheets[0]?.headerError ?? "Nenhuma aba contém as colunas de lançamentos esperadas.");
         const combined = usableSheets.flatMap((parsed) => parsed.rows);
+        if (!combined.length) throw new Error("Nenhum lançamento reconhecível foi encontrado nas abas da planilha.");
         if (combined.length > 5000) throw new Error("A planilha excede o limite de 5.000 linhas para pré-visualização.");
         setRows(combined.map((row, index) => ({ ...row, line: index + 2 })));
         const skippedSheets = parsedSheets.length - usableSheets.length;
@@ -110,8 +116,12 @@ export function CsvImportDialog({ open, onOpenChange, onLimit }: { open: boolean
       }
       throw new Error("Formato não suportado. Envie um dos formatos indicados na tela.");
     } catch (error) {
-      setFileErr(error instanceof Error ? error.message : "Não foi possível ler o arquivo.");
+      const message = error instanceof Error ? error.message : "Não foi possível ler o arquivo.";
+      setFileErr(message);
       setRows(null);
+      toast.error(message);
+    } finally {
+      setIsReading(false);
     }
   };
 
@@ -153,11 +163,12 @@ export function CsvImportDialog({ open, onOpenChange, onLimit }: { open: boolean
           <div className="space-y-4">
             <label className="flex cursor-pointer flex-col items-center gap-2 rounded-2xl border-2 border-dashed p-8 text-center hover:border-primary focus-within:border-primary">
               <Upload className="h-8 w-8 text-primary" />
-              <span className="font-medium">Escolher arquivo financeiro</span>
-              <span className="text-xs text-muted-foreground">Formatos aceitos: CSV, XLSX, PDF e OFX. CSV/XLSX de bancos podem usar nomes de colunas diferentes. Confira tudo antes de gravar.</span>
-              <input type="file" accept=".csv,.xlsx,.pdf,.ofx,text/csv,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="sr-only" onChange={(e) => onFile(e.target.files?.[0])} />
+              <span className="font-medium">{isReading ? "Lendo arquivo..." : "Escolher arquivo financeiro"}</span>
+              <span className="text-xs text-muted-foreground">Formatos aceitos: CSV, XLSX, PDF e OFX. A leitura pode demorar em PDFs digitalizados. Confira tudo antes de gravar.</span>
+              <input type="file" disabled={isReading} accept=".csv,.xlsx,.pdf,.ofx,text/csv,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="sr-only" onChange={(e) => { const selected = e.currentTarget.files?.[0]; e.currentTarget.value = ""; void onFile(selected); }} />
             </label>
-            {fileErr && <p className="flex items-center gap-2 rounded-xl bg-danger/10 p-3 text-sm text-danger" role="alert"><AlertCircle className="h-4 w-4" />{fileErr}</p>}
+            {isReading && <p className="flex items-center gap-2 rounded-xl bg-muted p-3 text-sm" role="status" aria-live="polite"><LoaderCircle className="h-4 w-4 animate-spin" />Lendo e interpretando o arquivo. PDFs digitalizados podem levar alguns minutos; não feche esta janela.</p>}
+            {fileErr && <p className="flex items-center gap-2 rounded-xl bg-danger/10 p-3 text-sm text-danger" role="alert" aria-live="assertive"><AlertCircle className="h-4 w-4 shrink-0" />{fileErr}</p>}
             {fileWarning && <p className="flex items-center gap-2 rounded-xl bg-warning/10 p-3 text-sm text-warning" role="status"><AlertCircle className="h-4 w-4" />{fileWarning}</p>}
             <Button variant="link" className="px-0" onClick={download}><Download className="mr-2 h-4 w-4" />Baixar modelo CSV</Button>
           </div>
