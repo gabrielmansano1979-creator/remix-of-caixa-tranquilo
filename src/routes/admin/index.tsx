@@ -206,6 +206,9 @@ const statusLabel = (status: string | null | undefined) => {
     past_due: "Pagamento atrasado",
     incomplete: "Incompleto",
     unpaid: "Não pago",
+    expired: "Expirada",
+    pending_approval: "Aguardando aprovação",
+    revoked: "Revogado",
   };
 
   if (!status) return "Não informado";
@@ -1089,6 +1092,15 @@ function EmptyRow({
         {message}
       </td>
     </tr>
+  );
+}
+
+function MiniStat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-black/10 p-3">
+      <p className="text-xs leading-relaxed text-zinc-400">{label}</p>
+      <p className="mt-1 text-xl font-semibold text-white">{value.toLocaleString("pt-BR")}</p>
+    </div>
   );
 }
 
