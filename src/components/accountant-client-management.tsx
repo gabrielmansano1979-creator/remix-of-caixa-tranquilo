@@ -21,22 +21,24 @@ type AccountantPortal = {
   }>;
   pending_requests: Array<{ id: string; client_name: string; requested_at: string }>;
   invited_companies: Array<{ client_name: string; accepted_at: string; access_granted: boolean }>;
-  audit_logs: Array<{ id: string; client_user_id: string; client_name: string; actor_user_id?: string | null; action: "insert" | "update" | "delete"; entity_type: string; entity_id: string | null; details: { registered_company?: string; before?: Record<string, string | null> | null; after?: Record<string, string | null> | null }; created_at: string }>;
+  audit_logs: Array<{ id: string; client_user_id: string; client_name: string; actor_user_id?: string | null; action: "insert" | "update" | "delete"; entity_type: string; entity_id: string | null; details: { registered_company?: string; balance_before_cents?: number | string | null; balance_after_cents?: number | string | null; before?: Record<string, string | null> | null; after?: Record<string, string | null> | null }; created_at: string }>;
 };
 
 const money = (cents: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100);
 const date = (value: string) => new Date(value).toLocaleDateString("pt-BR");
 const dateTime = (value: string) => new Date(value).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
-const auditMoney = (value?: string | null) => value && Number.isFinite(Number(value)) ? money(Number(value)) : "—";
+const auditMoney = (value?: string | number | null) => value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value)) ? money(Number(value)) : "—";
 
 export function AccountantClientManagement() {
+  const [periodStart, setPeriodStart] = useState(() => `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}-01`);
+  const [periodEnd, setPeriodEnd] = useState(() => new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" }));
 
   const query = useQuery({
-    queryKey: ["accountant-client-management"],
+    queryKey: ["accountant-client-management", periodStart, periodEnd],
     queryFn: async () => {
       const [portal, audit] = await Promise.all([
         supabase.rpc("my_accountant_portal_invites"),
-        supabase.rpc("my_accountant_financial_audit"),
+        supabase.rpc("my_accountant_financial_audit", { _from: periodStart, _to: periodEnd }),
       ]);
       if (portal.error) throw portal.error;
       if (audit.error) throw audit.error;
@@ -44,8 +46,6 @@ export function AccountantClientManagement() {
     },
   });
   const data = query.data;
-  const [periodStart, setPeriodStart] = useState(() => `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}-01`);
-  const [periodEnd, setPeriodEnd] = useState(() => new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" }));
   const origin = typeof window === "undefined" ? "" : window.location.origin;
   const companyInviteUrl = data?.business_invite_token
     ? `${origin}/cadastro?contador_convite=${encodeURIComponent(data.business_invite_token)}`
@@ -138,8 +138,8 @@ export function AccountantClientManagement() {
         <CardHeader><CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5" />Clientes que autorizaram acesso</CardTitle></CardHeader>
         <CardContent>
           <div className="mb-4 grid gap-3 rounded-xl border p-4 sm:grid-cols-2">
-            <label className="space-y-1 text-sm"><span className="font-medium">Data inicial das movimentações</span><Input type="date" value={periodStart} max={periodEnd} onChange={(e) => setPeriodStart(e.target.value)} className="h-11 rounded-xl" /></label>
-            <label className="space-y-1 text-sm"><span className="font-medium">Data final das movimentações</span><Input type="date" value={periodEnd} min={periodStart} onChange={(e) => setPeriodEnd(e.target.value)} className="h-11 rounded-xl" /></label>
+            <label className="space-y-1 text-sm"><span className="font-medium">Data inicial do extrato e da auditoria</span><Input type="date" value={periodStart} max={periodEnd} onChange={(e) => setPeriodStart(e.target.value)} className="h-11 rounded-xl" /></label>
+            <label className="space-y-1 text-sm"><span className="font-medium">Data final do extrato e da auditoria</span><Input type="date" value={periodEnd} min={periodStart} onChange={(e) => setPeriodEnd(e.target.value)} className="h-11 rounded-xl" /></label>
           </div>
           {data.authorized_clients.length ? <div className="space-y-4">{data.authorized_clients.map((client) => {
             const allEntries = client.entries.slice().sort((a, b) => a.due_date.localeCompare(b.due_date) || a.created_at.localeCompare(b.created_at));
@@ -172,9 +172,9 @@ export function AccountantClientManagement() {
       <Card>
         <CardHeader><CardTitle className="flex items-center gap-2"><History className="h-5 w-5" />Auditoria financeira privada</CardTitle></CardHeader>
         <CardContent>
-          <p className="mb-4 text-sm text-muted-foreground">Trilha de inclusão, alteração e exclusão dos lançamentos das empresas que autorizaram seu acesso. O nome da empresa cadastrada no Critical Cash é exibido separadamente da contraparte. Até 500 eventos recentes.</p>
-          {data.audit_logs.length ? <div className="overflow-x-auto"><table className="w-full min-w-[1500px] text-left text-sm"><thead><tr className="border-b text-xs text-muted-foreground">
-            <th className="px-3 py-3">Data e hora</th><th className="px-3 py-3">Empresa do SaaS</th><th className="px-3 py-3">ID do responsável</th><th className="px-3 py-3">Ação</th><th className="px-3 py-3">Tipo</th><th className="px-3 py-3">Descrição</th><th className="px-3 py-3">Pagador</th><th className="px-3 py-3">Beneficiário</th><th className="px-3 py-3">Valor anterior</th><th className="px-3 py-3">Valor posterior</th><th className="px-3 py-3">Situação anterior</th><th className="px-3 py-3">Situação posterior</th><th className="px-3 py-3">ID do lançamento</th>
+          <p className="mb-4 text-sm text-muted-foreground">Trilha de inclusão, alteração e exclusão das movimentações realizadas no período selecionado, limitada às empresas que autorizaram seu acesso. Registra valores, pagador/beneficiário e saldo antes e depois da operação. O histórico fica restrito ao contador autorizado por cada empresa.</p>
+          {data.audit_logs.length ? <div className="overflow-x-auto"><table className="w-full min-w-[1750px] text-left text-sm"><thead><tr className="border-b text-xs text-muted-foreground">
+            <th className="px-3 py-3">Data e hora</th><th className="px-3 py-3">Empresa do SaaS</th><th className="px-3 py-3">ID do responsável</th><th className="px-3 py-3">Ação</th><th className="px-3 py-3">Tipo</th><th className="px-3 py-3">Descrição</th><th className="px-3 py-3">Pagador</th><th className="px-3 py-3">Beneficiário</th><th className="px-3 py-3">Valor anterior</th><th className="px-3 py-3">Valor posterior</th><th className="px-3 py-3">Saldo antes da operação</th><th className="px-3 py-3">Saldo depois da operação</th><th className="px-3 py-3">Situação anterior</th><th className="px-3 py-3">Situação posterior</th><th className="px-3 py-3">ID do lançamento</th>
           </tr></thead><tbody>{data.audit_logs.map((item) => {
             const before = item.details.before ?? null;
             const after = item.details.after ?? null;
@@ -194,11 +194,13 @@ export function AccountantClientManagement() {
               <td className="px-3 py-3">{beneficiary || "—"}</td>
               <td className="whitespace-nowrap px-3 py-3">{auditMoney(before?.amount_cents)}</td>
               <td className="whitespace-nowrap px-3 py-3">{auditMoney(after?.amount_cents)}</td>
+              <td className="whitespace-nowrap px-3 py-3">{auditMoney(item.details.balance_before_cents)}</td>
+              <td className="whitespace-nowrap px-3 py-3">{auditMoney(item.details.balance_after_cents)}</td>
               <td className="px-3 py-3">{before?.status === "paid" ? "Pago" : before?.status === "pending" ? "Pendente" : "—"}</td>
               <td className="px-3 py-3">{after?.status === "paid" ? "Pago" : after?.status === "pending" ? "Pendente" : "—"}</td>
               <td className="px-3 py-3 font-mono text-xs">{item.entity_id || "—"}</td>
             </tr>;
-          })}</tbody></table></div> : <p className="text-sm text-muted-foreground">Nenhuma alteração financeira registrada para as empresas autorizadas. Novas inclusões, alterações e exclusões serão registradas automaticamente depois que a migração de auditoria estiver aplicada.</p>}
+          })}</tbody></table></div> : <p className="text-sm text-muted-foreground">Nenhum evento de auditoria encontrado no período escolhido para as empresas que autorizaram este contador. Eventos novos serão registrados automaticamente após a migração ser aplicada.</p>}
         </CardContent>
       </Card>
     </section>
