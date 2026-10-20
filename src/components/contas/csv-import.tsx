@@ -86,7 +86,7 @@ export function CsvImportDialog({ open, onOpenChange, onLimit }: { open: boolean
         const extracted = await extractPdfText(f);
         const isCora = /Cora\s+SCFI|37\.880\.206\/0001-63/i.test(extracted.text);
         const parsed = isCora ? parseCoraStatementText(extracted.text) : parsePdfStatementText(extracted.text);
-        if (!parsed.rows.length) throw new Error("Não foram encontradas linhas de lançamentos reconhecíveis no PDF.");
+        if (!parsed.rows.length) throw new Error(("headerError" in parsed ? parsed.headerError : undefined) ?? "Não foram encontradas linhas de lançamentos reconhecíveis no PDF.");
         const previewRows = isCora ? parsed.rows.map((row) => { const company = businessName || row.raw.titular_conta || "Sua empresa"; const isIncome = row.value?.type === "income" || row.raw.tipo === "entrada"; const counterparty = isIncome ? row.raw.remetente : row.raw.destinatario; const sender = isIncome ? (counterparty || row.raw.remetente || "") : company; const recipient = isIncome ? company : (counterparty || row.raw.destinatario || ""); return { ...row, raw: { ...row.raw, titular_extrato: row.raw.titular_conta || "", titular_conta: company, remetente: sender, destinatario: recipient }, value: row.value ? { ...row.value, sender_name: sender.slice(0, 120), recipient_name: recipient.slice(0, 120) } : undefined }; }) : parsed.rows;
         setRows(previewRows);
         if (parsed.ignored) setFileWarning(`${parsed.ignored} linha(s) do documento não foram reconhecidas como lançamentos e serão ignoradas.`);
@@ -262,7 +262,33 @@ async function extractPdfText(file: File): Promise<{ text: string; ocrPages: num
         if (!context) throw new Error("O navegador não conseguiu preparar a página do PDF para OCR.");
         await page.render({ canvas, canvasContext: context, viewport }).promise;
         const recognized = await worker.recognize(canvas);
-        text = recognized.data.text;
+        const words = (recognized.data.words ?? [])
+          .filter((word) => word.text.trim() && word.confidence >= 20)
+          .map((word) => ({
+            text: word.text.trim(),
+            x: word.bbox.x0,
+            right: word.bbox.x1,
+            y: Math.round(word.bbox.y0 / 8) * 8,
+          }))
+          .sort((a, b) => a.y - b.y || a.x - b.x);
+        const ocrLines: Array<{ y: number; words: typeof words }> = [];
+        for (const word of words) {
+          const previous = ocrLines[ocrLines.length - 1];
+          if (previous && Math.abs(previous.y - word.y) <= 8) previous.words.push(word);
+          else ocrLines.push({ y: word.y, words: [word] });
+        }
+        text = ocrLines.length
+          ? ocrLines.map((line) => {
+              let output = "";
+              let previousRight: number | null = null;
+              for (const word of line.words) {
+                const gap = previousRight === null ? 0 : word.x - previousRight;
+                output += (output ? (gap >= 25 ? "\t" : " ") : "") + word.text;
+                previousRight = word.right;
+              }
+              return output;
+            }).join("\n")
+          : recognized.data.text;
         ocrPages++;
         canvas.width = 0;
         canvas.height = 0;
