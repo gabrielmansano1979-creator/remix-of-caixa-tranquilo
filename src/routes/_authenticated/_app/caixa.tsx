@@ -66,16 +66,19 @@ function CaixaPage() {
     const balanceDate = profile.data?.balance_date ?? todaySP();
     const snapshot = profile.data?.initial_balance_cents ?? 0;
     const effectiveDate = (e: (typeof all)[number]) => (e.paid_at ?? e.due_date).slice(0, 10);
+    const effectiveTime = (e: (typeof all)[number]) => e.paid_at ? new Date(e.paid_at).getTime() : new Date(`${e.due_date}T12:00:00-03:00`).getTime();
     const net = (e: (typeof all)[number]) => (e.type === "income" ? 1 : -1) * e.amount_cents;
     const paid = all.filter((e) => e.status === "paid");
+    const periodStartTime = new Date(`${periodStart}T00:00:00-03:00`).getTime();
+    const snapshotTime = profile.data?.balance_updated_at ? new Date(profile.data.balance_updated_at).getTime() : new Date(`${balanceDate}T23:59:59-03:00`).getTime();
     let opening = snapshot;
-    if (balanceDate >= periodStart) {
-      opening -= paid.filter((e) => effectiveDate(e) >= periodStart && effectiveDate(e) <= balanceDate).reduce((sum, e) => sum + net(e), 0);
+    if (snapshotTime >= periodStartTime) {
+      opening -= paid.filter((e) => effectiveTime(e) >= periodStartTime && effectiveTime(e) <= snapshotTime).reduce((sum, e) => sum + net(e), 0);
     } else {
-      opening += paid.filter((e) => effectiveDate(e) > balanceDate && effectiveDate(e) < periodStart).reduce((sum, e) => sum + net(e), 0);
+      opening += paid.filter((e) => effectiveTime(e) > snapshotTime && effectiveTime(e) < periodStartTime).reduce((sum, e) => sum + net(e), 0);
     }
     const rows = all.filter((e) => effectiveDate(e) >= periodStart && effectiveDate(e) <= periodEnd)
-      .slice().sort((a, b) => effectiveDate(a).localeCompare(effectiveDate(b)) || a.created_at.localeCompare(b.created_at));
+      .slice().sort((a, b) => effectiveTime(a) - effectiveTime(b) || a.created_at.localeCompare(b.created_at));
     let actual = opening;
     let projected = opening;
     const detailed = rows.map((e) => {
