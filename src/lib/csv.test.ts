@@ -192,6 +192,24 @@ describe("parsePdfStatementText", () => {
 
 
 describe("additional PDF layout regression cases", () => {
+  it("parses an English bank PDF table with posting date, transaction details, withdrawals and deposits", () => {
+    const parsed = parsePdfStatementText([
+      "ACCOUNT STATEMENT",
+      "Posting Date    Transaction Details    Withdrawals    Deposits    Running Balance",
+      "2026-10-14    PIX received from ALPHA CUSTOMER        875.40    3210.00",
+      "2026-10-15    Payment to BETA SUPPLIER    129.90        3080.10",
+    ].join("\n"));
+    expect(parsed.rows).toHaveLength(2);
+    expect(parsed.rows[0].value).toMatchObject({
+      type: "income", amount_cents: 87540, due_date: "2026-10-14",
+      counterparty_name: "ALPHA CUSTOMER",
+    });
+    expect(parsed.rows[1].value).toMatchObject({
+      type: "expense", amount_cents: 12990, due_date: "2026-10-15",
+      counterparty_name: "BETA SUPPLIER",
+    });
+  });
+
   it("parses aligned PDF columns separated by multiple spaces instead of tabs", () => {
     const pdfText = [
       "EXTRATO BANCÁRIO",
