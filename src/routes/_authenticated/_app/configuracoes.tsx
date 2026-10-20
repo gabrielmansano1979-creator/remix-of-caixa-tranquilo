@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { exportReport, type ReportFormat } from "@/lib/reporting";
+import { exportReport } from "@/lib/reporting";
 
 export const Route = createFileRoute("/_authenticated/_app/configuracoes")({
   head: () => ({ meta: [{ title: "Configurações — Critical Cash" }, { name: "description", content: "Ajuste os dados e preferências do seu negócio." }, { property: "og:title", content: "Configurações — Critical Cash" }, { property: "og:description", content: "Ajuste os dados e preferências do seu negócio." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }, { name: "robots", content: "noindex" }] }),
