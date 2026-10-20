@@ -13,7 +13,6 @@ import {
   exportReport,
   formatPixKeyType,
   getPartnerAffiliateLinks,
-  type ReportFormat,
 } from "@/lib/reporting";
 import { AccountantClientManagement } from "@/components/accountant-client-management";
 
