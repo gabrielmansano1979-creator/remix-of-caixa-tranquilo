@@ -100,7 +100,7 @@ export function CsvImportDialog({ open, onOpenChange, onLimit }: { open: boolean
         // passes blindly because that would duplicate transactions.
         const needsOcrRetry = parsed.rows.length === 0 ||
           (parsed.ignored > 0 && parsed.ignored >= Math.max(2, Math.ceil(parsed.rows.length * 0.5)));
-        if (needsOcrRetry && !extracted.ocrPages) {
+        if (needsOcrRetry) {
           const ocrRetry = await extractPdfText(f, true);
           const retryIsCora = /Cora\s+SCFI|37\.880\.206\/0001-63/i.test(ocrRetry.text);
           const retryParsed = retryIsCora ? parseCoraStatementText(ocrRetry.text) : parsePdfStatementText(ocrRetry.text);
