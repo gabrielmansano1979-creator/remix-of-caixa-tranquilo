@@ -411,7 +411,10 @@ export function parsePdfStatementText(text: string): { rows: CsvRow[]; ignored: 
 
   // Strategy 2: dated single-line transactions.
   const fallback = parseStatementText(text);
-  if (fallback.rows.length) return fallback;
+  // A date-only line can be misread as a monetary amount because the year ends
+  // in digits. Keep only actual transaction rows with a non-empty description.
+  const singleLineRows = fallback.rows.filter((row) => Boolean(row.raw.descricao?.trim()));
+  if (singleLineRows.length) return { ...fallback, rows: singleLineRows };
 
   // Strategy 3: multi-line transactions, where date, operation, counterparty and
   // signed amount may each be on a separate line.
