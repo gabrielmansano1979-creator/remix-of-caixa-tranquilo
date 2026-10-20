@@ -159,6 +159,7 @@ describe("parsePdfStatementText", () => {
 });
 
 
+describe("additional PDF layout regression cases", () => {
   it("parses aligned PDF columns separated by multiple spaces instead of tabs", () => {
     const pdfText = [
       "EXTRATO BANCÁRIO",
@@ -198,6 +199,7 @@ describe("parsePdfStatementText", () => {
     expect(parsed.rows[0].value).toBeUndefined();
     expect(parsed.rows[0].errors.join(" ")).toContain("classifique manualmente");
   });
+});
 
 
 describe("parseCoraStatementText", () => {
