@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { AlertCircle, CheckCircle2, Download, Upload } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { accessQuery, parseDbError, type LimitKind } from "@/lib/app-data";
-import { CSV_TEMPLATE, parseCsv, parseBankTable, parseStatementText, parseOfxText, type CsvRow } from "@/lib/csv";
+import { CSV_TEMPLATE, parseCsv, parseBankTable, parseStatementText, parseCoraStatementText, parseOfxText, type CsvRow } from "@/lib/csv";
 import { formatBRL, formatDate } from "@/lib/format";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 export function CsvImportDialog({ open, onOpenChange, onLimit }: { open: boolean; onOpenChange: (o: boolean) => void; onLimit: (k: LimitKind, m: string) => void }) {
   const qc = useQueryClient();
   const { data: access } = useQuery(accessQuery);
+  const { data: businessName } = useQuery({ queryKey: ["profile-lite"], enabled: open, queryFn: async () => { const { data, error } = await supabase.from("profiles").select("business_name").maybeSingle(); if (error) throw error; return data?.business_name?.trim() || ""; } });
   const [rows, setRows] = useState<CsvRow[] | null>(null);
   const [fileErr, setFileErr] = useState<string | null>(null);
   const [fileWarning, setFileWarning] = useState<string | null>(null);
@@ -83,9 +84,11 @@ export function CsvImportDialog({ open, onOpenChange, onLimit }: { open: boolean
       }
       if (extension === "pdf") {
         const extracted = await extractPdfText(f);
-        const parsed = parseStatementText(extracted.text);
+        const isCora = /Cora\s+SCFI|37\.880\.206\/0001-63/i.test(extracted.text);
+        const parsed = isCora ? parseCoraStatementText(extracted.text) : parseStatementText(extracted.text);
         if (!parsed.rows.length) throw new Error("Não foram encontradas linhas de lançamentos reconhecíveis no PDF.");
-        setRows(parsed.rows);
+        const previewRows = isCora ? parsed.rows.map((row) => { const company = businessName || row.raw.titular_conta || "Sua empresa"; const isIncome = row.value?.type === "income" || row.raw.tipo === "entrada"; const counterparty = isIncome ? row.raw.remetente : row.raw.destinatario; const sender = isIncome ? (counterparty || row.raw.remetente || "") : company; const recipient = isIncome ? company : (counterparty || row.raw.destinatario || ""); return { ...row, raw: { ...row.raw, titular_extrato: row.raw.titular_conta || "", titular_conta: company, remetente: sender, destinatario: recipient }, value: row.value ? { ...row.value, sender_name: sender.slice(0, 120), recipient_name: recipient.slice(0, 120) } : undefined }; }) : parsed.rows;
+        setRows(previewRows);
         if (parsed.ignored) setFileWarning(`${parsed.ignored} linha(s) do documento não foram reconhecidas como lançamentos e serão ignoradas.`);
         if (extracted.ocrPages) setFileWarning((current) => `${current ? `${current} ` : ""}${extracted.ocrPages} página(s) precisaram de OCR. Confira cada valor com o PDF original.`);
         return;
@@ -156,17 +159,19 @@ export function CsvImportDialog({ open, onOpenChange, onLimit }: { open: boolean
             <div className="max-h-80 overflow-auto rounded-xl border">
               <table className="w-full text-sm">
                 <thead className="sticky top-0 bg-muted text-left text-xs text-muted-foreground">
-                  <tr><th className="p-2">Linha</th><th className="p-2">Descrição</th><th className="p-2">Valor</th><th className="p-2">Data</th><th className="p-2">Quem enviou</th><th className="p-2">Quem recebeu</th><th className="p-2">Situação</th></tr>
+                  <tr><th className="p-2">Linha</th><th className="p-2">Tipo</th><th className="p-2">Descrição</th><th className="p-2">Valor</th><th className="p-2">Data</th><th className="p-2">Quem enviou</th><th className="p-2">Quem recebeu</th><th className="p-2">Método / documento</th><th className="p-2">Situação</th></tr>
                 </thead>
                 <tbody>
                   {rows.map((r) => (
                     <tr key={r.line} className={`border-t ${r.errors.length ? "bg-danger/5" : ""}`}>
                       <td className="p-2 num text-muted-foreground">{r.line}</td>
+                      <td className="p-2">{r.value?.type === "income" ? "Entrada" : r.value?.type === "expense" ? "Saída" : r.raw.tipo || "—"}</td>
                       <td className="p-2">{r.raw.descricao || "—"}</td>
-                      <td className="p-2 num">{r.value ? formatBRL(r.value.amount_cents) : r.raw.valor}</td>
+                      <td className={`p-2 num ${r.value?.type === "income" ? "text-success" : r.value?.type === "expense" ? "text-danger" : ""}`}>{r.value ? `${r.value.type === "income" ? "+" : "−"}${formatBRL(r.value.amount_cents)}` : r.raw.valor}</td>
                       <td className="p-2 num">{r.value ? formatDate(r.value.due_date) : r.raw.vencimento}</td>
                       <td className="p-2">{r.raw.remetente || "Não identificado"}</td>
                       <td className="p-2">{r.raw.destinatario || "Não identificado"}</td>
+                      <td className="p-2">{[r.raw.metodo, r.raw.documento_contraparte].filter(Boolean).join(" · ") || "—"}</td>
                       <td className="p-2">
                         {r.errors.length
                           ? <span className="flex items-start gap-1 text-danger"><AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />{r.errors.join("; ")}</span>
