@@ -50,7 +50,7 @@ function IndexComponent() {
         }
 
         setSessionActive(true);
-        setUserRolePath('/caixa');
+        setUserRolePath(session.user.email?.toLowerCase() === 'comercial.triades@gmail.com' ? '/contador' : '/caixa');
       }
 
       if (isMounted) setLoadingAuth(false);
