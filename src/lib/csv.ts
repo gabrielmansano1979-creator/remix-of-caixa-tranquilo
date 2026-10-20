@@ -374,7 +374,7 @@ export function parsePdfStatementText(text: string): { rows: CsvRow[]; ignored: 
 
   const splitPdfColumns = (line: string): string[] => {
     const trimmed = line.trim();
-    if (trimmed.includes("\t")) return trimmed.split(/\t+/).map((cell) => cell.trim());
+    if (trimmed.includes("\t")) return trimmed.split("\t").map((cell) => cell.trim());
     // Keep single spaces inside descriptions and amounts such as "R$ 1.250,00".
     return trimmed.split(/ {2,}/).map((cell) => cell.trim());
   };
