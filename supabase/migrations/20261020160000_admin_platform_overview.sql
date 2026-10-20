@@ -27,7 +27,16 @@ BEGIN
       'subscribers_past_due', (SELECT count(*) FROM public.subscriptions WHERE status = 'past_due'),
       'subscribers_canceled', (SELECT count(*) FROM public.subscriptions WHERE status = 'canceled'),
       'subscribers_expired', (SELECT count(*) FROM public.subscriptions WHERE status = 'expired'),
+      'subscribers_pending_pix', (SELECT count(*) FROM public.subscriptions WHERE status = 'pending_pix'),
       'subscriptions_total', (SELECT count(*) FROM public.subscriptions),
+      'checkout_pending', (SELECT count(*) FROM public.pending_billing_changes WHERE status = 'pending'),
+      'checkout_processed', (SELECT count(*) FROM public.pending_billing_changes WHERE status = 'processed'),
+      'checkout_failed', (SELECT count(*) FROM public.pending_billing_changes WHERE status = 'failed'),
+      'payment_events_total', (SELECT count(*) FROM public.asaas_processed_payments),
+      'payment_events_failed', (SELECT count(*) FROM public.asaas_processed_payments WHERE status = 'failed'),
+      'reminder_logs_total', (SELECT count(*) FROM public.reminder_logs),
+      'reminder_logs_failed', (SELECT count(*) FROM public.reminder_logs WHERE status IN ('failed', 'bounced')),
+      'reminder_rules_active', (SELECT count(*) FROM public.reminder_rules WHERE active),
       'annual_billing', (SELECT count(*) FROM public.subscriptions WHERE billing_interval::text = 'year' AND status = 'active'),
       'monthly_billing', (SELECT count(*) FROM public.subscriptions WHERE billing_interval::text = 'month' AND status = 'active'),
       'partner_requests_total', (SELECT count(*) FROM public.partner_requests),
@@ -67,7 +76,7 @@ BEGIN
         'entries_count', (SELECT count(*) FROM public.entries e WHERE e.user_id = p.user_id)
       ) ORDER BY p.created_at DESC NULLS LAST, p.user_id
       )
-      FROM public.profiles p
+      FROM (SELECT * FROM public.profiles ORDER BY created_at DESC NULLS LAST LIMIT 200) p
       LEFT JOIN auth.users au ON au.id = p.user_id
       LEFT JOIN public.subscriptions s ON s.user_id = p.user_id
     ), '[]'::jsonb),
@@ -80,7 +89,7 @@ BEGIN
         CASE WHEN pr.status IN ('pending', 'pending_approval') THEN 0 ELSE 1 END,
         pr.created_at ASC NULLS LAST, pr.id
       )
-      FROM (SELECT * FROM public.partner_requests ORDER BY created_at DESC NULLS LAST LIMIT 100) pr
+      FROM (SELECT * FROM public.partner_requests ORDER BY CASE WHEN status IN ('pending', 'pending_approval') THEN 0 ELSE 1 END, created_at ASC NULLS LAST, id LIMIT 100) pr
       LEFT JOIN auth.users au ON au.id = pr.user_id
     ), '[]'::jsonb),
     'accountant_requests', COALESCE((
@@ -96,7 +105,7 @@ BEGIN
         CASE WHEN r.status = 'pending' THEN 0 ELSE 1 END,
         r.requested_at DESC, r.id
       )
-      FROM (SELECT * FROM public.accountant_access_requests ORDER BY requested_at DESC LIMIT 100) r
+      FROM (SELECT * FROM public.accountant_access_requests ORDER BY CASE WHEN status = 'pending' THEN 0 ELSE 1 END, requested_at ASC, id LIMIT 100) r
       LEFT JOIN public.profiles cp ON cp.user_id = r.client_user_id
       LEFT JOIN auth.users cau ON cau.id = r.client_user_id
       LEFT JOIN public.partner_requests pr ON pr.id = r.partner_id

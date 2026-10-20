@@ -12,6 +12,17 @@ import {
   Users,
   FileText,
   ExternalLink,
+  Activity,
+  Building2,
+  CreditCard,
+  ClipboardList,
+  Clock3,
+  UserPlus,
+  AlertTriangle,
+  TrendingUp,
+  ReceiptText,
+  CheckCircle2,
+  RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -91,6 +102,57 @@ type AdminOverview = {
   total_clients: number;
 };
 
+type PlatformClient = {
+  user_id: string;
+  name: string;
+  email: string | null;
+  business_name: string | null;
+  created_at: string | null;
+  onboarding_done: boolean;
+  trial_ends_at: string | null;
+  subscription_status: string | null;
+  plan: string | null;
+  billing_interval: string | null;
+  paid_at: string | null;
+  current_period_end: string | null;
+  cancel_at_period_end: boolean;
+  entries_count: number;
+};
+
+type PlatformRequest = {
+  id: string;
+  user_id?: string | null;
+  client_user_id?: string | null;
+  name?: string | null;
+  email?: string | null;
+  client_name?: string | null;
+  client_email?: string | null;
+  accountant_name?: string | null;
+  accountant_email?: string | null;
+  company_name?: string | null;
+  status: string | null;
+  created_at?: string | null;
+  requested_at?: string | null;
+  decided_at?: string | null;
+};
+
+type PlatformAudit = {
+  id: string;
+  action: string;
+  created_at: string;
+  user_id: string | null;
+  user_email: string | null;
+};
+
+type PlatformOverview = {
+  generated_at: string;
+  counts: Record<string, number>;
+  clients: PlatformClient[];
+  partner_requests: PlatformRequest[];
+  accountant_requests: PlatformRequest[];
+  recent_audit: PlatformAudit[];
+};
+
 type AuthStatus = "checking" | "authorized" | "error";
 
 const emptyOverview: AdminOverview = {
@@ -144,6 +206,9 @@ const statusLabel = (status: string | null | undefined) => {
     past_due: "Pagamento atrasado",
     incomplete: "Incompleto",
     unpaid: "Não pago",
+    expired: "Expirada",
+    pending_approval: "Aguardando aprovação",
+    revoked: "Revogado",
   };
 
   if (!status) return "Não informado";
@@ -267,6 +332,38 @@ function AdminPage() {
   const commissions = data.commissions;
   const clients = data.clients;
 
+  const platformQuery = useQuery({
+    queryKey: ["admin-platform-overview"],
+    enabled: authStatus === "authorized",
+    queryFn: async (): Promise<PlatformOverview> => {
+      const { data, error } = await supabase.rpc("admin_platform_overview");
+      if (error) throw error;
+      if (!data || typeof data !== "object") {
+        throw new Error("A função admin_platform_overview não retornou dados válidos.");
+      }
+      const result = data as unknown as Partial<PlatformOverview>;
+      return {
+        generated_at: String(result.generated_at ?? new Date().toISOString()),
+        counts: result.counts && typeof result.counts === "object" ? result.counts : {},
+        clients: Array.isArray(result.clients) ? result.clients : [],
+        partner_requests: Array.isArray(result.partner_requests) ? result.partner_requests : [],
+        accountant_requests: Array.isArray(result.accountant_requests) ? result.accountant_requests : [],
+        recent_audit: Array.isArray(result.recent_audit) ? result.recent_audit : [],
+      };
+    },
+    refetchInterval: 60_000,
+  });
+  const platform = platformQuery.data;
+  const platformCounts = platform?.counts ?? {};
+  const count = (key: string) => Number(platformCounts[key] ?? 0);
+  const [clientSearch, setClientSearch] = useState("");
+  const filteredPlatformClients = (platform?.clients ?? []).filter((client) => {
+    const needle = clientSearch.trim().toLocaleLowerCase("pt-BR");
+    if (!needle) return true;
+    return [client.name, client.email, client.business_name, client.subscription_status, client.plan]
+      .some((value) => String(value ?? "").toLocaleLowerCase("pt-BR").includes(needle));
+  });
+
   const documentsQuery = useQuery({
     queryKey: ["admin-partner-application-documents"],
     enabled: authStatus === "authorized",
@@ -332,6 +429,9 @@ function AdminPage() {
 
       await queryClient.invalidateQueries({
         queryKey: ["admin-partners"],
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["admin-platform-overview"],
       });
 
       toast.success(
@@ -455,8 +555,11 @@ function AdminPage() {
           </p>
 
           <h1 className="mt-2 text-3xl font-bold text-white">
-            Contadores e comissões
+            Central de administração
           </h1>
+          <p className="mt-2 max-w-2xl text-sm text-zinc-400">
+            Visão global de clientes, assinaturas, solicitações, uso financeiro e atividade da plataforma.
+          </p>
         </div>
 
         <div className="flex flex-wrap gap-2">
@@ -482,6 +585,146 @@ function AdminPage() {
           </Button>
         </div>
       </header>
+
+      <section className="space-y-4">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-semibold text-white">Visão geral da plataforma</h2>
+            <p className="mt-1 text-sm text-zinc-400">
+              Contagens globais calculadas no banco e listas operacionais recentes. Atualização automática a cada minuto.
+            </p>
+          </div>
+          <Button variant="outline" size="sm" disabled={platformQuery.isFetching} onClick={() => void platformQuery.refetch()}>
+            <RefreshCw className={`mr-2 h-4 w-4 ${platformQuery.isFetching ? "animate-spin" : ""}`} />
+            Atualizar dados
+          </Button>
+        </div>
+        {platformQuery.isError ? (
+          <Card className="border-red-500/30 bg-red-950/20">
+            <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
+              <p className="text-sm text-red-300">Não foi possível carregar os indicadores globais. Verifique a migration admin_platform_overview no Supabase.</p>
+              <Button variant="outline" onClick={() => void platformQuery.refetch()}>Tentar novamente</Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <Metric icon={<Users className="h-4 w-4" />} label="Clientes cadastrados" value={String(count("registered_clients"))} />
+              <Metric icon={<CheckCircle2 className="h-4 w-4" />} label="Assinantes ativos" value={String(count("subscribers_active"))} />
+              <Metric icon={<Clock3 className="h-4 w-4" />} label="Em período de teste" value={String(count("subscribers_trialing"))} />
+              <Metric icon={<AlertTriangle className="h-4 w-4" />} label="Pagamentos atrasados" value={String(count("subscribers_past_due"))} />
+              <Metric icon={<UserPlus className="h-4 w-4" />} label="Novos clientes (7 dias)" value={String(count("new_clients_7d"))} />
+              <Metric icon={<TrendingUp className="h-4 w-4" />} label="Novos clientes (30 dias)" value={String(count("new_clients_30d"))} />
+              <Metric icon={<CheckCircle2 className="h-4 w-4" />} label="Onboarding concluído" value={String(count("onboarded_clients"))} />
+              <Metric icon={<ClipboardList className="h-4 w-4" />} label="Onboarding pendente" value={String(count("onboarding_pending"))} />
+              <Metric icon={<ClipboardList className="h-4 w-4" />} label="Solicitações de contador pendentes" value={String(count("partner_requests_pending"))} />
+              <Metric icon={<Users className="h-4 w-4" />} label="Pedidos de acesso contábil pendentes" value={String(count("accountant_requests_pending"))} />
+              <Metric icon={<CreditCard className="h-4 w-4" />} label="Assinaturas canceladas" value={String(count("subscribers_canceled"))} />
+              <Metric icon={<CreditCard className="h-4 w-4" />} label="Assinaturas expiradas" value={String(count("subscribers_expired"))} />
+              <Metric icon={<Clock3 className="h-4 w-4" />} label="Pix aguardando confirmação" value={String(count("subscribers_pending_pix"))} />
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              <Card className="border-white/10 bg-zinc-900/60 text-zinc-100">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><Building2 className="h-5 w-5" />Uso e cadastros</CardTitle>
+                </CardHeader>
+                <CardContent className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  <MiniStat label="Contas de autenticação" value={count("auth_accounts")} />
+                  <MiniStat label="Assinaturas registradas" value={count("subscriptions_total")} />
+                  <MiniStat label="Cobrança mensal ativa" value={count("monthly_billing")} />
+                  <MiniStat label="Cobrança anual ativa" value={count("annual_billing")} />
+                  <MiniStat label="Lançamentos financeiros" value={count("entries_total")} />
+                  <MiniStat label="Lançamentos em aberto" value={count("entries_pending")} />
+                  <MiniStat label="Lançamentos pagos" value={count("entries_paid")} />
+                  <MiniStat label="Solicitações contábeis totais" value={count("accountant_requests_total")} />
+                  <MiniStat label="Eventos de auditoria (30 dias)" value={count("audit_events_30d")} />
+                  <MiniStat label="Checkouts aguardando" value={count("checkout_pending")} />
+                  <MiniStat label="Checkouts processados" value={count("checkout_processed")} />
+                  <MiniStat label="Checkouts com falha" value={count("checkout_failed")} />
+                  <MiniStat label="Eventos de pagamento com falha" value={count("payment_events_failed")} />
+                  <MiniStat label="Notificações enviadas/registradas" value={count("reminder_logs_total")} />
+                  <MiniStat label="Notificações com falha" value={count("reminder_logs_failed")} />
+                  <MiniStat label="Regras de lembrete ativas" value={count("reminder_rules_active")} />
+                </CardContent>
+              </Card>
+              <Card className="border-white/10 bg-zinc-900/60 text-zinc-100">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><ReceiptText className="h-5 w-5" />Volume financeiro registrado</CardTitle>
+                  <p className="text-xs text-zinc-400">Valores somados dos lançamentos informados pelos clientes, não representam receita da Critical Cash.</p>
+                </CardHeader>
+                <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="rounded-xl border border-white/10 p-4"><p className="text-sm text-zinc-400">Entradas registradas</p><p className="mt-2 text-xl font-semibold text-emerald-300">{money(count("income_cents") / 100)}</p></div>
+                  <div className="rounded-xl border border-white/10 p-4"><p className="text-sm text-zinc-400">Saídas registradas</p><p className="mt-2 text-xl font-semibold text-rose-300">{money(count("expense_cents") / 100)}</p></div>
+                  <div className="rounded-xl border border-white/10 p-4"><p className="text-sm text-zinc-400">Comissões registradas</p><p className="mt-2 text-xl font-semibold">{count("commissions_total")}</p></div>
+                  <div className="rounded-xl border border-white/10 p-4"><p className="text-sm text-zinc-400">Comissões pagas / pendentes</p><p className="mt-2 text-xl font-semibold">{count("commissions_paid")} / {count("commissions_pending")}</p></div>
+                  <div className="sm:col-span-2 rounded-xl border border-white/10 p-4"><p className="text-sm text-zinc-400">Valor registrado em comissões</p><p className="mt-2 text-xl font-semibold">{money(count("commission_amount_cents") / 100)}</p></div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <Card className="border-white/10 bg-zinc-900/60 text-zinc-100">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5" />Gestão de clientes e assinaturas</CardTitle>
+                <p className="text-sm text-zinc-400">Lista dos 200 cadastros mais recentes. Os indicadores acima consideram a base inteira.</p>
+                <input
+                  value={clientSearch}
+                  onChange={(event) => setClientSearch(event.target.value)}
+                  placeholder="Buscar por cliente, e-mail, empresa, plano ou status..."
+                  aria-label="Buscar clientes da plataforma"
+                  className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-black/20 px-3 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-primary"
+                />
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[1050px] text-left text-sm">
+                    <thead><tr className="border-b border-white/10 text-xs text-zinc-400">
+                      {["Cliente / empresa", "E-mail", "Assinatura", "Plano / cobrança", "Cadastro", "Onboarding", "Período até", "Lançamentos"].map((title) => <th key={title} className="px-3 py-3 font-medium">{title}</th>)}
+                    </tr></thead>
+                    <tbody>
+                      {filteredPlatformClients.length ? filteredPlatformClients.map((client) => (
+                        <tr key={client.user_id} className="border-b border-white/5 last:border-0">
+                          <td className="px-3 py-3"><p className="font-medium">{client.name || "Cliente"}</p><p className="text-xs text-zinc-400">{client.business_name || "Empresa não informada"}</p></td>
+                          <td className="px-3 py-3">{client.email || "—"}</td>
+                          <td className="px-3 py-3">{statusLabel(client.subscription_status)}{client.cancel_at_period_end ? <p className="text-xs text-amber-300">Cancelamento ao fim do período</p> : null}</td>
+                          <td className="px-3 py-3">{client.plan || "—"}<p className="text-xs text-zinc-400">{client.billing_interval === "year" ? "Anual" : client.billing_interval === "month" ? "Mensal" : "Não informado"}</p></td>
+                          <td className="px-3 py-3 whitespace-nowrap">{dateTime(client.created_at)}</td>
+                          <td className="px-3 py-3">{client.onboarding_done ? "Concluído" : "Pendente"}</td>
+                          <td className="px-3 py-3 whitespace-nowrap">{date(client.current_period_end || client.trial_ends_at)}</td>
+                          <td className="px-3 py-3 text-right">{Number(client.entries_count) || 0}</td>
+                        </tr>
+                      )) : <EmptyRow colSpan={8} message="Nenhum cliente corresponde à busca." />}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="grid gap-4 xl:grid-cols-2">
+              <Card className="border-white/10 bg-zinc-900/60 text-zinc-100">
+                <CardHeader><CardTitle>Solicitações de parceria contábil</CardTitle><p className="text-sm text-zinc-400">Total: {count("partner_requests_total")} · Pendentes: {count("partner_requests_pending")} · Aprovadas: {count("partner_requests_approved")} · Recusadas: {count("partner_requests_rejected")}</p></CardHeader>
+                <CardContent><div className="overflow-x-auto"><table className="w-full min-w-[560px] text-left text-sm"><thead><tr className="border-b border-white/10 text-xs text-zinc-400">{["Nome", "E-mail", "Status", "Solicitada em"].map((title) => <th key={title} className="px-3 py-3 font-medium">{title}</th>)}</tr></thead><tbody>
+                  {(platform?.partner_requests ?? []).length ? platform!.partner_requests.map((request) => <tr key={request.id} className="border-b border-white/5 last:border-0"><td className="px-3 py-3">{request.name || "—"}<p className="text-xs text-zinc-400">{request.company_name || ""}</p></td><td className="px-3 py-3">{request.email || "—"}</td><td className="px-3 py-3">{statusLabel(request.status)}</td><td className="px-3 py-3 whitespace-nowrap">{dateTime(request.created_at)}</td></tr>) : <EmptyRow colSpan={4} message="Nenhuma solicitação registrada." />}
+                </tbody></table></div></CardContent>
+              </Card>
+              <Card className="border-white/10 bg-zinc-900/60 text-zinc-100">
+                <CardHeader><CardTitle>Solicitações de acesso contábil</CardTitle><p className="text-sm text-zinc-400">Total: {count("accountant_requests_total")} · Pendentes: {count("accountant_requests_pending")} · Aprovadas: {count("accountant_requests_approved")} · Recusadas: {count("accountant_requests_rejected")}</p></CardHeader>
+                <CardContent><div className="overflow-x-auto"><table className="w-full min-w-[600px] text-left text-sm"><thead><tr className="border-b border-white/10 text-xs text-zinc-400">{["Cliente", "Contador", "Status", "Solicitada em"].map((title) => <th key={title} className="px-3 py-3 font-medium">{title}</th>)}</tr></thead><tbody>
+                  {(platform?.accountant_requests ?? []).length ? platform!.accountant_requests.map((request) => <tr key={request.id} className="border-b border-white/5 last:border-0"><td className="px-3 py-3">{request.client_name || "—"}<p className="text-xs text-zinc-400">{request.client_email || ""}</p></td><td className="px-3 py-3">{request.accountant_name || "—"}<p className="text-xs text-zinc-400">{request.accountant_email || ""}</p></td><td className="px-3 py-3">{statusLabel(request.status)}</td><td className="px-3 py-3 whitespace-nowrap">{dateTime(request.requested_at)}</td></tr>) : <EmptyRow colSpan={4} message="Nenhuma solicitação registrada." />}
+                </tbody></table></div></CardContent>
+              </Card>
+            </div>
+
+            <Card className="border-white/10 bg-zinc-900/60 text-zinc-100">
+              <CardHeader><CardTitle className="flex items-center gap-2"><Activity className="h-5 w-5" />Atividade recente da plataforma</CardTitle><p className="text-sm text-zinc-400">Últimos 25 eventos de auditoria. Detalhes sensíveis não são exibidos nesta visão geral.</p></CardHeader>
+              <CardContent><div className="overflow-x-auto"><table className="w-full min-w-[650px] text-left text-sm"><thead><tr className="border-b border-white/10 text-xs text-zinc-400">{["Evento", "Conta relacionada", "Data e hora"].map((title) => <th key={title} className="px-3 py-3 font-medium">{title}</th>)}</tr></thead><tbody>
+                {(platform?.recent_audit ?? []).length ? platform!.recent_audit.map((event) => <tr key={event.id} className="border-b border-white/5 last:border-0"><td className="px-3 py-3">{event.action}</td><td className="px-3 py-3">{event.user_email || event.user_id || "Sistema"}</td><td className="px-3 py-3 whitespace-nowrap">{dateTime(event.created_at)}</td></tr>) : <EmptyRow colSpan={3} message="Nenhum evento de auditoria encontrado." />}
+              </tbody></table></div></CardContent>
+            </Card>
+          </>
+        )}
+        {platform?.generated_at ? <p className="text-right text-xs text-zinc-500">Dados atualizados em {dateTime(platform.generated_at)} · Atualização automática a cada 60 segundos.</p> : null}
+      </section>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <Metric
@@ -860,6 +1103,15 @@ function EmptyRow({
         {message}
       </td>
     </tr>
+  );
+}
+
+function MiniStat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-black/10 p-3">
+      <p className="text-xs leading-relaxed text-zinc-400">{label}</p>
+      <p className="mt-1 text-xl font-semibold text-white">{value.toLocaleString("pt-BR")}</p>
+    </div>
   );
 }
 
