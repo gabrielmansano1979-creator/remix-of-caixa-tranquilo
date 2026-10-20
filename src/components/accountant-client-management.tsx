@@ -17,6 +17,7 @@ type AccountantPortal = {
     granted_at: string;
     initial_balance_cents: number;
     balance_date: string | null;
+    balance_updated_at: string | null;
     entries: Array<{ id: string; description: string; type: "income" | "expense"; amount_cents: number; due_date: string; status: string; paid_at: string | null; counterparty_name: string | null; created_at: string }>;
   }>;
   pending_requests: Array<{ id: string; client_name: string; requested_at: string }>;
@@ -144,22 +145,26 @@ export function AccountantClientManagement() {
           {data.authorized_clients.length ? <div className="space-y-4">{data.authorized_clients.map((client) => {
             const allEntries = client.entries.slice().sort((a, b) => a.due_date.localeCompare(b.due_date) || a.created_at.localeCompare(b.created_at));
             const effectiveDate = (entry: typeof allEntries[number]) => (entry.paid_at ?? entry.due_date).slice(0, 10);
+            const effectiveTime = (entry: typeof allEntries[number]) => entry.paid_at ? new Date(entry.paid_at).getTime() : new Date(`${entry.due_date}T12:00:00-03:00`).getTime();
             const net = (entry: typeof allEntries[number]) => (entry.type === "income" ? 1 : -1) * entry.amount_cents;
             const paidEntries = allEntries.filter((entry) => entry.status === "paid");
             const snapshotDate = client.balance_date ?? periodStart;
+            const periodStartTime = new Date(`${periodStart}T00:00:00-03:00`).getTime();
+            const snapshotTime = client.balance_updated_at ? new Date(client.balance_updated_at).getTime() : new Date(`${snapshotDate}T23:59:59-03:00`).getTime();
             let opening = client.initial_balance_cents ?? 0;
-            if (snapshotDate >= periodStart) {
-              opening -= paidEntries.filter((entry) => effectiveDate(entry) >= periodStart && effectiveDate(entry) <= snapshotDate).reduce((sum, entry) => sum + net(entry), 0);
+            if (snapshotTime >= periodStartTime) {
+              opening -= paidEntries.filter((entry) => effectiveTime(entry) >= periodStartTime && effectiveTime(entry) <= snapshotTime).reduce((sum, entry) => sum + net(entry), 0);
             } else {
-              opening += paidEntries.filter((entry) => effectiveDate(entry) > snapshotDate && effectiveDate(entry) < periodStart).reduce((sum, entry) => sum + net(entry), 0);
+              opening += paidEntries.filter((entry) => effectiveTime(entry) > snapshotTime && effectiveTime(entry) < periodStartTime).reduce((sum, entry) => sum + net(entry), 0);
             }
             let actual = opening;
             let projected = opening;
-            const periodEntries = allEntries.filter((entry) => effectiveDate(entry) >= periodStart && effectiveDate(entry) <= periodEnd).map((entry) => {
-              if (entry.status === "paid") actual += net(entry);
-              projected += net(entry);
-              return { ...entry, actual_balance: actual, projected_balance: projected };
-            });
+            const periodEntries = allEntries.filter((entry) => effectiveDate(entry) >= periodStart && effectiveDate(entry) <= periodEnd)
+              .slice().sort((a, b) => effectiveTime(a) - effectiveTime(b) || a.created_at.localeCompare(b.created_at)).map((entry) => {
+                if (entry.status === "paid") actual += net(entry);
+                projected += net(entry);
+                return { ...entry, actual_balance: actual, projected_balance: projected };
+              });
             const closing = actual;
             const projectedClosing = projected;
             const income = periodEntries.filter((entry) => entry.type === "income").reduce((sum, entry) => sum + entry.amount_cents, 0);
