@@ -499,8 +499,16 @@ export function parsePdfStatementText(text: string): { rows: CsvRow[]; ignored: 
       : null;
     const parties = extractTransferParties(description);
     const inferredCounterparty = extractCounterparty(description, type);
-    const counterparty = type === "income" ? parties.sender || inferredCounterparty
-      : type === "expense" ? parties.recipient || inferredCounterparty : inferredCounterparty;
+    const partyLine = parts
+      .filter((part, index) => index !== amountPartIndex)
+      .find((part) => !transactionHint.test(part) && !/\\b(?:CPF|CNPJ)\\b/i.test(part) &&
+        !/\\d{2}\\.\\d{3}\\.\\d{3}\\/\\d{4}-\\d{2}|\\d{3}\\.\\d{3}\\.\\d{3}-\\d{2}/.test(part) &&
+        /[A-Za-zÀ-ÿ]{3}/.test(part));
+    const cleanedPartyLine = partyLine?.replace(/\\b(?:CPF|CNPJ)\\b\\s*[:.]?/ig, "")
+      .replace(/\\b(?:\\d{2}\\.\\d{3}\\.\\d{3}\\/\\d{4}-\\d{2}|\\d{3}\\.\\d{3}\\.\\d{3}-\\d{2})\\b/g, "")
+      .replace(/[|/—–-]+/g, " ").trim().slice(0, 120) ?? "";
+    const counterparty = type === "income" ? parties.sender || inferredCounterparty || cleanedPartyLine
+      : type === "expense" ? parties.recipient || inferredCounterparty || cleanedPartyLine : inferredCounterparty || cleanedPartyLine;
     const errors: string[] = [];
     if (!type) errors.push("Não foi possível identificar se o lançamento é entrada ou saída; confira e classifique manualmente.");
     if (!counterparty) errors.push(type === "income"
