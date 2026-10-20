@@ -15,22 +15,24 @@ describe("parseMoney", () => {
 describe("parseStatementText", () => {
   it("extracts credit and debit transactions from common statement rows", () => {
     const parsed = parseStatementText([
-      "10/10/2026 PIX RECEBIDO MARIA SILVA 1.250,00 C",
-      "11/10/2026 PAGAMENTO BOLETO INTERNET 189,90 D",
+      "10/10/2026 PIX RECEBIDO DE MARIA SILVA 1.250,00 C",
+      "11/10/2026 PAGAMENTO BOLETO PARA INTERNET LTDA 189,90 D",
     ].join("\n"));
 
     expect(parsed.rows).toHaveLength(2);
     expect(parsed.rows[0].value).toMatchObject({
       type: "income",
-      description: "PIX RECEBIDO MARIA SILVA",
+      description: "PIX RECEBIDO DE MARIA SILVA",
       amount_cents: 125000,
       due_date: "2026-10-10",
+      counterparty_name: "MARIA SILVA",
     });
     expect(parsed.rows[1].value).toMatchObject({
       type: "expense",
-      description: "PAGAMENTO BOLETO INTERNET",
+      description: "PAGAMENTO BOLETO PARA INTERNET LTDA",
       amount_cents: 18990,
       due_date: "2026-10-11",
+      counterparty_name: "INTERNET LTDA",
     });
   });
 
@@ -91,23 +93,24 @@ describe("parseOfxText", () => {
 </STMTTRN>
 </OFX>`);
     expect(parsed.rows).toHaveLength(2);
-    expect(parsed.rows[0].value).toMatchObject({ type: "expense", amount_cents: 4250, due_date: "2026-10-12" });
-    expect(parsed.rows[1].value).toMatchObject({ type: "income", amount_cents: 125000, due_date: "2026-10-13" });
+    expect(parsed.rows[0].value).toMatchObject({ type: "expense", amount_cents: 4250, due_date: "2026-10-12", counterparty_name: "PADARIA CENTRAL" });
+    expect(parsed.rows[1].value).toBeUndefined();
+    expect(parsed.rows[1].errors[0]).toContain("Pagador não identificado no OFX");
   });
 });
 
 describe("parseBankTable", () => {
   it("recognizes common alternative bank CSV headers and keeps unknown direction for review", () => {
-    const parsed = parseBankTable("Data;Histórico;Valor\n12/10/2026;Compra mercado;-45,90\n13/10/2026;Movimentação recebida;120,00");
+    const parsed = parseBankTable("Data;Histórico;Valor\n12/10/2026;Compra para MERCADO CENTRAL;-45,90\n13/10/2026;Movimentação recebida de CLIENTE CENTRAL;120,00");
     expect(parsed.rows).toHaveLength(2);
-    expect(parsed.rows[0].value).toMatchObject({ type: "expense", amount_cents: 4590, due_date: "2026-10-12" });
+    expect(parsed.rows[0].value).toMatchObject({ type: "expense", amount_cents: 4590, due_date: "2026-10-12", counterparty_name: "MERCADO CENTRAL" });
     expect(parsed.rows[1].value).toBeUndefined();
     expect(parsed.rows[1].errors[0]).toContain("classifique manualmente");
   });
 
   it("recognizes separate debit and credit columns", () => {
-    const parsed = parseBankTable("Data;Descrição;Débito;Crédito\n12/10/2026;Aluguel;1200,00;\n13/10/2026;Recebimento;;3500,00");
-    expect(parsed.rows[0].value).toMatchObject({ type: "expense", amount_cents: 120000 });
-    expect(parsed.rows[1].value).toMatchObject({ type: "income", amount_cents: 350000 });
+    const parsed = parseBankTable("Data;Descrição;Débito;Crédito\n12/10/2026;Aluguel para IMOBILIARIA CENTRAL;1200,00;\n13/10/2026;Recebimento de CLIENTE CENTRAL;;3500,00");
+    expect(parsed.rows[0].value).toMatchObject({ type: "expense", amount_cents: 120000, counterparty_name: "IMOBILIARIA CENTRAL" });
+    expect(parsed.rows[1].value).toMatchObject({ type: "income", amount_cents: 350000, counterparty_name: "CLIENTE CENTRAL" });
   });
 });
