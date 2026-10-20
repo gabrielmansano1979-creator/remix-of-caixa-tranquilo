@@ -157,6 +157,21 @@ function IndexComponent() {
 
             <div className="relative mx-auto w-full max-w-xl">
               <div className="absolute -inset-5 rounded-[2rem] bg-emerald-400/[0.07] blur-2xl" />
+              <div className="relative mb-4 h-48 overflow-hidden rounded-2xl border border-white/10 bg-[#101512] shadow-2xl shadow-black/30 sm:h-56">
+                <img
+                  src="https://images.unsplash.com/photo-1556761175-b413da4baf72?auto=format&fit=crop&w=1200&q=85"
+                  alt="Empreendedores reunidos para planejar o crescimento do negócio"
+                  className="h-full w-full object-cover object-center"
+                  fetchPriority="high"
+                  decoding="async"
+                />
+                <div className="absolute inset-0 bg-gradient-to-r from-[#080b0a]/90 via-[#080b0a]/45 to-transparent" />
+                <div className="absolute inset-y-0 left-0 flex max-w-sm flex-col justify-center p-6 sm:p-8">
+                  <span className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-200">Para quem empreende</span>
+                  <p className="mt-3 text-2xl font-semibold leading-tight text-white sm:text-3xl">Seu negócio em foco. Seu caixa sob controle.</p>
+                  <p className="mt-2 text-sm leading-6 text-zinc-200">Mais organização para acompanhar os números e decidir os próximos passos.</p>
+                </div>
+              </div>
               <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#101512] shadow-2xl shadow-black/50">
                 <div className="flex items-center justify-between border-b border-white/[0.08] px-5 py-4 sm:px-6">
                   <div>
@@ -192,6 +207,48 @@ function IndexComponent() {
                   <LockKeyhole className="h-3.5 w-3.5 text-emerald-300" /> Entre com sua conta para acessar seu ambiente.
                 </div>
               </div>
+            </div>
+          </div>
+        </section>
+
+        <section aria-labelledby="empreendedores-heading" className="border-y border-white/[0.07] bg-white/[0.02] px-5 py-16 sm:px-8 sm:py-20">
+          <div className="mx-auto max-w-7xl">
+            <div className="mx-auto max-w-2xl text-center">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-300">Feito para a vida real</p>
+              <h2 id="empreendedores-heading" className="mt-4 text-3xl font-semibold tracking-tight text-white sm:text-4xl">Cada negócio tem sua rotina. O controle financeiro precisa acompanhar.</h2>
+              <p className="mt-4 leading-7 text-zinc-400">Do atendimento ao planejamento, tenha uma visão mais organizada da movimentação financeira do seu negócio.</p>
+            </div>
+            <div className="mt-10 grid gap-5 md:grid-cols-3">
+              <article className="group overflow-hidden rounded-2xl border border-white/[0.09] bg-[#0c100e] transition hover:-translate-y-1 hover:border-emerald-300/25">
+                <div className="relative h-52 overflow-hidden">
+                  <img src="https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&w=900&q=80" alt="Empreendedor atendendo um cliente no ponto de venda" loading="lazy" decoding="async" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#0c100e] via-transparent to-transparent" />
+                </div>
+                <div className="px-5 pb-6 pt-1">
+                  <h3 className="text-lg font-semibold text-white">Comércio e atendimento</h3>
+                  <p className="mt-2 text-sm leading-6 text-zinc-400">Organize entradas e saídas para entender melhor o movimento do dia a dia.</p>
+                </div>
+              </article>
+              <article className="group overflow-hidden rounded-2xl border border-white/[0.09] bg-[#0c100e] transition hover:-translate-y-1 hover:border-emerald-300/25">
+                <div className="relative h-52 overflow-hidden">
+                  <img src="https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=900&q=80" alt="Planejamento financeiro com documentos, calculadora e anotações" loading="lazy" decoding="async" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#0c100e] via-transparent to-transparent" />
+                </div>
+                <div className="px-5 pb-6 pt-1">
+                  <h3 className="text-lg font-semibold text-white">Planejamento financeiro</h3>
+                  <p className="mt-2 text-sm leading-6 text-zinc-400">Visualize os compromissos e acompanhe o caixa com mais clareza.</p>
+                </div>
+              </article>
+              <article className="group overflow-hidden rounded-2xl border border-white/[0.09] bg-[#0c100e] transition hover:-translate-y-1 hover:border-emerald-300/25">
+                <div className="relative h-52 overflow-hidden">
+                  <img src="https://images.unsplash.com/photo-1521737711867-e3b97375f902?auto=format&fit=crop&w=900&q=80" alt="Equipe de profissionais conversando e colaborando no trabalho" loading="lazy" decoding="async" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#0c100e] via-transparent to-transparent" />
+                </div>
+                <div className="px-5 pb-6 pt-1">
+                  <h3 className="text-lg font-semibold text-white">Gestão com apoio profissional</h3>
+                  <p className="mt-2 text-sm leading-6 text-zinc-400">Facilite a organização das informações para conversar com seu contador.</p>
+                </div>
+              </article>
             </div>
           </div>
         </section>
