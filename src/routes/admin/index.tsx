@@ -430,6 +430,9 @@ function AdminPage() {
       await queryClient.invalidateQueries({
         queryKey: ["admin-partners"],
       });
+      await queryClient.invalidateQueries({
+        queryKey: ["admin-platform-overview"],
+      });
 
       toast.success(
         action === "approved"
