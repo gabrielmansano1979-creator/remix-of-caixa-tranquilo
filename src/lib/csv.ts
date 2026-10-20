@@ -401,6 +401,7 @@ export function parseCoraStatementText(text: string): { rows: CsvRow[]; ignored:
     const originalCounterparty = detailLines.map((line) =>
       line.replace(/\b(?:\d{3}\.\d{3}\.\d{3}-\d{2}|\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2})\b/g, "")
         .replace(/\b(?:CPF|CNPJ)\b\s*[:.]?/ig, "")
+        .replace(/^[\s|/—–-]+/g, "")
         .replace(/[|/—–-]+\s*$/g, "").trim()
     ).find((line) => line && !/^(?:CPF|CNPJ)\b/i.test(line) &&
       !/^(?:Extrato gerado|P[aá]g\.?\s*\d)/i.test(line)
