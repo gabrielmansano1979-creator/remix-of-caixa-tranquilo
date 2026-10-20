@@ -381,14 +381,14 @@ export function parsePdfStatementText(text: string): { rows: CsvRow[]; ignored: 
   };
   const normalize = (cell: string) => cell.toLowerCase()
     .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-    .replace(/[()/:]+/g, " ").replace(/r\$/g, "")
+    .replace(/[.,()/:#]+/g, " ").replace(/r\$/g, "")
     .replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
   const isDateHeader = (cell: string) =>
-    /^(data|date|data lancamento|data do lancamento|data movimento|data do movimento|dt lancamento|dt movimento|posting date|transaction date|data transacao|data da transacao|data efetiva|data operacao|data contabil|data valor|data hora|dia|data de movimento|data da operacao|data do evento)$/.test(cell);
+    /^(data|date|data lancamento|data do lancamento|data movimento|data do movimento|dt lancamento|dt movimento|posting date|transaction date|transaction posting date|data transacao|data da transacao|data efetiva|data operacao|data contabil|data contabilizacao|data valor|data hora|dia|data de movimento|data da operacao|data do evento|value date|booking date|effective date)$/.test(cell);
   const isDescriptionHeader = (cell: string) =>
-    /^(descricao|historico|historico descricao|descricao historico|lancamento|detalhe|memo|description|payee|beneficiario|estabelecimento|transacao|transaction|operacao|identificacao|complemento|documento|saldo historico|historico da transacao|descricao da transacao|detalhes|movimentacao|movimento|origem destino)$/.test(cell);
+    /^(descricao|historico|historico descricao|descricao historico|lancamento|detalhe|detalhes|memo|description|transaction description|transaction details|details|narrative|particulars|payee|beneficiario|estabelecimento|transacao|transaction|operacao|identificacao|complemento|documento|saldo historico|historico da transacao|descricao da transacao|historico da movimentacao|descricao da movimentacao|historico movimento|descricao movimento|detalhes da transacao|movimentacao|movimento|origem destino)$/.test(cell);
   const isAmountHeader = (cell: string) =>
-    /^(valor|amount|quantia|montante|total|debito|debit|credito|credit|entradas|saidas|deposito|retirada|valor debito|valor credito|vl debito|vl credito|valor da transacao|valor transacao|valor movimentacao|valor movimento|valor lancamento|valor da movimentacao|valor do lancamento|valor entrada|valor saida|debitos|creditos|withdrawal|deposit|entrada|saida|valor r\$|valor da operacao|valor operacao|importe|creditos r\$|debitos r\$|valor credito r\$|valor debito r\$)$/.test(cell);
+    /^(valor|amount|quantia|montante|total|debito|debit|credito|credit|entradas|saidas|deposito|retirada|valor debito|valor credito|vl debito|vl credito|valor da transacao|valor transacao|valor movimentacao|valor movimento|valor lancamento|valor da movimentacao|valor do lancamento|valor entrada|valor saida|debitos|creditos|withdrawal|withdrawals|deposit|deposits|entrada|saida|valor r\$|valor da operacao|valor operacao|importe|creditos r\$|debitos r\$|valor credito r\$|valor debito r\$|transaction amount|amount of transaction|movement amount)$/.test(cell);
   const isBalanceHeader = (cell: string) =>
     /^(saldo|balance|saldo final|saldo inicial|running balance|saldo disponivel|saldo do dia|saldo atual|saldo anterior|available balance|closing balance|opening balance|saldo apos movimento|saldo apos lancamento|saldo contabil)$/.test(cell);
 
