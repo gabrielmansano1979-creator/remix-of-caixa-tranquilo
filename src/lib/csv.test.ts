@@ -183,3 +183,68 @@ describe("parseCoraStatementText", () => {
     });
   });
 });
+
+
+describe("Cora statement metadata persistence contract", () => {
+  const header = [
+    "Cora SCFI - CNPJ 37.880.206/0001-63",
+    "45.025.412 FERNANDA BUENO MANSANO (CNPJ 45.025.412/0001-14)",
+  ].join("\n");
+
+  it("parses QR-code payments as outgoing and retains document, original name and method without requiring email", () => {
+    const parsed = parseCoraStatementText(header + "\n" + [
+      "23/09/2026",
+      "Pgto QR Code Pix",
+      "CINTIA CRISTINA B...",
+      "023.779.447-01",
+      "- R$ 94,00",
+    ].join("\n"));
+    const value = parsed.rows[0].value;
+    expect(value).toMatchObject({
+      type: "expense", amount_cents: 9400, counterparty_name: "CINTIA CRISTINA B",
+      counterparty_document: "023.779.447-01",
+      counterparty_original_name: "CINTIA CRISTINA B...",
+      payment_method: "PIX", is_own_transfer: false,
+      counterparty_email: "",
+    });
+    expect(value?.sender_name).toContain("FERNANDA BUENO MANSANO");
+    expect(value?.recipient_name).toBe("CINTIA CRISTINA B");
+  });
+
+  it("parses received payments and extracts a name when name and document share a line", () => {
+    const parsed = parseCoraStatementText(header + "\n" + [
+      "15/09/2026",
+      "Pagamento recebido",
+      "Alberto Correa / 30.720.110/0001-99",
+      "+ R$ 300,00",
+    ].join("\n"));
+    expect(parsed.rows[0].value).toMatchObject({
+      type: "income", amount_cents: 30000, counterparty_name: "Alberto Correa",
+      counterparty_document: "30.720.110/0001-99", payment_method: "Boleto / pagamento",
+      sender_name: "Alberto Correa",
+    });
+  });
+
+  it("does not infer direction from the operation label when the signed amount disagrees", () => {
+    const parsed = parseCoraStatementText(header + "\n" + [
+      "15/09/2026",
+      "Pagamento recebido",
+      "ALBERTO CORREA",
+      "30.720.110/0001-99",
+      "- R$ 300,00",
+    ].join("\n"));
+    expect(parsed.rows[0].value?.type).toBe("expense");
+    expect(parsed.rows[0].raw.tipo).toBe("saida");
+  });
+
+  it("rejects a transaction whose required counterparty is missing", () => {
+    const parsed = parseCoraStatementText(header + "\n" + [
+      "15/09/2026",
+      "Transf Pix recebida",
+      "+ R$ 50,00",
+    ].join("\n"));
+    expect(parsed.rows).toHaveLength(1);
+    expect(parsed.rows[0].value).toBeUndefined();
+    expect(parsed.rows[0].errors.join(" ")).toContain("Pagador não identificado");
+  });
+});
