@@ -186,13 +186,18 @@ BEGIN
     'entity_id', a.entity_id, 'details', a.details, 'created_at', a.created_at
   ) ORDER BY a.created_at DESC), '[]'::jsonb)
   INTO result
-  FROM public.financial_audit_logs a
-  JOIN public.profiles p ON p.user_id = a.client_user_id
-  WHERE a.client_user_id IN (
-    SELECT aa.client_user_id FROM public.accountant_access aa WHERE aa.partner_id = partner_record_id
-  )
-  AND (_from IS NULL OR a.created_at >= (_from::timestamp AT TIME ZONE 'America/Sao_Paulo'))
-  AND (_to IS NULL OR a.created_at < ((_to + 1)::timestamp AT TIME ZONE 'America/Sao_Paulo'));
+  FROM (
+    SELECT logs.*
+    FROM public.financial_audit_logs logs
+    WHERE logs.client_user_id IN (
+      SELECT aa.client_user_id FROM public.accountant_access aa WHERE aa.partner_id = partner_record_id
+    )
+    AND (_from IS NULL OR logs.created_at >= (_from::timestamp AT TIME ZONE 'America/Sao_Paulo'))
+    AND (_to IS NULL OR logs.created_at < ((_to + 1)::timestamp AT TIME ZONE 'America/Sao_Paulo'))
+    ORDER BY logs.created_at DESC
+    LIMIT 500
+  ) a
+  JOIN public.profiles p ON p.user_id = a.client_user_id;
 
   RETURN result;
 END
