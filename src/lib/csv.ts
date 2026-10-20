@@ -71,6 +71,7 @@ export function parseCsv(text: string): { rows: CsvRow[]; headerError?: string }
     const tipo = raw.tipo.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     const type = tipo === "entrada" ? "income" : tipo === "saida" ? "expense" : null;
     if (!type) errors.push("Tipo deve ser entrada ou saida");
+    if (type && !raw.nome.trim()) errors.push(type === "income" ? "Informe quem pagou à empresa (coluna nome)." : "Informe quem recebeu o pagamento (coluna nome).");
     const email = (raw.email ?? "").toLowerCase();
     const wa = toE164(raw.whatsapp ?? "");
     if (raw.whatsapp && !wa) errors.push("WhatsApp inválido");
@@ -186,6 +187,7 @@ export function parseStatementText(text: string): { rows: CsvRow[]; ignored: num
     if (!parties.sender && type === "income") parties.sender = counterparty;
     if (!parties.recipient && type === "expense") parties.recipient = counterparty;
     if (!description) errors.push("Descrição não identificada no documento.");
+    if (type && !counterparty.trim()) errors.push(type === "income" ? "Pagador não identificado; informe quem pagou à empresa antes de importar." : "Beneficiário não identificado; informe quem recebeu o pagamento antes de importar.");
 
     const row: CsvRow = {
       line: index + 1,
