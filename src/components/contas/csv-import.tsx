@@ -104,8 +104,8 @@ export function CsvImportDialog({ open, onOpenChange, onLimit }: { open: boolean
         if (!parsed.rows.length) throw new Error(pdfParseError || "Não foram encontradas linhas de lançamentos reconhecíveis no PDF, mesmo após tentar OCR. Confira se o arquivo está legível ou exporte o extrato em OFX/CSV.");
         const previewRows = isCora ? parsed.rows.map((row) => { const company = businessName || row.raw.titular_conta || "Sua empresa"; const isIncome = row.value?.type === "income" || row.raw.tipo === "entrada"; const counterparty = isIncome ? row.raw.remetente : row.raw.destinatario; const sender = isIncome ? (counterparty || row.raw.remetente || "") : company; const recipient = isIncome ? company : (counterparty || row.raw.destinatario || ""); return { ...row, raw: { ...row.raw, titular_extrato: row.raw.titular_conta || "", titular_conta: company, remetente: sender, destinatario: recipient }, value: row.value ? { ...row.value, sender_name: sender.slice(0, 120), recipient_name: recipient.slice(0, 120) } : undefined }; }) : parsed.rows;
         setRows(previewRows);
-        if (parsed.ignored) setFileWarning(\`\${parsed.ignored} linha(s) do documento não foram reconhecidas como lançamentos e serão ignoradas.\`);
-        if (extracted.ocrPages) setFileWarning((current) => \`\${current ? \`\${current} \` : ""}\${extracted.ocrPages} página(s) precisaram de OCR. Confira cada valor com o PDF original.\`);
+        if (parsed.ignored) setFileWarning(`${parsed.ignored} linha(s) do documento não foram reconhecidas como lançamentos e serão ignoradas.`);
+        if (extracted.ocrPages) setFileWarning((current) => `${current ? `${current} ` : ""}${extracted.ocrPages} página(s) precisaram de OCR. Confira cada valor com o PDF original.`);
         return;
       }
       throw new Error("Formato não suportado. Envie um dos formatos indicados na tela.");
