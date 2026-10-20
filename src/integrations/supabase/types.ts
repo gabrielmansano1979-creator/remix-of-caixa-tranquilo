@@ -385,48 +385,66 @@ export type Database = {
       entries: {
         Row: {
           amount_cents: number
+          counterparty_document: string | null
           counterparty_email: string | null
           counterparty_name: string | null
+          counterparty_original_name: string | null
           counterparty_whatsapp: string | null
           created_at: string
           description: string
           due_date: string
           id: string
+          is_own_transfer: boolean
           paid_at: string | null
+          payment_method: string | null
           pix_url: string | null
+          recipient_name: string | null
           reminders_muted: boolean
+          sender_name: string | null
           status: Database["public"]["Enums"]["entry_status"]
           type: Database["public"]["Enums"]["entry_type"]
           user_id: string
         }
         Insert: {
           amount_cents: number
+          counterparty_document?: string | null
           counterparty_email?: string | null
           counterparty_name?: string | null
+          counterparty_original_name?: string | null
           counterparty_whatsapp?: string | null
           created_at?: string
           description: string
           due_date: string
           id?: string
+          is_own_transfer?: boolean
           paid_at?: string | null
+          payment_method?: string | null
           pix_url?: string | null
+          recipient_name?: string | null
           reminders_muted?: boolean
+          sender_name?: string | null
           status?: Database["public"]["Enums"]["entry_status"]
           type: Database["public"]["Enums"]["entry_type"]
           user_id?: string
         }
         Update: {
           amount_cents?: number
+          counterparty_document?: string | null
           counterparty_email?: string | null
           counterparty_name?: string | null
+          counterparty_original_name?: string | null
           counterparty_whatsapp?: string | null
           created_at?: string
           description?: string
           due_date?: string
           id?: string
+          is_own_transfer?: boolean
           paid_at?: string | null
+          payment_method?: string | null
           pix_url?: string | null
+          recipient_name?: string | null
           reminders_muted?: boolean
+          sender_name?: string | null
           status?: Database["public"]["Enums"]["entry_status"]
           type?: Database["public"]["Enums"]["entry_type"]
           user_id?: string
