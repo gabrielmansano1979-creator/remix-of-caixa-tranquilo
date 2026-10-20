@@ -83,15 +83,29 @@ export function CsvImportDialog({ open, onOpenChange, onLimit }: { open: boolean
         return;
       }
       if (extension === "pdf") {
-        const extracted = await extractPdfText(f);
-        const isCora = /Cora\s+SCFI|37\.880\.206\/0001-63/i.test(extracted.text);
-        const parsed = isCora ? parseCoraStatementText(extracted.text) : parsePdfStatementText(extracted.text);
+        let extracted = await extractPdfText(f);
+        let isCora = /Cora\s+SCFI|37\.880\.206\/0001-63/i.test(extracted.text);
+        let parsed = isCora ? parseCoraStatementText(extracted.text) : parsePdfStatementText(extracted.text);
+
+        // Text extraction can succeed technically but lose the bank's column layout.
+        // If no transactions were recognized, retry once with OCR forced on every page.
+        if (!parsed.rows.length) {
+          const ocrRetry = await extractPdfText(f, true);
+          const retryIsCora = /Cora\s+SCFI|37\.880\.206\/0001-63/i.test(ocrRetry.text);
+          const retryParsed = retryIsCora ? parseCoraStatementText(ocrRetry.text) : parsePdfStatementText(ocrRetry.text);
+          if (retryParsed.rows.length) {
+            extracted = ocrRetry;
+            isCora = retryIsCora;
+            parsed = retryParsed;
+          }
+        }
+
         const pdfParseError = isCora ? undefined : (parsed as ReturnType<typeof parsePdfStatementText>).headerError;
-        if (!parsed.rows.length) throw new Error(pdfParseError || "Não foram encontradas linhas de lançamentos reconhecíveis no PDF.");
+        if (!parsed.rows.length) throw new Error(pdfParseError || "Não foram encontradas linhas de lançamentos reconhecíveis no PDF, mesmo após tentar OCR. Confira se o arquivo está legível ou exporte o extrato em OFX/CSV.");
         const previewRows = isCora ? parsed.rows.map((row) => { const company = businessName || row.raw.titular_conta || "Sua empresa"; const isIncome = row.value?.type === "income" || row.raw.tipo === "entrada"; const counterparty = isIncome ? row.raw.remetente : row.raw.destinatario; const sender = isIncome ? (counterparty || row.raw.remetente || "") : company; const recipient = isIncome ? company : (counterparty || row.raw.destinatario || ""); return { ...row, raw: { ...row.raw, titular_extrato: row.raw.titular_conta || "", titular_conta: company, remetente: sender, destinatario: recipient }, value: row.value ? { ...row.value, sender_name: sender.slice(0, 120), recipient_name: recipient.slice(0, 120) } : undefined }; }) : parsed.rows;
         setRows(previewRows);
-        if (parsed.ignored) setFileWarning(`${parsed.ignored} linha(s) do documento não foram reconhecidas como lançamentos e serão ignoradas.`);
-        if (extracted.ocrPages) setFileWarning((current) => `${current ? `${current} ` : ""}${extracted.ocrPages} página(s) precisaram de OCR. Confira cada valor com o PDF original.`);
+        if (parsed.ignored) setFileWarning(\`\${parsed.ignored} linha(s) do documento não foram reconhecidas como lançamentos e serão ignoradas.\`);
+        if (extracted.ocrPages) setFileWarning((current) => \`\${current ? \`\${current} \` : ""}\${extracted.ocrPages} página(s) precisaram de OCR. Confira cada valor com o PDF original.\`);
         return;
       }
       throw new Error("Formato não suportado. Envie um dos formatos indicados na tela.");
@@ -211,7 +225,7 @@ function excelCellToString(value: unknown): string {
 }
 
 
-async function extractPdfText(file: File): Promise<{ text: string; ocrPages: number }> {
+async function extractPdfText(file: File, forceOcr = false): Promise<{ text: string; ocrPages: number }> {
   const pdfjs = await import("pdfjs-dist");
   const { createWorker } = await import("tesseract.js");
   pdfjs.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).toString();
@@ -253,7 +267,7 @@ async function extractPdfText(file: File): Promise<{ text: string; ocrPages: num
         return output;
       }).join("\n");
       const hasTransactionLikeLine = /(?:\d{2}[/. -]\d{2}[/. -]\d{4}|\d{4}-\d{2}-\d{2}).*(?:R\$\s*)?[+-]?\d[\d.,]*(?:\s*(?:CR|DB|C|D))?\s*$/im.test(text);
-      if (text.replace(/\s/g, "").length < 30 || !hasTransactionLikeLine) {
+      if (forceOcr || text.replace(/\s/g, "").length < 30 || !hasTransactionLikeLine) {
         worker ??= await createWorker("por");
         const viewport = page.getViewport({ scale: 1.8 });
         const canvas = document.createElement("canvas");
