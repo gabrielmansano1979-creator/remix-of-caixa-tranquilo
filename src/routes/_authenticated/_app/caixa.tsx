@@ -4,12 +4,13 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { CartesianGrid, Line, LineChart, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import {
-  AlertOctagon, AlertTriangle, CalendarDays, CheckCircle2, Circle, Inbox, MessageCircle, Pencil, RotateCcw, ShieldAlert, ShieldCheck, ShieldQuestion, TrendingDown, TrendingUp, Wallet,
+  AlertOctagon, AlertTriangle, CalendarDays, CheckCircle2, Circle, Download, FileText, Inbox, MessageCircle, Pencil, RotateCcw, ShieldAlert, ShieldCheck, ShieldQuestion, TrendingDown, TrendingUp, Wallet,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { accessQuery, entriesQuery, parseDbError, profileQuery, todaySP } from "@/lib/app-data";
 import { formatBRL, formatDate } from "@/lib/format";
 import { createWhatsAppUrl } from "@/lib/whatsapp-message";
+import { downloadFinancialDocument } from "@/lib/financial-documents";
 import { useMarkPaid } from "@/components/contas/shared";
 import { MoneyInput } from "@/components/money-input";
 import { Button } from "@/components/ui/button";
@@ -89,6 +90,77 @@ function CaixaPage() {
     return { opening, closing: actual, projectedClosing: projected, rows: detailed };
   })();
 
+  const downloadClientDocument = async (kind: "cash-flow" | "payables-receivables" | "expenses-goals") => {
+    const companyName = String(profile.data?.business_name || profile.data?.full_name || "Minha empresa");
+    const periodLabel = `${formatDate(periodStart)} a ${formatDate(periodEnd)}`;
+    const baseRows = ledger.rows.map((entry) => ({
+      date: formatDate(entry.status === "paid" ? (entry.paid_at ?? entry.due_date).slice(0, 10) : entry.due_date),
+      description: entry.description,
+      counterparty: entry.counterparty_name || "Contraparte não informada no histórico",
+      status: entry.status === "paid" ? "Pago" : "Pendente",
+      income: entry.type === "income" ? formatBRL(entry.amount_cents) : "—",
+      expense: entry.type === "expense" ? formatBRL(entry.amount_cents) : "—",
+      effective_balance: formatBRL(entry.actual_balance),
+      projected_balance: formatBRL(entry.projected_balance),
+      amount: formatBRL(entry.amount_cents),
+      type: entry.type === "income" ? "Entrada / a receber" : "Saída / a pagar",
+    }));
+    const expenses = ledger.rows.filter((entry) => entry.type === "expense");
+    const expenseTotals = new Map<string, number>();
+    expenses.forEach((entry) => expenseTotals.set(entry.description, (expenseTotals.get(entry.description) ?? 0) + entry.amount_cents));
+    const largestExpense = [...expenseTotals.entries()].sort((a, b) => b[1] - a[1])[0];
+    const commonSummary: Array<[string, string | number]> = [
+      ["Saldo inicial do período", formatBRL(ledger.opening)],
+      ["Saldo efetivo final", formatBRL(ledger.closing)],
+      ["Saldo projetado final", formatBRL(ledger.projectedClosing)],
+    ];
+    try {
+      if (kind === "cash-flow") {
+        await downloadFinancialDocument({
+          companyName, title: "01 — Relatório de Fluxo de Caixa", slug: "01-fluxo-de-caixa", periodStart, periodEnd,
+          columns: [
+            { key: "date", label: "Data" }, { key: "description", label: "Movimentação" },
+            { key: "counterparty", label: "Pagador / beneficiário" }, { key: "status", label: "Situação" },
+            { key: "income", label: "Entrada" }, { key: "expense", label: "Saída" },
+            { key: "effective_balance", label: "Saldo efetivo após movimentação" }, { key: "projected_balance", label: "Saldo previsto" },
+          ],
+          rows: baseRows, summary: commonSummary,
+        });
+      } else if (kind === "payables-receivables") {
+        await downloadFinancialDocument({
+          companyName, title: "02 — Relatório de Contas a Pagar e a Receber", slug: "02-contas-a-pagar-e-receber", periodStart, periodEnd,
+          columns: [
+            { key: "date", label: "Vencimento / data" }, { key: "type", label: "Tipo" },
+            { key: "description", label: "Descrição" }, { key: "counterparty", label: "Contraparte" },
+            { key: "status", label: "Situação" }, { key: "amount", label: "Valor" },
+          ],
+          rows: baseRows, summary: [
+            ["Contas pendentes", String(ledger.rows.filter((entry) => entry.status !== "paid").length)],
+            ["Saldo efetivo final", formatBRL(ledger.closing)], ["Saldo projetado final", formatBRL(ledger.projectedClosing)],
+          ],
+        });
+      } else {
+        await downloadFinancialDocument({
+          companyName, title: "03 — Relatório de Despesas e Metas", slug: "03-despesas-e-metas", periodStart, periodEnd,
+          columns: [
+            { key: "date", label: "Vencimento / data" }, { key: "description", label: "Descrição da despesa" },
+            { key: "counterparty", label: "Beneficiário" }, { key: "status", label: "Situação" }, { key: "amount", label: "Valor" },
+          ],
+          rows: baseRows.filter((row) => row.type === "Saída / a pagar"),
+          summary: [
+            ["Total de despesas registradas", formatBRL(expenses.reduce((sum, entry) => sum + entry.amount_cents, 0))],
+            ["Maior destino identificado pela descrição", largestExpense ? `${largestExpense[0]} — ${formatBRL(largestExpense[1])}` : "Nenhuma despesa no período"],
+            ["Meta de faturamento", "Consulte a meta cadastrada na área de metas; este relatório não inventa um valor ausente."],
+            ...commonSummary,
+          ],
+        });
+      }
+      toast.success(`Documento gerado: ${kind === "cash-flow" ? "Fluxo de Caixa" : kind === "payables-receivables" ? "Contas a Pagar e a Receber" : "Despesas e Metas"} — ${periodLabel}`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível gerar o PDF.");
+    }
+  };
+
   return (
     <div className="space-y-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -102,6 +174,14 @@ function CaixaPage() {
         </span>
       </div>
       <Activation hasEntries={hasEntries} />
+      <section className="premium-surface space-y-4 rounded-2xl p-6 md:p-7">
+        <div><p className="text-[11px] font-bold uppercase tracking-[0.18em] text-primary">Documentos para download</p><h2 className="mt-1 text-lg font-semibold">Meus relatórios em PDF</h2><p className="mt-1 text-sm text-muted-foreground">Documentos exclusivos da sua empresa. Relatórios internos da área do contador não aparecem aqui.</p></div>
+        <div className="grid gap-3 md:grid-cols-3">
+          <div className="rounded-xl border p-4"><FileText className="h-5 w-5 text-primary" /><h3 className="mt-2 font-semibold">01 — Relatório de Fluxo de Caixa</h3><p className="mt-1 text-sm text-muted-foreground">Saldo inicial, movimentações e saldos efetivo e projetado.</p><Button className="mt-3 w-full" variant="outline" onClick={() => void downloadClientDocument("cash-flow")}><Download className="mr-2 h-4 w-4" />Baixar PDF</Button></div>
+          <div className="rounded-xl border p-4"><FileText className="h-5 w-5 text-primary" /><h3 className="mt-2 font-semibold">02 — Contas a Pagar e a Receber</h3><p className="mt-1 text-sm text-muted-foreground">Vencimentos, contrapartes, valores e pendências.</p><Button className="mt-3 w-full" variant="outline" onClick={() => void downloadClientDocument("payables-receivables")}><Download className="mr-2 h-4 w-4" />Baixar PDF</Button></div>
+          <div className="rounded-xl border p-4"><FileText className="h-5 w-5 text-primary" /><h3 className="mt-2 font-semibold">03 — Despesas e Metas</h3><p className="mt-1 text-sm text-muted-foreground">Despesas, principais destinos identificados e referência à meta de faturamento.</p><Button className="mt-3 w-full" variant="outline" onClick={() => void downloadClientDocument("expenses-goals")}><Download className="mr-2 h-4 w-4" />Baixar PDF</Button></div>
+        </div>
+      </section>
       {!hasEntries ? (
         <div className="flex flex-col items-center rounded-2xl border bg-card p-10 text-center shadow-[var(--shadow-soft)]">
           <span className="grid h-16 w-16 place-items-center rounded-full bg-accent text-accent-foreground"><Inbox className="h-8 w-8" /></span>
