@@ -1,9 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Building2, Clipboard, Download, FileText, History, ShieldCheck, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { generateAccountingReport } from "@/lib/reporting";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 type AccountantPortal = {
@@ -13,7 +15,9 @@ type AccountantPortal = {
     client_name: string;
     business_size: "MEI" | "ME" | "EPP" | "OUTRO" | null;
     granted_at: string;
-    entries: Array<{ description: string; type: "income" | "expense"; amount_cents: number; due_date: string; status: string; paid_at: string | null }>;
+    initial_balance_cents: number;
+    balance_date: string | null;
+    entries: Array<{ id: string; description: string; type: "income" | "expense"; amount_cents: number; due_date: string; status: string; paid_at: string | null; counterparty_name: string | null; created_at: string }>;
   }>;
   pending_requests: Array<{ id: string; client_name: string; requested_at: string }>;
   invited_companies: Array<{ client_name: string; accepted_at: string; access_granted: boolean }>;
@@ -40,6 +44,8 @@ export function AccountantClientManagement() {
     },
   });
   const data = query.data;
+  const [periodStart, setPeriodStart] = useState(() => `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}-01`);
+  const [periodEnd, setPeriodEnd] = useState(() => new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" }));
   const origin = typeof window === "undefined" ? "" : window.location.origin;
   const companyInviteUrl = data?.business_invite_token
     ? `${origin}/cadastro?contador_convite=${encodeURIComponent(data.business_invite_token)}`
@@ -131,10 +137,29 @@ export function AccountantClientManagement() {
       <Card>
         <CardHeader><CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5" />Clientes que autorizaram acesso</CardTitle></CardHeader>
         <CardContent>
+          <div className="mb-4 grid gap-3 rounded-xl border p-4 sm:grid-cols-2">
+            <label className="space-y-1 text-sm"><span className="font-medium">Data inicial das movimentações</span><Input type="date" value={periodStart} max={periodEnd} onChange={(e) => setPeriodStart(e.target.value)} className="h-11 rounded-xl" /></label>
+            <label className="space-y-1 text-sm"><span className="font-medium">Data final das movimentações</span><Input type="date" value={periodEnd} min={periodStart} onChange={(e) => setPeriodEnd(e.target.value)} className="h-11 rounded-xl" /></label>
+          </div>
           {data.authorized_clients.length ? <div className="space-y-4">{data.authorized_clients.map((client) => {
-            const income = client.entries.filter((entry) => entry.type === "income").reduce((sum, entry) => sum + entry.amount_cents, 0);
-            const expense = client.entries.filter((entry) => entry.type === "expense").reduce((sum, entry) => sum + entry.amount_cents, 0);
-            return <div key={client.client_user_id} className="rounded-xl border p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-semibold">{client.client_name}</h3><p className="text-xs text-muted-foreground">Porte declarado: {client.business_size ?? "Não informado"} · Autorizado em {date(client.granted_at)} · {client.entries.length} lançamentos</p></div><span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs text-emerald-600">Acesso autorizado</span></div><div className="mt-3 grid gap-3 sm:grid-cols-3"><div className="rounded-lg bg-muted/30 p-3"><p className="text-xs text-muted-foreground">Entradas cadastradas</p><p className="font-semibold">{money(income)}</p></div><div className="rounded-lg bg-muted/30 p-3"><p className="text-xs text-muted-foreground">Saídas cadastradas</p><p className="font-semibold">{money(expense)}</p></div><div className="rounded-lg bg-muted/30 p-3"><p className="text-xs text-muted-foreground">Saldo líquido dos lançamentos</p><p className="font-semibold">{money(income - expense)}</p></div></div><div className="mt-3 flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={() => void downloadClientReport(client, "mensal")}><Download className="mr-2 h-4 w-4" />Baixar PDF do mês atual</Button><Button size="sm" variant="outline" onClick={() => void downloadClientReport(client, "anual")}><Download className="mr-2 h-4 w-4" />Baixar PDF do ano atual</Button></div><p className="mt-2 text-xs text-muted-foreground">Os relatórios incluem somente os lançamentos cadastrados e identificam despesas por descrição, não como classificação contábil oficial.</p><details className="mt-3"><summary className="cursor-pointer text-sm font-medium text-primary">Ver lançamentos financeiros</summary><div className="mt-3 overflow-x-auto"><table className="w-full min-w-[650px] text-left text-sm"><thead><tr className="border-b text-xs text-muted-foreground"><th className="px-2 py-2">Descrição</th><th className="px-2 py-2">Tipo</th><th className="px-2 py-2">Valor</th><th className="px-2 py-2">Data</th><th className="px-2 py-2">Situação</th></tr></thead><tbody>{client.entries.map((entry, i) => <tr key={client.client_user_id + entry.description + entry.due_date + i} className="border-b last:border-0"><td className="px-2 py-2">{entry.description}</td><td className="px-2 py-2">{entry.type === "income" ? "Entrada" : "Saída"}</td><td className="px-2 py-2">{money(entry.amount_cents)}</td><td className="px-2 py-2">{date(entry.due_date)}</td><td className="px-2 py-2">{entry.status === "paid" ? "Pago" : "Pendente"}</td></tr>)}</tbody></table></div></details></div>;
+            const allEntries = client.entries.slice().sort((a, b) => a.due_date.localeCompare(b.due_date) || a.created_at.localeCompare(b.created_at));
+            const net = (entry: typeof allEntries[number]) => (entry.type === "income" ? 1 : -1) * entry.amount_cents;
+            const snapshotDate = client.balance_date ?? periodStart;
+            let opening = client.initial_balance_cents ?? 0;
+            if (snapshotDate >= periodStart) {
+              opening -= allEntries.filter((entry) => entry.due_date > periodStart && entry.due_date <= snapshotDate).reduce((sum, entry) => sum + net(entry), 0);
+            } else {
+              opening += allEntries.filter((entry) => entry.due_date > snapshotDate && entry.due_date < periodStart).reduce((sum, entry) => sum + net(entry), 0);
+            }
+            let running = opening;
+            const periodEntries = allEntries.filter((entry) => entry.due_date >= periodStart && entry.due_date <= periodEnd).map((entry) => {
+              running += net(entry);
+              return { ...entry, running_balance: running };
+            });
+            const closing = running;
+            const income = periodEntries.filter((entry) => entry.type === "income").reduce((sum, entry) => sum + entry.amount_cents, 0);
+            const expense = periodEntries.filter((entry) => entry.type === "expense").reduce((sum, entry) => sum + entry.amount_cents, 0);
+            return <div key={client.client_user_id} className="rounded-xl border p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-semibold">{client.client_name}</h3><p className="text-xs text-muted-foreground">Porte declarado: {client.business_size ?? "Não informado"} · Autorizado em {date(client.granted_at)} · {periodEntries.length} movimentações no período</p></div><span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs text-emerald-600">Acesso autorizado</span></div><div className="mt-3 grid gap-3 sm:grid-cols-3"><div className="rounded-lg bg-muted/30 p-3"><p className="text-xs text-muted-foreground">Entradas no período</p><p className="font-semibold">{money(income)}</p></div><div className="rounded-lg bg-muted/30 p-3"><p className="text-xs text-muted-foreground">Saídas no período</p><p className="font-semibold">{money(expense)}</p></div><div className="rounded-lg bg-muted/30 p-3"><p className="text-xs text-muted-foreground">Saldo final previsto</p><p className="font-semibold">{money(closing)}</p></div></div><div className="mt-3 flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={() => void downloadClientReport(client, "mensal")}><Download className="mr-2 h-4 w-4" />Baixar PDF do mês atual</Button><Button size="sm" variant="outline" onClick={() => void downloadClientReport(client, "anual")}><Download className="mr-2 h-4 w-4" />Baixar PDF do ano atual</Button></div><p className="mt-2 text-xs text-muted-foreground">Os relatórios incluem somente os lançamentos cadastrados e identificam despesas por descrição, não como classificação contábil oficial.</p><details className="mt-3" open><summary className="cursor-pointer text-sm font-medium text-primary">Extrato com saldo antes e depois de cada movimentação</summary><div className="mt-3 overflow-x-auto"><table className="w-full min-w-[1050px] text-left text-sm"><thead><tr className="border-b text-xs text-muted-foreground"><th className="px-2 py-2">Data</th><th className="px-2 py-2">Descrição</th><th className="px-2 py-2">Pagador</th><th className="px-2 py-2">Beneficiário</th><th className="px-2 py-2">Situação</th><th className="px-2 py-2 text-right">Entrada</th><th className="px-2 py-2 text-right">Saída</th><th className="px-2 py-2 text-right">Saldo após movimentação</th></tr></thead><tbody><tr className="border-b bg-muted/30 font-medium"><td className="px-2 py-2" colSpan={7}>Saldo de abertura · antes da primeira movimentação</td><td className="px-2 py-2 text-right">{money(opening)}</td></tr>{periodEntries.map((entry) => <tr key={client.client_user_id + entry.id} className="border-b last:border-0"><td className="whitespace-nowrap px-2 py-2">{date(entry.due_date)}</td><td className="px-2 py-2">{entry.description}</td><td className="px-2 py-2">{entry.type === "income" ? entry.counterparty_name || "—" : "—"}</td><td className="px-2 py-2">{entry.type === "expense" ? entry.counterparty_name || "—" : "—"}</td><td className="px-2 py-2">{entry.status === "paid" ? "Pago" : "Pendente · previsto"}</td><td className="px-2 py-2 text-right">{entry.type === "income" ? money(entry.amount_cents) : "—"}</td><td className="px-2 py-2 text-right">{entry.type === "expense" ? money(entry.amount_cents) : "—"}</td><td className="px-2 py-2 text-right font-semibold">{money(entry.running_balance)}</td></tr>)}{!periodEntries.length && <tr><td className="px-2 py-5 text-center text-muted-foreground" colSpan={8}>Nenhuma movimentação neste período.</td></tr>}<tr className="bg-muted/30 font-semibold"><td className="px-2 py-2" colSpan={7}>Saldo final do período</td><td className="px-2 py-2 text-right">{money(closing)}</td></tr></tbody></table></div><p className="mt-2 text-xs text-muted-foreground">O saldo após movimentações pendentes é previsto, não caixa efetivamente realizado. O cálculo usa o saldo informado pela empresa e as movimentações cadastradas.</p></details></div>;
           })}</div> : <p className="text-sm text-muted-foreground">Nenhum cliente autorizou o acesso ainda.</p>}
         </CardContent>
       </Card>
