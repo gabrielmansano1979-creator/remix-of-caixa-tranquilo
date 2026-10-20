@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { AlertCircle, CheckCircle2, Download, Upload } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { accessQuery, parseDbError, type LimitKind } from "@/lib/app-data";
-import { CSV_TEMPLATE, parseCsv, parseBankTable, parseStatementText, parseOfxText, type CsvRow } from "@/lib/csv";
+import { CSV_TEMPLATE, parseCsv, parseBankTable, parseStatementText, parseCoraStatementText, parseOfxText, type CsvRow } from "@/lib/csv";
 import { formatBRL, formatDate } from "@/lib/format";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -83,7 +83,7 @@ export function CsvImportDialog({ open, onOpenChange, onLimit }: { open: boolean
       }
       if (extension === "pdf") {
         const extracted = await extractPdfText(f);
-        const parsed = parseStatementText(extracted.text);
+        const isCora = /Cora\s+SCFI|37\.880\.206\/0001-63/i.test(extracted.text);\n        const parsed = isCora ? parseCoraStatementText(extracted.text) : parseStatementText(extracted.text);
         if (!parsed.rows.length) throw new Error("Não foram encontradas linhas de lançamentos reconhecíveis no PDF.");
         setRows(parsed.rows);
         if (parsed.ignored) setFileWarning(`${parsed.ignored} linha(s) do documento não foram reconhecidas como lançamentos e serão ignoradas.`);
