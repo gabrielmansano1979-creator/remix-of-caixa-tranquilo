@@ -371,7 +371,7 @@ export function parseCoraStatementText(text: string): { rows: CsvRow[]; ignored:
     const withoutDocument = holderLine
       .replace(/\(?\s*CNPJ\s*[:.]?\s*\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}\s*\)?/ig, "")
       .replace(/\b\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}\b/g, "")
-      .replace(/^[\s:–-]+|[\s:–-]+$/g, "").trim();
+      .replace(/^[\s:–-]+|[\s:–-]+$/g, "").replace(/^\d{2}\.\d{3}\.\d{3}\s+/, "").trim();
     return /[A-ZÀ-Ý]{3}/i.test(withoutDocument) && !/EXTRATO|SALDO/i.test(withoutDocument)
       ? withoutDocument.slice(0, 120) : "Titular da conta";
   })();
