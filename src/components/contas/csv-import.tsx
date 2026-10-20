@@ -86,7 +86,8 @@ export function CsvImportDialog({ open, onOpenChange, onLimit }: { open: boolean
         const extracted = await extractPdfText(f);
         const isCora = /Cora\s+SCFI|37\.880\.206\/0001-63/i.test(extracted.text);
         const parsed = isCora ? parseCoraStatementText(extracted.text) : parsePdfStatementText(extracted.text);
-        if (!parsed.rows.length) throw new Error(("headerError" in parsed ? parsed.headerError : undefined) ?? "Não foram encontradas linhas de lançamentos reconhecíveis no PDF.");
+        const pdfParseError = isCora ? undefined : (parsed as ReturnType<typeof parsePdfStatementText>).headerError;
+        if (!parsed.rows.length) throw new Error(pdfParseError || "Não foram encontradas linhas de lançamentos reconhecíveis no PDF.");
         const previewRows = isCora ? parsed.rows.map((row) => { const company = businessName || row.raw.titular_conta || "Sua empresa"; const isIncome = row.value?.type === "income" || row.raw.tipo === "entrada"; const counterparty = isIncome ? row.raw.remetente : row.raw.destinatario; const sender = isIncome ? (counterparty || row.raw.remetente || "") : company; const recipient = isIncome ? company : (counterparty || row.raw.destinatario || ""); return { ...row, raw: { ...row.raw, titular_extrato: row.raw.titular_conta || "", titular_conta: company, remetente: sender, destinatario: recipient }, value: row.value ? { ...row.value, sender_name: sender.slice(0, 120), recipient_name: recipient.slice(0, 120) } : undefined }; }) : parsed.rows;
         setRows(previewRows);
         if (parsed.ignored) setFileWarning(`${parsed.ignored} linha(s) do documento não foram reconhecidas como lançamentos e serão ignoradas.`);
@@ -262,7 +263,8 @@ async function extractPdfText(file: File): Promise<{ text: string; ocrPages: num
         if (!context) throw new Error("O navegador não conseguiu preparar a página do PDF para OCR.");
         await page.render({ canvas, canvasContext: context, viewport }).promise;
         const recognized = await worker.recognize(canvas);
-        const words = (recognized.data.words ?? [])
+        const recognizedWords = (recognized.data as unknown as { words?: Array<{ text: string; confidence: number; bbox: { x0: number; x1: number; y0: number } }> }).words ?? [];
+        const words = recognizedWords
           .filter((word) => word.text.trim() && word.confidence >= 20)
           .map((word) => ({
             text: word.text.trim(),
