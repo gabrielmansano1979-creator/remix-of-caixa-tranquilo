@@ -15,7 +15,15 @@ import { FeedbackPrompt } from "@/components/feedback-prompt";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/_app")({
-  beforeLoad: async ({ context }) => {
+  beforeLoad: async ({ context, location }) => {
+    const { data, error } = await supabase.auth.getUser();
+    if (error || !data.user) throw redirect({ to: "/login" });
+    if (
+      data.user.email?.toLowerCase() === "comercial.triades@gmail.com" &&
+      location.pathname !== "/caixa"
+    ) {
+      throw redirect({ to: "/contador" });
+    }
     const profile = await context.queryClient.ensureQueryData(profileQuery);
     if (profile && !profile.onboarding_done) throw redirect({ to: "/onboarding" });
   },
@@ -107,6 +115,9 @@ function AppShell() {
 
   const linkCls = "group flex h-12 items-center gap-3 overflow-hidden rounded-xl px-3.5 text-sm font-semibold text-muted-foreground transition-all duration-200 hover:bg-background/80 hover:text-foreground";
   const activeCls = "!bg-background !text-primary shadow-[0_4px_14px_-10px_var(--foreground)] ring-1 ring-border/70";
+  const visibleNav = currentUser.email?.toLowerCase() === "comercial.triades@gmail.com"
+    ? NAV.filter((item) => item.to === "/caixa")
+    : NAV;
 
   return (
     <div className="min-h-screen bg-background/70 md:flex">
@@ -120,7 +131,7 @@ function AppShell() {
             </Button>
           </div>
           <nav className="flex flex-col gap-1.5" aria-label="Principal no celular">
-            {NAV.map((n) => (
+            {visibleNav.map((n) => (
               <Link key={n.to} to={n.to} title={n.label} aria-label={n.label} onClick={() => setMobileNavOpen(false)} className={linkCls} activeProps={{ className: activeCls }}>
                 <n.icon className="h-[18px] w-[18px] shrink-0" />
                 {mobileNavExpanded && <span className="whitespace-nowrap">{n.label}</span>}
@@ -137,7 +148,7 @@ function AppShell() {
         <div className="overflow-hidden rounded-2xl border border-sidebar-border/70 bg-background/60 px-1 py-3 shadow-sm transition-[padding] group-hover/sidebar:px-3"><Logo to="/caixa" compact /></div>
         <p className="mb-2 mt-8 hidden px-3 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground group-hover/sidebar:block">Gestão financeira</p>
         <nav className="flex flex-col gap-1.5" aria-label="Principal">
-          {NAV.map((n) => (
+          {visibleNav.map((n) => (
             <Link key={n.to} to={n.to} title={n.label} aria-label={n.label} className={linkCls} activeProps={{ className: activeCls }}>
               <n.icon className="h-[18px] w-[18px] shrink-0 transition-transform duration-200 group-hover:scale-105" />
               <span className="hidden whitespace-nowrap group-hover/sidebar:inline-flex">{n.label}</span>
@@ -254,7 +265,7 @@ function AppShell() {
       </div>
 
       <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-border/80 bg-background/90 pb-[env(safe-area-inset-bottom)] shadow-[0_-10px_32px_-24px_var(--foreground)] backdrop-blur-xl md:hidden" aria-label="Principal">
-        {NAV.map((n) => (
+        {visibleNav.map((n) => (
           <Link key={n.to} to={n.to} className="flex h-16 flex-col items-center justify-center gap-1 text-xs font-semibold text-muted-foreground transition-colors" activeProps={{ className: "!text-primary" }}>
             <n.icon className="h-5 w-5" />{n.label}
           </Link>
