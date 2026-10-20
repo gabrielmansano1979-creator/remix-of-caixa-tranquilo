@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { Logo } from '@/components/brand';
 import { Button } from '@/components/ui/button';
 import {
   ArrowRight,
@@ -72,12 +73,7 @@ function IndexComponent() {
     <div className="min-h-screen overflow-hidden bg-[#080b0a] font-sans text-zinc-100 antialiased">
       <header className="sticky top-0 z-50 border-b border-white/[0.08] bg-[#080b0a]/90 backdrop-blur-xl">
         <div className="mx-auto flex h-[76px] max-w-7xl items-center justify-between px-5 sm:px-8">
-          <a href="/" aria-label="Critical Cash — início" className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-emerald-400/20 bg-emerald-400/10 text-emerald-300">
-              <TrendingUp className="h-5 w-5" />
-            </span>
-            <span className="text-lg font-semibold tracking-tight text-white sm:text-xl">Critical <span className="text-emerald-300">Cash</span></span>
-          </a>
+          <Logo to="/" />
 
           <nav className="hidden items-center gap-8 md:flex" aria-label="Navegação principal">
             <a href="#recursos" className="text-sm text-zinc-400 transition hover:text-white">Recursos</a>
