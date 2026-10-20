@@ -2,7 +2,7 @@ import { toE164 } from "@/lib/phone";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 
-export type ReportFormat = "pdf" | "excel" | "csv";
+export type ReportFormat = "pdf";
 export type ReportColumn = { key: string; label: string };
 export type ReportRow = Record<string, string | number | null>;
 
@@ -21,41 +21,6 @@ export async function exportReport({
   rows: ReportRow[];
   summary?: Array<[string, string | number]>;
 }) {
-  if (format === "csv") {
-    const values = [
-      [title],
-      ...summary,
-      [],
-      columns.map((column) => column.label),
-      ...rows.map((row) => columns.map((column) => row[column.key] ?? "")),
-    ];
-    const csv =
-      "\uFEFF" +
-      values
-        .map((line) => line.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(";"))
-        .join("\r\n");
-    download(new Blob([csv], { type: "text/csv;charset=utf-8" }), `${fileName}.csv`);
-    return;
-  }
-
-  if (format === "excel") {
-    const ExcelJS = (await import("exceljs")).default;
-    const workbook = new ExcelJS.Workbook();
-    const summarySheet = workbook.addWorksheet("Resumo");
-    summarySheet.addRows([[title], ...summary]);
-    const detailSheet = workbook.addWorksheet("Detalhamento");
-    detailSheet.addRow(columns.map((column) => column.label));
-    rows.forEach((row) => detailSheet.addRow(columns.map((column) => row[column.key] ?? "")));
-    const buffer = await workbook.xlsx.writeBuffer();
-    download(
-      new Blob([new Uint8Array(buffer)], {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      }),
-      `${fileName}.xlsx`,
-    );
-    return;
-  }
-
   const pdf = new jsPDF({ orientation: columns.length > 3 ? "landscape" : "portrait", unit: "mm", format: "a4" });
   const margin = 12;
   const pageWidth = pdf.internal.pageSize.getWidth();
@@ -109,15 +74,6 @@ export async function exportReport({
     },
   });
   pdf.save(`${fileName}.pdf`);
-}
-
-function download(blob: Blob, fileName: string) {
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = fileName;
-  anchor.click();
-  setTimeout(() => URL.revokeObjectURL(url), 500);
 }
 
 export type ReportPeriod = "mensal" | "anual";
