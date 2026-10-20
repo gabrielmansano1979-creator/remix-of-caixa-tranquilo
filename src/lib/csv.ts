@@ -285,10 +285,10 @@ export function parseBankTable(text: string): { rows: CsvRow[]; headerError?: st
     cell.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim()
   );
   const dateIndex = header.findIndex((h) => /^(data|date|data lancamento|data movimento|dt lancamento|dt movimento|posting date|transaction date|data transacao|data da transacao|data efetiva|data operacao|data valor|data contabil|data de lancamento)$/.test(h));
-  const descriptionIndex = header.findIndex((h) => /^(descricao|historico|lancamento|detalhe|memo|description|payee|beneficiario|estabelecimento|transacao|transaction|nome|operacao|identificacao|complemento|documento|tipo lancamento|historico do lancamento|descricao do lancamento)$/.test(h));
-  const amountIndex = header.findIndex((h) => /^(valor|amount|quantia|montante|valor r\$|amount brl|total)$/.test(h));
-  const debitIndex = header.findIndex((h) => /^(debito|debit|saidas|saida|withdrawal|debit amount|valor debito|vl debito|debito r\\$|saidas r\\$|valor saida|valor de saida|retirada|pagamento)$/.test(h));
-  const creditIndex = header.findIndex((h) => /^(credito|credit|entradas|entrada|deposit|deposito|credit amount|valor credito|vl credito|credito r\\$|entradas r\\$|valor entrada|valor de entrada|recebimento|depositos)$/.test(h));
+  const descriptionIndex = header.findIndex((h) => /^(descricao|historico|historico descricao|descricao historico|lancamento|detalhe|memo|description|payee|beneficiario|estabelecimento|transacao|transaction|nome|operacao|identificacao|complemento|documento|tipo lancamento|historico do lancamento|descricao do lancamento)$/.test(h));
+  const amountIndex = header.findIndex((h) => /^(valor|amount|quantia|montante|valor r\$|amount brl|total|valor lancamento|valor movimento|valor da transacao|valor transacao|vl lancamento|vl movimento)$/.test(h));
+  const debitIndex = header.findIndex((h) => /^(debito|debit|saidas|saida|withdrawal|debit amount|valor debito|vl debito|debito r\$|saidas r\$|valor saida|valor de saida|retirada|pagamento)$/.test(h));
+  const creditIndex = header.findIndex((h) => /^(credito|credit|entradas|entrada|deposit|deposito|credit amount|valor credito|vl credito|credito r\$|entradas r\$|valor entrada|valor de entrada|recebimento|depositos)$/.test(h));
   const typeIndex = header.findIndex((h) => /^(tipo|type|natureza|operacao|operation|direcao)$/.test(h));
   const senderIndex = header.findIndex((h) => /^(remetente|pagador|ordenante|origem|sender|payer|from)$/.test(h));
   const recipientIndex = header.findIndex((h) => /^(destinatario|favorecido|beneficiario|recebedor|payee|recipient|to)$/.test(h));
@@ -309,7 +309,7 @@ export function parseBankTable(text: string): { rows: CsvRow[]; headerError?: st
     const amountRaw = amountIndex >= 0 ? cells[amountIndex] ?? "" : "";
     const debit = parseMoney(debitRaw.replace(/^[+-]/, ""));
     const credit = parseMoney(creditRaw.replace(/^[+-]/, ""));
-    const signedNegative = /^\s*-/.test(amountRaw) || /^\s*\\(.*\\)\s*$/.test(amountRaw);
+    const signedNegative = /^\s*-/.test(amountRaw) || /^\s*\(.*\)\s*$/.test(amountRaw);
     const amount = amountIndex >= 0 ? parseMoney(amountRaw.replace(/^[+-]/, "").replace(/[()]/g, "")) : null;
     const chosenAmount = debit !== null ? debit : credit !== null ? credit : amount;
     if (!date || !description || chosenAmount === null) {
@@ -364,24 +364,23 @@ export function parseBankTable(text: string): { rows: CsvRow[]; headerError?: st
  * table header, so scan the first page lines instead of assuming line 1 is the header.
  */
 export function parsePdfStatementText(text: string): { rows: CsvRow[]; ignored: number; headerError?: string } {
-  const lines = text.replace(/\\u00a0/g, " ").split(/\\r?\\n/).map((line) => line.trim()).filter(Boolean);
-  const normalizeHeader = (line: string) => line.split("\\t").map((cell) =>
-    cell.toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g, "")
-      .replace(/[()/:]+/g, " ").replace(/[_-]+/g, " ").replace(/\\s+/g, " ").trim()
+  const lines = text.replace(/\u00a0/g, " ").split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  const normalizeHeader = (line: string) => line.split("\t").map((cell) =>
+    cell.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .replace(/[()/:]+/g, " ").replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim()
   );
   const maxHeaderSearch = Math.min(lines.length, 80);
   for (let i = 0; i < maxHeaderSearch; i++) {
     const cells = normalizeHeader(lines[i]);
-    const hasDate = cells.some((cell) => /^(data|date|data lancamento|data movimento|dt lancamento|dt movimento|posting date|transaction date|data transacao|data da transacao|data efetiva|data operacao|data contabil)$/.test(cell));
+    const hasDate = cells.some((cell) => /^(data|date|data lancamento|data movimento|dt lancamento|dt movimento|posting date|transaction date|data transacao|data da transacao|data efetiva|data operacao|data contabil|data hora)$/.test(cell));
     const hasDescription = cells.some((cell) => /^(descricao|historico|historico descricao|descricao historico|lancamento|detalhe|memo|description|payee|beneficiario|estabelecimento|transacao|transaction|operacao|identificacao|complemento|documento|saldo historico)$/.test(cell));
-    const hasAmount = cells.some((cell) => /^(valor|amount|quantia|montante|valor r\\$|total|debito|debit|credito|credit|entradas|saidas|deposito|retirada|valor debito|valor credito|vl debito|vl credito)$/.test(cell));
+    const hasAmount = cells.some((cell) => /^(valor|amount|quantia|montante|valor r\$|total|debito|debit|credito|credit|entradas|saidas|deposito|retirada|valor debito|valor credito|vl debito|vl credito)$/.test(cell));
     if (!hasDate || !hasDescription || !hasAmount) continue;
-    const table = parseBankTable(lines.slice(i).join("\\n"));
+    const table = parseBankTable(lines.slice(i).join("\n"));
     if (table.rows.length) return table;
   }
   return parseStatementText(text);
 }
-
 
 /** Parser for Cora PDFs, where each transaction is a multi-line block under a daily date heading. */
 export function parseCoraStatementText(text: string): { rows: CsvRow[]; ignored: number } {
