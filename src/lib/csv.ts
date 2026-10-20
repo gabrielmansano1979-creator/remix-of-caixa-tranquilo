@@ -360,13 +360,11 @@ export function parseBankTable(text: string): { rows: CsvRow[]; headerError?: st
 
 
 /**
- * Tries to interpret a PDF's extracted, tab-separated visual rows as a bank table.
- * PDF extraction often places the title and account metadata before the actual
- * table header, so scan the first page lines instead of assuming line 1 is the header.
+ * General-purpose PDF statement parser with multiple extraction strategies:
+ * table headers first, then single-line rows, then multi-line transaction blocks.
+ * Ambiguous rows remain visible for manual review instead of being guessed.
  */
 export function parsePdfStatementText(text: string): { rows: CsvRow[]; ignored: number; headerError?: string } {
-  // PDF text extraction is inconsistent: some engines preserve tabs, others emit
-  // aligned columns separated by multiple spaces. Normalize both forms to tabs.
   const lines = text.replace(/[\u00a0\u2007\u202f]/g, " ")
     .split(/\r?\n/)
     .map((line) => line.replace(/\s+$/g, ""))
@@ -375,7 +373,6 @@ export function parsePdfStatementText(text: string): { rows: CsvRow[]; ignored: 
   const splitPdfColumns = (line: string): string[] => {
     const trimmed = line.trim();
     if (trimmed.includes("\t")) return trimmed.split("\t").map((cell) => cell.trim());
-    // Keep single spaces inside descriptions and amounts such as "R$ 1.250,00".
     return trimmed.split(/ {2,}/).map((cell) => cell.trim());
   };
   const normalize = (cell: string) => cell.toLowerCase()
@@ -383,16 +380,16 @@ export function parsePdfStatementText(text: string): { rows: CsvRow[]; ignored: 
     .replace(/[()/:]+/g, " ").replace(/r\$/g, "")
     .replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
   const isDateHeader = (cell: string) =>
-    /^(data|date|data lancamento|data do lancamento|data movimento|data do movimento|dt lancamento|dt movimento|posting date|transaction date|data transacao|data da transacao|data efetiva|data operacao|data contabil|data valor|data hora|dia)$/.test(cell);
+    /^(data|date|data lancamento|data do lancamento|data movimento|data do movimento|dt lancamento|dt movimento|posting date|transaction date|data transacao|data da transacao|data efetiva|data operacao|data contabil|data valor|data hora|dia|data de movimento|data da operacao|data do evento)$/.test(cell);
   const isDescriptionHeader = (cell: string) =>
-    /^(descricao|historico|historico descricao|descricao historico|lancamento|detalhe|memo|description|payee|beneficiario|estabelecimento|transacao|transaction|operacao|identificacao|complemento|documento|saldo historico|historico da transacao|descricao da transacao|detalhes)$/.test(cell);
+    /^(descricao|historico|historico descricao|descricao historico|lancamento|detalhe|memo|description|payee|beneficiario|estabelecimento|transacao|transaction|operacao|identificacao|complemento|documento|saldo historico|historico da transacao|descricao da transacao|detalhes|movimentacao|movimento|origem destino)$/.test(cell);
   const isAmountHeader = (cell: string) =>
-    /^(valor|amount|quantia|montante|total|debito|debit|credito|credit|entradas|saidas|deposito|retirada|valor debito|valor credito|vl debito|vl credito|valor da transacao|valor transacao|valor movimentacao|valor movimento|valor lancamento|valor da movimentacao|valor do lancamento|valor entrada|valor saida|debitos|creditos|withdrawal|deposit)$/.test(cell);
+    /^(valor|amount|quantia|montante|total|debito|debit|credito|credit|entradas|saidas|deposito|retirada|valor debito|valor credito|vl debito|vl credito|valor da transacao|valor transacao|valor movimentacao|valor movimento|valor lancamento|valor da movimentacao|valor do lancamento|valor entrada|valor saida|debitos|creditos|withdrawal|deposit|entrada|saida|valor r\$|valor da operacao|valor operacao|importe|creditos r\$|debitos r\$|valor credito r\$|valor debito r\$)$/.test(cell);
   const isBalanceHeader = (cell: string) =>
-    /^(saldo|balance|saldo final|saldo inicial|running balance|saldo disponivel|saldo do dia|saldo atual|saldo anterior|available balance|closing balance|opening balance)$/.test(cell);
+    /^(saldo|balance|saldo final|saldo inicial|running balance|saldo disponivel|saldo do dia|saldo atual|saldo anterior|available balance|closing balance|opening balance|saldo apos movimento|saldo apos lancamento|saldo contabil)$/.test(cell);
 
-  const maxHeaderSearch = Math.min(lines.length, 120);
-  for (let i = 0; i < maxHeaderSearch; i++) {
+  // Strategy 1: use a detected header to map the actual columns.
+  for (let i = 0; i < Math.min(lines.length, 160); i++) {
     const cells = splitPdfColumns(lines[i]).map(normalize);
     const hasDate = cells.some(isDateHeader);
     const hasDescription = cells.some(isDescriptionHeader);
@@ -400,34 +397,151 @@ export function parsePdfStatementText(text: string): { rows: CsvRow[]; ignored: 
     const hasBalance = cells.some(isBalanceHeader);
     if (!hasDate || !hasDescription || (!hasAmount && !hasBalance)) continue;
 
-    // If column spacing was preserved as spaces instead of tabs, convert each
-    // row using the same split rule before handing it to the shared bank parser.
     const normalizedTable = lines.slice(i).map((line) => splitPdfColumns(line).join("\t")).join("\n");
     const table = parseBankTable(normalizedTable);
     if (table.rows.length) return table;
-
-    // Never guess that a running balance is the transaction amount.
     if (hasBalance && !hasAmount) {
       return {
         rows: [],
         ignored: table.ignored,
-        headerError: "Identifiquei o saldo do extrato, mas não encontrei uma coluna confiável para o valor de cada movimentação. Nenhum lançamento foi importado. Confira o PDF ou envie CSV/OFX do banco.",
+        headerError: "Identifiquei o saldo do extrato, mas não encontrei uma coluna confiável para o valor de cada movimentação. Nenhum lançamento foi importado.",
       };
-    }
-    if (table.headerError) {
-      // Continue looking: PDFs sometimes repeat a title-like header before the real table.
-      continue;
     }
   }
 
-  // Some statements have no usable table header. Use the existing text parser
-  // only as a fallback; it still validates date, amount, direction and counterparty.
+  // Strategy 2: dated single-line transactions.
   const fallback = parseStatementText(text);
-  if (fallback.rows.length) return fallback;
+  // A date-only line can be misread as a monetary amount because the year ends
+  // in digits. Keep only actual transaction rows with a non-empty description.
+  const singleLineRows = fallback.rows.filter((row) => Boolean(row.raw.descricao?.trim()));
+  if (singleLineRows.length) return { ...fallback, rows: singleLineRows };
+
+  // Strategy 3: multi-line transactions, where date, operation, counterparty and
+  // signed amount may each be on a separate line.
+  const dateToken = /(?:^|\s)(\d{2}[/. -]\d{2}[/. -]\d{4}|\d{4}[-/.]\d{1,2}[-/.]\d{1,2})(?=\s|$)/;
+  const signedAmountLine = /^\s*([+-])\s*(?:R\$\s*)?((?:\d{1,3}(?:\.\d{3})+|\d+),\d{2}|(?:\d{1,3}(?:,\d{3})+|\d+)\.\d{2})\s*(?:CR|DB|C|D)?\s*$/i;
+  const amountAtEnd = /(?:R\$\s*)?([+-]?(?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d{2})?|[+-]?\d{1,3}(?:,\d{3})+\.\d{2})\s*(CR|C|DB|D)?\s*$/i;
+  const noise = /^(?:extrato(?: bancario| de conta| da conta)?|saldo (?:inicial|final|anterior|disponivel|do dia)|total de (?:entradas|saidas|creditos|debitos)|periodo:|pagina \d|pag\.?\s*\d|ouvidoria|agencia|conta:|cnpj:|cpf:)/i;
+  const transactionHint = /\b(pix|ted|doc|transfer|transf|compra|pagamento|pagto|saque|deposito|tarifa|boleto|recebimento|credito|debito|estorno|salario|cartao|fatura|rendimentos|resgate|aplicacao|liquidacao)\b/i;
+  type Block = { date: string; parts: string[]; line: number };
+  const blocks: Block[] = [];
+  let current: Block | null = null;
+  const flushBlock = () => {
+    if (current && current.parts.length) blocks.push(current);
+    current = null;
+  };
+  for (const [index, rawLine] of lines.entries()) {
+    const line = rawLine.replace(/\s+/g, " ").trim();
+    const dateMatch = line.match(dateToken);
+    if (dateMatch) {
+      flushBlock();
+      const date = normalizeStatementDate(dateMatch[1]);
+      const afterDate = line.slice((dateMatch.index ?? 0) + dateMatch[0].length).trim();
+      if (date) {
+        current = { date, parts: [], line: index + 1 };
+        if (afterDate) current.parts.push(afterDate);
+      }
+      continue;
+    }
+    if (current && !noise.test(line)) current.parts.push(line);
+  }
+  flushBlock();
+
+  const rows: CsvRow[] = [];
+  let ignored = 0;
+  for (const block of blocks) {
+    const parts = block.parts.filter((part) => part && !noise.test(part));
+    if (!parts.length) continue;
+    let sign: string | null = null;
+    let amountToken = "";
+    let amountPartIndex = -1;
+
+    for (let i = parts.length - 1; i >= 0; i--) {
+      const match = parts[i].match(signedAmountLine);
+      if (match) {
+        sign = match[1];
+        amountToken = match[2];
+        amountPartIndex = i;
+        break;
+      }
+    }
+    if (amountPartIndex < 0) {
+      for (let i = parts.length - 1; i >= 0; i--) {
+        const match = parts[i].match(amountAtEnd);
+        if (!match) continue;
+        const moneyTokens = parts[i].match(/(?:R\$\s*)?[-+]?\d[\d.,]*\d|\b\d+[,.]\d{2}\b/g) ?? [];
+        // A line with multiple monetary values may contain both amount and balance;
+        // without column coordinates, do not guess which value is the transaction.
+        if (moneyTokens.length > 1) continue;
+        amountToken = match[1].replace(/^[+-]/, "");
+        if (match[1].startsWith("-") || /^(?:D|DB)$/i.test(match[2] ?? "")) sign = "-";
+        else if (match[1].startsWith("+") || /^(?:C|CR)$/i.test(match[2] ?? "")) sign = "+";
+        amountPartIndex = i;
+        break;
+      }
+    }
+    if (amountPartIndex < 0 || !amountToken) {
+      ignored++;
+      continue;
+    }
+    const description = parts.filter((_, index) => index !== amountPartIndex)
+      .join(" — ").replace(/\s+/g, " ").trim().slice(0, 200);
+    if (!description || !transactionHint.test(description)) {
+      ignored++;
+      continue;
+    }
+    const normalizedDescription = description.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    const type = sign === "+" ? "income" : sign === "-" ? "expense"
+      : /\b(pagamento|pagto|debito|compra|saida|saque|retirada|tarifa|boleto pago|pix enviado|transferencia enviada|transferencia realizada|enviado para|enviada para)\b/.test(normalizedDescription) ? "expense"
+      : /\b(receb|credito|deposito|entrada|estorno|salario|pix recebido|transferencia recebida|recebido de|recebida de|rendimento)\w*/.test(normalizedDescription) ? "income"
+      : null;
+    const parties = extractTransferParties(description);
+    const inferredCounterparty = extractCounterparty(description, type);
+    const partyLine = parts
+      .filter((part, index) => index !== amountPartIndex)
+      .find((part) => !transactionHint.test(part) && !/\b(?:CPF|CNPJ)\b/i.test(part) &&
+        !/\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}|\d{3}\.\d{3}\.\d{3}-\d{2}/.test(part) &&
+        /[A-Za-zÀ-ÿ]{3}/.test(part));
+    const cleanedPartyLine = partyLine?.replace(/\b(?:CPF|CNPJ)\b\s*[:.]?/ig, "")
+      .replace(/\b(?:\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}|\d{3}\.\d{3}\.\d{3}-\d{2})\b/g, "")
+      .replace(/[|/—–-]+/g, " ").trim().slice(0, 120) ?? "";
+    const counterparty = type === "income" ? parties.sender || inferredCounterparty || cleanedPartyLine
+      : type === "expense" ? parties.recipient || inferredCounterparty || cleanedPartyLine : inferredCounterparty || cleanedPartyLine;
+    const errors: string[] = [];
+    if (!type) errors.push("Não foi possível identificar se o lançamento é entrada ou saída; confira e classifique manualmente.");
+    if (!counterparty) errors.push(type === "income"
+      ? "Pagador não identificado; informe quem pagou à empresa antes de importar."
+      : type === "expense"
+        ? "Beneficiário não identificado; informe quem recebeu o pagamento antes de importar."
+        : "Contraparte não identificada; confira o lançamento antes de importar.");
+    const cents = parseMoney(amountToken);
+    if (cents === null) errors.push("Valor inválido no extrato.");
+    const row: CsvRow = {
+      line: block.line,
+      raw: {
+        descricao: description,
+        valor: (sign ?? "") + amountToken,
+        vencimento: block.date,
+        tipo: type === "income" ? "entrada" : type === "expense" ? "saida" : "não identificado",
+        nome: counterparty,
+        remetente: type === "income" ? counterparty : parties.sender,
+        destinatario: type === "expense" ? counterparty : parties.recipient,
+      },
+      errors,
+    };
+    if (!errors.length && type && cents !== null && counterparty) {
+      row.value = {
+        type, description, amount_cents: cents, due_date: block.date,
+        counterparty_name: counterparty, counterparty_email: "", counterparty_whatsapp: "",
+      };
+    }
+    rows.push(row);
+  }
+  if (rows.length) return { rows, ignored: ignored + fallback.ignored };
   return {
     rows: [],
-    ignored: fallback.ignored,
-    headerError: "Não consegui identificar com segurança as colunas do PDF. O arquivo pode ter um layout não reconhecido ou exigir OCR. Nenhum lançamento foi importado automaticamente; tente o PDF original pesquisável ou exporte o extrato em OFX/CSV.",
+    ignored: fallback.ignored + ignored,
+    headerError: "Não consegui identificar lançamentos com segurança neste layout de PDF. O arquivo foi lido, mas o formato não correspondeu às estratégias de extração disponíveis. Nenhum lançamento foi importado; revise a legibilidade ou envie o PDF para ampliar o suporte a esse layout.",
   };
 }
 
