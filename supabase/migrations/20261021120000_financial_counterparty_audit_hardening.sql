@@ -34,7 +34,7 @@ SET search_path = public, pg_temp
 AS $function$
 DECLARE
   old_row jsonb; new_row jsonb; owner_id uuid; row_id uuid; action_name text;
-  registered_company text; snapshot_balance bigint := 0; snapshot_date date;
+  registered_company text; snapshot_balance bigint := 0; snapshot_date date; snapshot_at timestamptz;
   balance_after bigint := 0; old_contribution bigint := 0; new_contribution bigint := 0;
   balance_before bigint := 0;
 BEGIN
@@ -47,13 +47,13 @@ BEGIN
   END IF;
 
   SELECT COALESCE(NULLIF(btrim(business_name), ''), NULLIF(btrim(full_name), ''), 'Empresa'),
-         COALESCE(initial_balance_cents, 0), balance_date
-    INTO registered_company, snapshot_balance, snapshot_date
+         COALESCE(initial_balance_cents, 0), balance_date, balance_updated_at
+    INTO registered_company, snapshot_balance, snapshot_date, snapshot_at
     FROM public.profiles WHERE user_id = owner_id;
 
   SELECT COALESCE(snapshot_balance, 0) + COALESCE(SUM(
     CASE WHEN e.status = 'paid'
-      AND COALESCE((e.paid_at AT TIME ZONE 'America/Sao_Paulo')::date, e.due_date) > COALESCE(snapshot_date, CURRENT_DATE)
+      AND ((e.paid_at IS NOT NULL AND e.paid_at > COALESCE(snapshot_at, '-infinity'::timestamptz)) OR (e.paid_at IS NULL AND e.due_date > COALESCE(snapshot_date, CURRENT_DATE)))
       THEN CASE WHEN e.type = 'income' THEN e.amount_cents ELSE -e.amount_cents END
       ELSE 0 END
   ), 0)
@@ -61,11 +61,11 @@ BEGIN
   FROM public.entries e WHERE e.user_id = owner_id;
 
   IF old_row IS NOT NULL AND old_row->>'status' = 'paid'
-    AND COALESCE((NULLIF(old_row->>'paid_at', '')::timestamptz AT TIME ZONE 'America/Sao_Paulo')::date, (old_row->>'due_date')::date) > COALESCE(snapshot_date, CURRENT_DATE) THEN
+    AND ((NULLIF(old_row->>'paid_at', '') IS NOT NULL AND NULLIF(old_row->>'paid_at', '')::timestamptz > COALESCE(snapshot_at, '-infinity'::timestamptz)) OR (NULLIF(old_row->>'paid_at', '') IS NULL AND (old_row->>'due_date')::date > COALESCE(snapshot_date, CURRENT_DATE))) THEN
     old_contribution := (CASE WHEN old_row->>'type' = 'income' THEN 1 ELSE -1 END) * COALESCE((old_row->>'amount_cents')::bigint, 0);
   END IF;
   IF new_row IS NOT NULL AND new_row->>'status' = 'paid'
-    AND COALESCE((NULLIF(new_row->>'paid_at', '')::timestamptz AT TIME ZONE 'America/Sao_Paulo')::date, (new_row->>'due_date')::date) > COALESCE(snapshot_date, CURRENT_DATE) THEN
+    AND ((NULLIF(new_row->>'paid_at', '') IS NOT NULL AND NULLIF(new_row->>'paid_at', '')::timestamptz > COALESCE(snapshot_at, '-infinity'::timestamptz)) OR (NULLIF(new_row->>'paid_at', '') IS NULL AND (new_row->>'due_date')::date > COALESCE(snapshot_date, CURRENT_DATE))) THEN
     new_contribution := (CASE WHEN new_row->>'type' = 'income' THEN 1 ELSE -1 END) * COALESCE((new_row->>'amount_cents')::bigint, 0);
   END IF;
 
@@ -124,6 +124,7 @@ BEGIN
         'granted_at', aa.granted_at,
         'initial_balance_cents', COALESCE(p.initial_balance_cents, 0),
         'balance_date', p.balance_date,
+        'balance_updated_at', p.balance_updated_at,
         'entries', COALESCE((
           SELECT jsonb_agg(jsonb_build_object(
             'id', e.id, 'description', e.description, 'type', e.type,
