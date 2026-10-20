@@ -98,8 +98,17 @@ export function CsvImportDialog({ open, onOpenChange, onLimit }: { open: boolean
         // a material number of unrecognized lines. Keep whichever pass yields more usable
         // transactions; on ties, prefer the pass with fewer ignored lines. Never merge both
         // passes blindly because that would duplicate transactions.
+        // A dated transaction line that did not become a parsed row is another signal
+        // that text extraction may have lost columns/characters. Ignore Cora's daily date
+        // headings here because its dedicated parser intentionally groups several lines
+        // under one date and may include days without transactions.
+        const datedLineCount = extracted.text.split(/\r?\n/).filter((line) =>
+          /^\s*(?:\d{2}[/. -]\d{2}[/. -]\d{4}|\d{4}-\d{2}-\d{2})(?:\s|$)/.test(line)
+        ).length;
+        const hasUnparsedDatedLines = !isCora && datedLineCount > parsed.rows.length;
         const needsOcrRetry = parsed.rows.length === 0 ||
-          (parsed.ignored > 0 && parsed.ignored >= Math.max(2, Math.ceil(parsed.rows.length * 0.5)));
+          (parsed.ignored > 0 && parsed.ignored >= Math.max(2, Math.ceil(parsed.rows.length * 0.5))) ||
+          hasUnparsedDatedLines;
         if (needsOcrRetry) {
           const ocrRetry = await extractPdfText(f, true);
           const retryIsCora = /Cora\s+SCFI|37\.880\.206\/0001-63/i.test(ocrRetry.text);
