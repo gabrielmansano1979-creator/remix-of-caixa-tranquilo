@@ -231,14 +231,20 @@ export function parseOfxText(text: string): { rows: CsvRow[]; ignored: number } 
     const amountCents = Number.isFinite(amountNumber) && amountNumber !== 0
       ? Math.round(Math.abs(amountNumber) * 100)
       : null;
-    const description = [tag(block, "NAME"), tag(block, "MEMO")].filter(Boolean).join(" — ").slice(0, 200);
+    const name = tag(block, "NAME").slice(0, 120);
+    const memo = tag(block, "MEMO");
+    const description = [name, memo].filter(Boolean).join(" — ").slice(0, 200);
     if (!date || amountCents === null || !description) {
       ignored++;
       continue;
     }
 
     const type = amountNumber < 0 ? "expense" : "income";
-    const counterparty = extractCounterparty(description, type);
+    const normalizedName = name.normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toLowerCase().trim();
+    const genericName = /^(pix|ted|doc|transfer|transferencia|pagamento|compra|debito|credito|recebimento|saque|tarifa)(\\s+(recebido|recebida|enviado|enviada|cartao|debito|credito))?$/.test(normalizedName);
+    // OFX NAME commonly contains the merchant/person even when MEMO contains only the operation type.
+    // Use NAME as a fallback only when it looks like an actual party, not a generic transaction label.
+    const counterparty = extractCounterparty(description, type) || (name && !genericName ? name : "");
     const errors = counterparty ? [] : [type === "income"
       ? "Pagador não identificado no OFX; informe quem pagou à empresa antes de importar."
       : "Beneficiário não identificado no OFX; informe quem recebeu o pagamento antes de importar."];
