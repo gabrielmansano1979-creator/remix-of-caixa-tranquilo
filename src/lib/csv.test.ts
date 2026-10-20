@@ -317,6 +317,28 @@ describe("parseCoraStatementText", () => {
     expect(parsed.rows[0].raw.documento_contraparte).toBe("467.250.167-15");
   });
 
+  it("parses Cora transactions when PDF extraction puts date, operation, counterparty and amount on one line", () => {
+    const parsed = parseCoraStatementText(header + "\n" + [
+      "23/09/2026 Pgto QR Code Pix CINTIA CRISTINA B... 023.779.447-01 - R$ 490,00",
+      "15/09/2026 Transf Pix recebida GESI DINIZ DE OLIV... 467.250.167-15 + R$ 50,00",
+      "14/09/2026 Pgto QR Code Pix - R$ 50,00",
+      "Saldo do dia R$ 584,15",
+    ].join("\n"));
+
+    expect(parsed.rows).toHaveLength(3);
+    expect(parsed.rows[0].value).toMatchObject({
+      type: "expense", amount_cents: 49000, due_date: "2026-09-23",
+      counterparty_name: "CINTIA CRISTINA B",
+      counterparty_document: "023.779.447-01",
+    });
+    expect(parsed.rows[1].value).toMatchObject({
+      type: "income", amount_cents: 5000, due_date: "2026-09-15",
+      counterparty_name: "GESI DINIZ DE OLIV",
+    });
+    expect(parsed.rows[2].value).toBeUndefined();
+    expect(parsed.rows[2].errors.join(" ")).toContain("Beneficiário não identificado");
+  });
+
   it("uses the negative sign as authoritative and retains own-account transfer details", () => {
     const parsed = parseCoraStatementText(header + "\n" + [
       "11/09/2026",
