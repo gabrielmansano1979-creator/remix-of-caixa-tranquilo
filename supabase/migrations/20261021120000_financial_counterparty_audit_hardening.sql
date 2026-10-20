@@ -159,6 +159,10 @@ BEGIN
 END
 $function$;
 
+-- This SECURITY DEFINER function returns private client financial records: only signed-in users may call it.
+REVOKE ALL ON FUNCTION public.my_accountant_portal_invites() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.my_accountant_portal_invites() TO authenticated;
+
 DROP FUNCTION IF EXISTS public.my_accountant_financial_audit();
 
 CREATE FUNCTION public.my_accountant_financial_audit(_from date DEFAULT NULL, _to date DEFAULT NULL)
