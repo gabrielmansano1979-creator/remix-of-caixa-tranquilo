@@ -83,7 +83,8 @@ export function CsvImportDialog({ open, onOpenChange, onLimit }: { open: boolean
       }
       if (extension === "pdf") {
         const extracted = await extractPdfText(f);
-        const isCora = /Cora\s+SCFI|37\.880\.206\/0001-63/i.test(extracted.text);\n        const parsed = isCora ? parseCoraStatementText(extracted.text) : parseStatementText(extracted.text);
+        const isCora = /Cora\s+SCFI|37\.880\.206\/0001-63/i.test(extracted.text);
+        const parsed = isCora ? parseCoraStatementText(extracted.text) : parseStatementText(extracted.text);
         if (!parsed.rows.length) throw new Error("Não foram encontradas linhas de lançamentos reconhecíveis no PDF.");
         setRows(parsed.rows);
         if (parsed.ignored) setFileWarning(`${parsed.ignored} linha(s) do documento não foram reconhecidas como lançamentos e serão ignoradas.`);
