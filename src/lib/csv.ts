@@ -282,9 +282,9 @@ export function parseBankTable(text: string): { rows: CsvRow[]; headerError?: st
   const candidates = [",", ";", "\t", "|"];
   const separator = candidates.sort((a, b) => splitLine(lines[0], b).length - splitLine(lines[0], a).length)[0];
   const header = splitLine(first, separator).map((cell) =>
-    cell.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim()
+    cell.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[()/:]+/g, " ").replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim()
   );
-  const dateIndex = header.findIndex((h) => /^(data|date|data lancamento|data movimento|dt lancamento|dt movimento|posting date|transaction date|data transacao|data da transacao|data efetiva|data operacao|data valor|data contabil|data de lancamento)$/.test(h));
+  const dateIndex = header.findIndex((h) => /^(data|date|data lancamento|data movimento|dt lancamento|dt movimento|posting date|transaction date|data transacao|data da transacao|data efetiva|data operacao|data valor|data contabil|data de lancamento|data hora)$/.test(h));
   const descriptionIndex = header.findIndex((h) => /^(descricao|historico|historico descricao|descricao historico|lancamento|detalhe|memo|description|payee|beneficiario|estabelecimento|transacao|transaction|nome|operacao|identificacao|complemento|documento|tipo lancamento|historico do lancamento|descricao do lancamento)$/.test(h));
   const amountIndex = header.findIndex((h) => /^(valor|amount|quantia|montante|valor r\$|amount brl|total|valor lancamento|valor movimento|valor da transacao|valor transacao|vl lancamento|vl movimento)$/.test(h));
   const debitIndex = header.findIndex((h) => /^(debito|debit|saidas|saida|withdrawal|debit amount|valor debito|vl debito|debito r\$|saidas r\$|valor saida|valor de saida|retirada|pagamento)$/.test(h));
