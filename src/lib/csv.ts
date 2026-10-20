@@ -2,7 +2,7 @@ export interface CsvRow {
   line: number;
   raw: Record<string, string>;
   errors: string[];
-  value?: { type: "income" | "expense"; description: string; amount_cents: number; due_date: string; counterparty_name: string; counterparty_email: string; counterparty_whatsapp: string };
+  value?: { type: "income" | "expense"; description: string; amount_cents: number; due_date: string; counterparty_name: string; counterparty_email: string; counterparty_whatsapp: string; sender_name?: string; recipient_name?: string; counterparty_document?: string; counterparty_original_name?: string; payment_method?: string; is_own_transfer?: boolean };
 }
 
 export const CSV_TEMPLATE =
@@ -447,6 +447,11 @@ export function parseCoraStatementText(text: string): { rows: CsvRow[]; ignored:
       type, description: (pending.operation + (counterparty ? " — " + counterparty : "")).slice(0, 200),
       amount_cents: cents, due_date: date, counterparty_name: counterparty,
       counterparty_email: "", counterparty_whatsapp: "",
+      sender_name: sender.slice(0, 120), recipient_name: recipient.slice(0, 120),
+      counterparty_document: document.slice(0, 32),
+      counterparty_original_name: originalCounterparty.slice(0, 120),
+      payment_method: method.slice(0, 60),
+      is_own_transfer: isOwnTransfer,
     };
     rows.push(row);
     pending = null;
