@@ -459,7 +459,7 @@ function AccountantPage() {
     data: new Date(item.created_at).toLocaleDateString("pt-BR"),
     pago_em: item.paid_at ? new Date(item.paid_at).toLocaleDateString("pt-BR") : "—",
   }));
-  const exportClients = async (format: ReportFormat) => {
+  const exportClients = async () => {
     try {
       await exportReport({
         title: "Relatório de clientes que autorizaram compartilhamento",
