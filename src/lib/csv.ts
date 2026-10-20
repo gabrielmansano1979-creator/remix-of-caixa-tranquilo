@@ -360,11 +360,6 @@ export function parseBankTable(text: string): { rows: CsvRow[]; headerError?: st
 
 
 /**
- * Tries to interpret a PDF's extracted, tab-separated visual rows as a bank table.
- * PDF extraction often places the title and account metadata before the actual
- * table header, so scan the first page lines instead of assuming line 1 is the header.
- */
-/**
  * General-purpose PDF statement parser with multiple extraction strategies:
  * table headers first, then single-line rows, then multi-line transaction blocks.
  * Ambiguous rows remain visible for manual review instead of being guessed.
@@ -501,11 +496,11 @@ export function parsePdfStatementText(text: string): { rows: CsvRow[]; ignored: 
     const inferredCounterparty = extractCounterparty(description, type);
     const partyLine = parts
       .filter((part, index) => index !== amountPartIndex)
-      .find((part) => !transactionHint.test(part) && !/\\b(?:CPF|CNPJ)\\b/i.test(part) &&
-        !/\\d{2}\\.\\d{3}\\.\\d{3}\\/\\d{4}-\\d{2}|\\d{3}\\.\\d{3}\\.\\d{3}-\\d{2}/.test(part) &&
+      .find((part) => !transactionHint.test(part) && !/\b(?:CPF|CNPJ)\b/i.test(part) &&
+        !/\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}|\d{3}\.\d{3}\.\d{3}-\d{2}/.test(part) &&
         /[A-Za-zÀ-ÿ]{3}/.test(part));
-    const cleanedPartyLine = partyLine?.replace(/\\b(?:CPF|CNPJ)\\b\\s*[:.]?/ig, "")
-      .replace(/\\b(?:\\d{2}\\.\\d{3}\\.\\d{3}\\/\\d{4}-\\d{2}|\\d{3}\\.\\d{3}\\.\\d{3}-\\d{2})\\b/g, "")
+    const cleanedPartyLine = partyLine?.replace(/\b(?:CPF|CNPJ)\b\s*[:.]?/ig, "")
+      .replace(/\b(?:\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}|\d{3}\.\d{3}\.\d{3}-\d{2})\b/g, "")
       .replace(/[|/—–-]+/g, " ").trim().slice(0, 120) ?? "";
     const counterparty = type === "income" ? parties.sender || inferredCounterparty || cleanedPartyLine
       : type === "expense" ? parties.recipient || inferredCounterparty || cleanedPartyLine : inferredCounterparty || cleanedPartyLine;
