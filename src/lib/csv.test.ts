@@ -215,7 +215,7 @@ describe("generic multi-line PDF statement layouts", () => {
       "PIX recebido",
       "CLIENTE ALFA",
       "+ R$ 250,00",
-    ].join("\\n"));
+    ].join("\n"));
     expect(parsed.rows).toHaveLength(2);
     expect(parsed.rows[0].value).toMatchObject({
       type: "expense", amount_cents: 9400, due_date: "2026-09-23",
@@ -232,7 +232,7 @@ describe("generic multi-line PDF statement layouts", () => {
       "23/09/2026",
       "PIX recebido de CLIENTE ALFA",
       "R$ 250,00  R$ 1.250,00",
-    ].join("\\n"));
+    ].join("\n"));
     expect(parsed.rows).toHaveLength(0);
   });
 });
