@@ -1,6 +1,6 @@
 import { createFileRoute, Link, Outlet, redirect, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bell, CreditCard, ListChecks, LogOut, Settings, Wallet, AlertTriangle, Moon, Sun, UserRound, Menu, ShieldCheck } from "lucide-react";
+import { Bell, CreditCard, ListChecks, LogOut, Settings, Wallet, AlertTriangle, Moon, Sun, UserRound, Menu, ShieldCheck, Share2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Logo } from "@/components/brand";
@@ -105,6 +105,31 @@ function AppShell() {
     navigate({ to: "/login", replace: true });
   };
 
+  const shareCriticalCash = async () => {
+    const url = `${window.location.origin}/`;
+    const message = `Conheça o Critical Cash: uma plataforma para organizar as finanças e acompanhar o caixa da sua empresa. ${url}`;
+    try {
+      if (typeof navigator.share === "function") {
+        await navigator.share({
+          title: "Conheça o Critical Cash",
+          text: "Compartilhe esta ferramenta de organização financeira com outros empresários e empreendedores.",
+          url,
+        });
+        return;
+      }
+      await navigator.clipboard.writeText(message);
+      toast.success("Link do Critical Cash copiado. Agora é só compartilhar com seus amigos.");
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      try {
+        await navigator.clipboard.writeText(message);
+        toast.success("Link do Critical Cash copiado. Agora é só compartilhar com seus amigos.");
+      } catch {
+        toast.error("Não foi possível compartilhar automaticamente. Copie o endereço do site e envie aos seus contatos.");
+      }
+    }
+  };
+
   const linkCls = "group flex h-12 items-center gap-3 overflow-hidden rounded-xl px-3.5 text-sm font-semibold text-muted-foreground transition-all duration-200 hover:bg-background/80 hover:text-foreground";
   const activeCls = "!bg-background !text-primary shadow-[0_4px_14px_-10px_var(--foreground)] ring-1 ring-border/70";
 
@@ -171,6 +196,17 @@ function AppShell() {
             Ambiente seguro
           </div>
           <div className="flex items-center gap-1">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10 gap-2 rounded-xl px-3"
+              onClick={() => void shareCriticalCash()}
+              aria-label="Compartilhar Critical Cash com amigos empresários"
+              title="Compartilhar Critical Cash"
+            >
+              <Share2 className="h-4 w-4" />
+              <span className="hidden sm:inline">Indicar</span>
+            </Button>
             <Button
               type="button"
               variant="ghost"
