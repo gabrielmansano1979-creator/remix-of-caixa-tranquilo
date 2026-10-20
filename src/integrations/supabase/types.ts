@@ -1032,6 +1032,7 @@ export type Database = {
         Returns: undefined
       }
       admin_partner_overview: { Args: never; Returns: Json }
+      admin_platform_overview: { Args: never; Returns: Json }
       admin_set_partner_status: {
         Args: { _partner_id: string; _status: string }
         Returns: undefined
