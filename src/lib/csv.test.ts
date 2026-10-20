@@ -202,6 +202,41 @@ describe("additional PDF layout regression cases", () => {
 });
 
 
+describe("generic multi-line PDF statement layouts", () => {
+  it("parses a statement whose date, operation, counterparty and signed amount are separate lines", () => {
+    const parsed = parsePdfStatementText([
+      "EXTRATO DE MOVIMENTAÇÕES",
+      "23/09/2026",
+      "PIX enviado",
+      "CINTIA CRISTINA BUENO",
+      "023.779.447-01",
+      "- R$ 94,00",
+      "17/09/2026",
+      "PIX recebido",
+      "CLIENTE ALFA",
+      "+ R$ 250,00",
+    ].join("\\n"));
+    expect(parsed.rows).toHaveLength(2);
+    expect(parsed.rows[0].value).toMatchObject({
+      type: "expense", amount_cents: 9400, due_date: "2026-09-23",
+      counterparty_name: "CINTIA CRISTINA BUENO",
+    });
+    expect(parsed.rows[1].value).toMatchObject({
+      type: "income", amount_cents: 25000, due_date: "2026-09-17",
+      counterparty_name: "CLIENTE ALFA",
+    });
+  });
+
+  it("does not guess between a transaction amount and balance when an unheaded row has multiple amounts", () => {
+    const parsed = parsePdfStatementText([
+      "23/09/2026",
+      "PIX recebido de CLIENTE ALFA",
+      "R$ 250,00  R$ 1.250,00",
+    ].join("\\n"));
+    expect(parsed.rows).toHaveLength(0);
+  });
+});
+
 describe("parseCoraStatementText", () => {
   const header = [
     "Cora SCFI - CNPJ 37.880.206/0001-63",
