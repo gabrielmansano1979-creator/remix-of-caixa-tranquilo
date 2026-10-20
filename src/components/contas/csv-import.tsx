@@ -93,16 +93,27 @@ export function CsvImportDialog({ open, onOpenChange, onLimit }: { open: boolean
         let isCora = /Cora\s+SCFI|37\.880\.206\/0001-63/i.test(extracted.text);
         let parsed = isCora ? parseCoraStatementText(extracted.text) : parsePdfStatementText(extracted.text);
 
-        // Text extraction can succeed technically but lose the bank's column layout.
-        // If no transactions were recognized, retry once with OCR forced on every page.
-        if (!parsed.rows.length) {
+        // A PDF can be only partially readable: some pages/rows may have selectable text
+        // while other rows need OCR. Retry when nothing was found OR when the parser reports
+        // a material number of unrecognized lines. Keep whichever pass yields more usable
+        // transactions; on ties, prefer the pass with fewer ignored lines. Never merge both
+        // passes blindly because that would duplicate transactions.
+        const needsOcrRetry = parsed.rows.length === 0 ||
+          (parsed.ignored > 0 && parsed.ignored >= Math.max(2, Math.ceil(parsed.rows.length * 0.5)));
+        if (needsOcrRetry && !extracted.ocrPages) {
           const ocrRetry = await extractPdfText(f, true);
           const retryIsCora = /Cora\s+SCFI|37\.880\.206\/0001-63/i.test(ocrRetry.text);
           const retryParsed = retryIsCora ? parseCoraStatementText(ocrRetry.text) : parsePdfStatementText(ocrRetry.text);
-          if (retryParsed.rows.length) {
+          const retryIsBetter = retryParsed.rows.length > parsed.rows.length ||
+            (retryParsed.rows.length === parsed.rows.length && retryParsed.ignored < parsed.ignored);
+          if (retryIsBetter) {
             extracted = ocrRetry;
             isCora = retryIsCora;
             parsed = retryParsed;
+          } else if (ocrRetry.ocrPages > 0) {
+            // Keep the original text pass if it produced a better result, but tell the user
+            // that OCR was attempted and the preview still requires careful review.
+            extracted = { ...extracted, ocrPages: ocrRetry.ocrPages };
           }
         }
 
