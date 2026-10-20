@@ -398,8 +398,11 @@ export function parseCoraStatementText(text: string): { rows: CsvRow[]; ignored:
       /\b(?:\d{3}\.\d{3}\.\d{3}-\d{2}|\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2})\b/.test(line)
     ) ?? "";
     const document = docLine.match(/\b(?:\d{3}\.\d{3}\.\d{3}-\d{2}|\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2})\b/)?.[0] ?? "";
-    const originalCounterparty = detailLines.find((line) =>
-      line !== docLine && !/^(?:CPF|CNPJ)\b/i.test(line) &&
+    const originalCounterparty = detailLines.map((line) =>
+      line.replace(/\b(?:\d{3}\.\d{3}\.\d{3}-\d{2}|\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2})\b/g, "")
+        .replace(/\b(?:CPF|CNPJ)\b\s*[:.]?/ig, "")
+        .replace(/[|/—–-]+$/g, "").trim()
+    ).find((line) => line && !/^(?:CPF|CNPJ)\b/i.test(line) &&
       !/^(?:Extrato gerado|P[aá]g\.?\s*\d)/i.test(line)
     ) ?? "";
     const counterparty = originalCounterparty.replace(/\s*(?:\.{2,}|…+)\s*$/u, "")
@@ -470,7 +473,10 @@ export function parseCoraStatementText(text: string): { rows: CsvRow[]; ignored:
     if (operation.test(line)) {
       flush(undefined, index + 1);
       if (!currentDate) { ignored++; continue; }
-      pending = { date: currentDate, operation: line, lines: [], startLine: index + 1 };
+      const operationMatch = line.match(operation);
+      const operationName = operationMatch?.[0] ?? line;
+      const trailingCounterparty = line.slice(operationName.length).trim();
+      pending = { date: currentDate, operation: operationName, lines: trailingCounterparty ? [trailingCounterparty] : [], startLine: index + 1 };
       continue;
     }
     if (pending) pending.lines.push(line);
