@@ -573,17 +573,17 @@ export function parseCoraStatementText(text: string): { rows: CsvRow[]; ignored:
   const noise = /^(?:Extrato do per[ií]odo|Saldo inicial dispon[ií]vel|Total de entradas|Total de sa[ií]das|Saldo final dispon[ií]vel|Ouvidoria:|Extrato gerado no dia|p[aá]g\.?\s*\d+\s+de\s+\d+|Cora SCFI\s*[-–]\s*CNPJ)/i;
   const operation = /(?:Pgto\s+QR\s+Code\s+Pix|Transf\s+Pix\s+(?:enviada|recebida)|Pagamento\s+(?:da\s+fatura|recebido)|Pix\s+(?:enviado|recebido)|Transfer[eê]ncia\s+(?:enviada|recebida))/i;
   type Pending = { date: string; operation: string; lines: string[]; startLine: number };
-  let pending: Pending | null = null;
+  const pendingState: { current: Pending | null } = { current: null };
   let currentDate = "";
   const rows: CsvRow[] = [];
   let ignored = 0;
 
   const flush = (signedAmount?: { sign: string; amount: string }, endLine = 0) => {
-    if (!pending) return;
-    if (!signedAmount) { ignored++; pending = null; return; }
+    if (!pendingState.current) return;
+    if (!signedAmount) { ignored++; pendingState.current = null; return; }
     const cents = parseMoney(signedAmount.amount);
-    const date = parseDate(pending.date);
-    const detailLines = pending.lines.map((line) => line.trim())
+    const date = parseDate(pendingState.current.date);
+    const detailLines = pendingState.current.lines.map((line) => line.trim())
       .filter((line) => line && !noise.test(line) && !dailyBalance.test(line));
     const docLine = detailLines.find((line) =>
       /\b(?:\d{3}\.\d{3}\.\d{3}-\d{2}|\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2})\b/.test(line)
@@ -600,11 +600,11 @@ export function parseCoraStatementText(text: string): { rows: CsvRow[]; ignored:
     const counterparty = originalCounterparty.replace(/\s*(?:\.{2,}|…+)\s*$/u, "")
       .replace(/\s+/g, " ").trim().slice(0, 120);
     const type = signedAmount.sign === "+" ? "income" : "expense";
-    const method = /pix|qr code/i.test(pending.operation) ? "PIX"
-      : /fatura/i.test(pending.operation) ? "Pagamento de fatura"
-      : /pagamento recebido/i.test(pending.operation) ? "Boleto / pagamento"
+    const method = /pix|qr code/i.test(pendingState.current.operation) ? "PIX"
+      : /fatura/i.test(pendingState.current.operation) ? "Pagamento de fatura"
+      : /pagamento recebido/i.test(pendingState.current.operation) ? "Boleto / pagamento"
       : "Transferência / pagamento";
-    const originalDescription = [pending.operation, ...detailLines].join(" — ").slice(0, 200);
+    const originalDescription = [pendingState.current.operation, ...detailLines].join(" — ").slice(0, 200);
     const normalizedHolder = holderName.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
     const normalizedParty = counterparty.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
     const isOwnTransfer = Boolean(
@@ -621,11 +621,11 @@ export function parseCoraStatementText(text: string): { rows: CsvRow[]; ignored:
       ? "Pagador não identificado; informe quem pagou à empresa antes de importar."
       : "Beneficiário não identificado; informe quem recebeu o pagamento antes de importar.");
     const row: CsvRow = {
-      line: pending.startLine || endLine,
+      line: pendingState.current.startLine || endLine,
       raw: {
         descricao: originalDescription,
         valor: signedAmount.sign + "R$ " + signedAmount.amount,
-        vencimento: pending.date,
+        vencimento: pendingState.current.date,
         tipo: type === "income" ? "entrada" : "saida",
         nome: counterparty,
         nome_original: originalCounterparty,
@@ -639,7 +639,7 @@ export function parseCoraStatementText(text: string): { rows: CsvRow[]; ignored:
       errors,
     };
     if (!errors.length && date && cents !== null) row.value = {
-      type, description: (pending.operation + (counterparty ? " — " + counterparty : "")).slice(0, 200),
+      type, description: (pendingState.current.operation + (counterparty ? " — " + counterparty : "")).slice(0, 200),
       amount_cents: cents, due_date: date, counterparty_name: counterparty,
       counterparty_email: "", counterparty_whatsapp: "",
       sender_name: sender.slice(0, 120), recipient_name: recipient.slice(0, 120),
@@ -649,7 +649,7 @@ export function parseCoraStatementText(text: string): { rows: CsvRow[]; ignored:
       is_own_transfer: isOwnTransfer,
     };
     rows.push(row);
-    pending = null;
+    pendingState.current = null;
   };
 
   const startOperation = (line: string, index: number) => {
@@ -660,7 +660,7 @@ export function parseCoraStatementText(text: string): { rows: CsvRow[]; ignored:
     const operationName = match[0].replace(/\s+/g, " ").trim();
     const before = line.slice(0, match.index).trim();
     const after = line.slice(match.index + match[0].length).trim();
-    pending = { date: currentDate, operation: operationName, lines: [before, after].filter(Boolean), startLine: index + 1 };
+    pendingState.current = { date: currentDate, operation: operationName, lines: [before, after].filter(Boolean), startLine: index + 1 };
     return true;
   };
 
@@ -681,15 +681,15 @@ export function parseCoraStatementText(text: string): { rows: CsvRow[]; ignored:
       if (operation.test(beforeAmount)) {
         startOperation(beforeAmount, index);
       } else if (beforeAmount && pending) {
-        pending.lines.push(beforeAmount);
+        pendingState.current.lines.push(beforeAmount);
       }
-      if (pending) flush({ sign: money[1], amount: money[2] }, index + 1);
+      if (pendingState.current) flush({ sign: money[1], amount: money[2] }, index + 1);
       else ignored++;
       continue;
     }
 
     if (startOperation(line, index)) continue;
-    if (pending) pending.lines.push(line);
+    if (pendingState.current) pendingState.current.lines.push(line);
     else if (/\b(?:pix|pagamento|transfer|boleto|recebido|recebida|qr code)\b/i.test(line)) ignored++;
   }
   flush(undefined, lines.length);
