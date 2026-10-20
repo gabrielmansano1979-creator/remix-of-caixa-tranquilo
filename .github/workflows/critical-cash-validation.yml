@@ -1,6 +1,8 @@
 name: Critical Cash validation
 
 on:
+  push:
+    branches: [main, "fix/financial-counterparty-audit"]
   pull_request:
     branches: [main]
   workflow_dispatch:
