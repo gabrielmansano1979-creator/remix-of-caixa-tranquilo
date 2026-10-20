@@ -367,14 +367,14 @@ export function parsePdfStatementText(text: string): { rows: CsvRow[]; ignored: 
   const lines = text.replace(/\\u00a0/g, " ").split(/\\r?\\n/).map((line) => line.trim()).filter(Boolean);
   const normalizeHeader = (line: string) => line.split("\\t").map((cell) =>
     cell.toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g, "")
-      .replace(/[_-]+/g, " ").replace(/\\s+/g, " ").trim()
+      .replace(/[()/:]+/g, " ").replace(/[_-]+/g, " ").replace(/\\s+/g, " ").trim()
   );
   const maxHeaderSearch = Math.min(lines.length, 80);
   for (let i = 0; i < maxHeaderSearch; i++) {
     const cells = normalizeHeader(lines[i]);
     const hasDate = cells.some((cell) => /^(data|date|data lancamento|data movimento|dt lancamento|dt movimento|posting date|transaction date|data transacao|data da transacao|data efetiva|data operacao|data contabil)$/.test(cell));
-    const hasDescription = cells.some((cell) => /^(descricao|historico|lancamento|detalhe|memo|description|payee|beneficiario|estabelecimento|transacao|transaction|operacao|identificacao|complemento|documento|saldo historico)$/.test(cell));
-    const hasAmount = cells.some((cell) => /^(valor|amount|quantia|montante|valor r\\$|total|debito|debit|credito|credit|entradas|saidas|deposito|retirada|valor debito|valor credito|vl debito|vl credito|saldo)$/.test(cell));
+    const hasDescription = cells.some((cell) => /^(descricao|historico|historico descricao|descricao historico|lancamento|detalhe|memo|description|payee|beneficiario|estabelecimento|transacao|transaction|operacao|identificacao|complemento|documento|saldo historico)$/.test(cell));
+    const hasAmount = cells.some((cell) => /^(valor|amount|quantia|montante|valor r\\$|total|debito|debit|credito|credit|entradas|saidas|deposito|retirada|valor debito|valor credito|vl debito|vl credito)$/.test(cell));
     if (!hasDate || !hasDescription || !hasAmount) continue;
     const table = parseBankTable(lines.slice(i).join("\\n"));
     if (table.rows.length) return table;
