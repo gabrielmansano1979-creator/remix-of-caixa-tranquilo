@@ -209,25 +209,25 @@ export function AccountantClientManagement() {
           </div>
           {auditSummaries.length > 0 && <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{auditSummaries.map((summary) => <div key={summary.client_user_id} className="rounded-xl border p-4"><p className="font-medium">{summary.client_name}</p><p className="mt-2 text-xs text-muted-foreground">Saldo antes do período</p><p className="font-semibold">{money(summary.opening)}</p><p className="mt-2 text-xs text-muted-foreground">Saldo final efetivo</p><p className="font-semibold">{money(summary.closing)}</p><p className="mt-2 text-xs text-muted-foreground">Saldo final previsto</p><p className="font-semibold">{money(summary.projectedClosing)}</p></div>)}</div>}
           <p className="mb-4 text-sm text-muted-foreground">Trilha de inclusão, alteração e exclusão das movimentações realizadas no período selecionado. Escolha uma empresa para consultar seu relatório individual; cada registro inclui pagador/beneficiário, valores e saldo antes/depois. O histórico só é retornado para empresas com autorização ativa deste contador.</p>
-          {filteredAuditLogs.length ? <div className="overflow-x-auto"><table className="w-full min-w-[1750px] text-left text-sm"><thead><tr className="border-b text-xs text-muted-foreground">
-            <th className="px-3 py-3">Data e hora</th><th className="px-3 py-3">Empresa do SaaS</th><th className="px-3 py-3">ID do responsável</th><th className="px-3 py-3">Ação</th><th className="px-3 py-3">Tipo</th><th className="px-3 py-3">Descrição</th><th className="px-3 py-3">Pagador</th><th className="px-3 py-3">Beneficiário</th><th className="px-3 py-3">Valor anterior</th><th className="px-3 py-3">Valor posterior</th><th className="px-3 py-3">Saldo antes da operação</th><th className="px-3 py-3">Saldo depois da operação</th><th className="px-3 py-3">Situação anterior</th><th className="px-3 py-3">Situação posterior</th><th className="px-3 py-3">ID do lançamento</th>
+          {filteredAuditLogs.length ? <div className="overflow-x-auto"><table className="w-full min-w-[2050px] text-left text-sm"><thead><tr className="border-b text-xs text-muted-foreground">
+            <th className="px-3 py-3">Data e hora</th><th className="px-3 py-3">Empresa do SaaS</th><th className="px-3 py-3">ID do responsável</th><th className="px-3 py-3">Ação</th><th className="px-3 py-3">Tipo anterior</th><th className="px-3 py-3">Tipo posterior</th><th className="px-3 py-3">Descrição anterior</th><th className="px-3 py-3">Descrição posterior</th><th className="px-3 py-3">Contraparte anterior</th><th className="px-3 py-3">Contraparte posterior</th><th className="px-3 py-3">Valor anterior</th><th className="px-3 py-3">Valor posterior</th><th className="px-3 py-3">Saldo antes da operação</th><th className="px-3 py-3">Saldo depois da operação</th><th className="px-3 py-3">Situação anterior</th><th className="px-3 py-3">Situação posterior</th><th className="px-3 py-3">ID do lançamento</th>
           </tr></thead><tbody>{filteredAuditLogs.map((item) => {
             const before = item.details.before ?? null;
             const after = item.details.after ?? null;
             const current = after ?? before ?? {};
             const type = current.type;
             const action = item.action === "insert" ? "Inclusão" : item.action === "update" ? "Alteração" : "Exclusão";
-            const payer = type === "income" ? current.counterparty_name : null;
-            const beneficiary = type === "expense" ? current.counterparty_name : null;
-            return <tr key={item.id} className="border-b align-top last:border-0">
+                        return <tr key={item.id} className="border-b align-top last:border-0">
               <td className="whitespace-nowrap px-3 py-3">{dateTime(item.created_at)}</td>
               <td className="px-3 py-3"><div className="font-medium">{item.details.registered_company || item.client_name}</div><div className="text-xs text-muted-foreground">{type === "income" ? "Empresa que recebe" : type === "expense" ? "Empresa que paga" : "Empresa proprietária"}</div></td>
               <td className="px-3 py-3 font-mono text-xs">{item.actor_user_id || "Não identificado"}</td>
               <td className="px-3 py-3">{action}</td>
-              <td className="px-3 py-3">{type === "income" ? "Entrada" : type === "expense" ? "Saída" : "—"}</td>
-              <td className="max-w-56 whitespace-normal px-3 py-3">{current.description || "—"}</td>
-              <td className="px-3 py-3">{payer || "—"}</td>
-              <td className="px-3 py-3">{beneficiary || "—"}</td>
+              <td className="px-3 py-3">{before?.type === "income" ? "Entrada" : before?.type === "expense" ? "Saída" : "—"}</td>
+              <td className="px-3 py-3">{after?.type === "income" ? "Entrada" : after?.type === "expense" ? "Saída" : "—"}</td>
+              <td className="max-w-56 whitespace-normal px-3 py-3">{before?.description || "—"}</td>
+              <td className="max-w-56 whitespace-normal px-3 py-3">{after?.description || "—"}</td>
+              <td className="px-3 py-3">{before?.counterparty_name || "—"}</td>
+              <td className="px-3 py-3">{after?.counterparty_name || "—"}</td>
               <td className="whitespace-nowrap px-3 py-3">{auditMoney(before?.amount_cents)}</td>
               <td className="whitespace-nowrap px-3 py-3">{auditMoney(after?.amount_cents)}</td>
               <td className="whitespace-nowrap px-3 py-3">{auditMoney(item.details.balance_before_cents)}</td>
