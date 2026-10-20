@@ -22,7 +22,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
-import { exportReport, type ReportFormat } from "@/lib/reporting";
+import { exportReport } from "@/lib/reporting";
 import { normalizeCpfCnpj } from "@/lib/identity";
 
 export const Route = createFileRoute("/admin/")({
