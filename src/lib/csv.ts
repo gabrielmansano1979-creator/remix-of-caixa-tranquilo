@@ -567,11 +567,11 @@ export function parseCoraStatementText(text: string): { rows: CsvRow[]; ignored:
       ? withoutDocument.slice(0, 120) : "Titular da conta";
   })();
   const holderId = holderLine?.match(/\b\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}\b/)?.[0] ?? "";
-  const dateHeader = /^\s*(\d{2}\/\d{2}\/\d{4})\s*$/;
-  const amountLine = /^\s*([+-])\s*R\$\s*((?:\d{1,3}(?:\.\d{3})+|\d+),\d{2})\s*$/i;
+  const dateToken = /\b(\d{2}\/\d{2}\/\d{4})\b/;
+  const amountToken = /([+-])\s*R\$\s*((?:\d{1,3}(?:\.\d{3})+|\d+),\d{2})/i;
   const dailyBalance = /^\s*Saldo\s+do\s+dia\b/i;
   const noise = /^(?:Extrato do per[ií]odo|Saldo inicial dispon[ií]vel|Total de entradas|Total de sa[ií]das|Saldo final dispon[ií]vel|Ouvidoria:|Extrato gerado no dia|p[aá]g\.?\s*\d+\s+de\s+\d+|Cora SCFI\s*[-–]\s*CNPJ)/i;
-  const operation = /^(?:Pgto\s+QR\s+Code\s+Pix|Transf\s+Pix\s+(?:enviada|recebida)|Pagamento\s+(?:da\s+fatura|recebido)|Pix\s+(?:enviado|recebido)|Transfer[eê]ncia\s+(?:enviada|recebida))/i;
+  const operation = /(?:Pgto\s+QR\s+Code\s+Pix|Transf\s+Pix\s+(?:enviada|recebida)|Pagamento\s+(?:da\s+fatura|recebido)|Pix\s+(?:enviado|recebido)|Transfer[eê]ncia\s+(?:enviada|recebida))/i;
   type Pending = { date: string; operation: string; lines: string[]; startLine: number };
   let pending: Pending | null = null;
   let currentDate = "";
@@ -652,25 +652,43 @@ export function parseCoraStatementText(text: string): { rows: CsvRow[]; ignored:
     pending = null;
   };
 
-  for (const [index, line] of lines.entries()) {
-    if (noise.test(line) || dailyBalance.test(line)) continue;
-    const dateMatch = line.match(dateHeader);
-    if (dateMatch) { flush(undefined, index + 1); currentDate = dateMatch[1]; continue; }
-    const amountMatch = line.match(amountLine);
-    if (amountMatch) {
-      if (!pending) { ignored++; continue; }
-      flush({ sign: amountMatch[1], amount: amountMatch[2] }, index + 1);
-      continue;
-    }
-    if (operation.test(line)) {
+  const startOperation = (line: string, index: number) => {
+    const match = line.match(operation);
+    if (!match || match.index === undefined) return false;
+    flush(undefined, index + 1);
+    if (!currentDate) { ignored++; return true; }
+    const operationName = match[0].replace(/\s+/g, " ").trim();
+    const before = line.slice(0, match.index).trim();
+    const after = line.slice(match.index + match[0].length).trim();
+    pending = { date: currentDate, operation: operationName, lines: [before, after].filter(Boolean), startLine: index + 1 };
+    return true;
+  };
+
+  for (const [index, originalLine] of lines.entries()) {
+    if (noise.test(originalLine) || dailyBalance.test(originalLine)) continue;
+    let line = originalLine;
+    const dateMatch = line.match(dateToken);
+    if (dateMatch) {
       flush(undefined, index + 1);
-      if (!currentDate) { ignored++; continue; }
-      const operationMatch = line.match(operation);
-      const operationName = operationMatch?.[0] ?? line;
-      const trailingCounterparty = line.slice(operationName.length).trim();
-      pending = { date: currentDate, operation: operationName, lines: trailingCounterparty ? [trailingCounterparty] : [], startLine: index + 1 };
+      currentDate = dateMatch[1];
+      line = line.slice((dateMatch.index ?? 0) + dateMatch[0].length).trim();
+      if (!line) continue;
+    }
+
+    const money = line.match(amountToken);
+    if (money) {
+      const beforeAmount = line.slice(0, money.index).trim();
+      if (operation.test(beforeAmount)) {
+        startOperation(beforeAmount, index);
+      } else if (beforeAmount && pending) {
+        pending.lines.push(beforeAmount);
+      }
+      if (pending) flush({ sign: money[1], amount: money[2] }, index + 1);
+      else ignored++;
       continue;
     }
+
+    if (startOperation(line, index)) continue;
     if (pending) pending.lines.push(line);
     else if (/\b(?:pix|pagamento|transfer|boleto|recebido|recebida|qr code)\b/i.test(line)) ignored++;
   }
