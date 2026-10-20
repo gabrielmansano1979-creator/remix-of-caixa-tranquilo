@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { AlertCircle, CheckCircle2, Download, Upload } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { accessQuery, parseDbError, type LimitKind } from "@/lib/app-data";
-import { CSV_TEMPLATE, parseCsv, parseBankTable, parseStatementText, parseCoraStatementText, parseOfxText, type CsvRow } from "@/lib/csv";
+import { CSV_TEMPLATE, parseCsv, parseBankTable, parseStatementText, parseCoraStatementText, parsePdfStatementText, parseOfxText, type CsvRow } from "@/lib/csv";
 import { formatBRL, formatDate } from "@/lib/format";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -85,8 +85,9 @@ export function CsvImportDialog({ open, onOpenChange, onLimit }: { open: boolean
       if (extension === "pdf") {
         const extracted = await extractPdfText(f);
         const isCora = /Cora\s+SCFI|37\.880\.206\/0001-63/i.test(extracted.text);
-        const parsed = isCora ? parseCoraStatementText(extracted.text) : parseStatementText(extracted.text);
-        if (!parsed.rows.length) throw new Error("Não foram encontradas linhas de lançamentos reconhecíveis no PDF.");
+        const parsed = isCora ? parseCoraStatementText(extracted.text) : parsePdfStatementText(extracted.text);
+        const pdfParseError = isCora ? undefined : (parsed as ReturnType<typeof parsePdfStatementText>).headerError;
+        if (!parsed.rows.length) throw new Error(pdfParseError || "Não foram encontradas linhas de lançamentos reconhecíveis no PDF.");
         const previewRows = isCora ? parsed.rows.map((row) => { const company = businessName || row.raw.titular_conta || "Sua empresa"; const isIncome = row.value?.type === "income" || row.raw.tipo === "entrada"; const counterparty = isIncome ? row.raw.remetente : row.raw.destinatario; const sender = isIncome ? (counterparty || row.raw.remetente || "") : company; const recipient = isIncome ? company : (counterparty || row.raw.destinatario || ""); return { ...row, raw: { ...row.raw, titular_extrato: row.raw.titular_conta || "", titular_conta: company, remetente: sender, destinatario: recipient }, value: row.value ? { ...row.value, sender_name: sender.slice(0, 120), recipient_name: recipient.slice(0, 120) } : undefined }; }) : parsed.rows;
         setRows(previewRows);
         if (parsed.ignored) setFileWarning(`${parsed.ignored} linha(s) do documento não foram reconhecidas como lançamentos e serão ignoradas.`);
@@ -225,16 +226,32 @@ async function extractPdfText(file: File): Promise<{ text: string; ocrPages: num
       const page = await pdf.getPage(pageNumber);
       const content = await page.getTextContent();
       const positionedItems = content.items
-        .filter((item): item is typeof item & { str: string; transform: number[] } => "str" in item && "transform" in item)
-        .map((item) => ({ text: item.str, x: item.transform[4], y: Math.round(item.transform[5] / 2) * 2 }))
+        .filter((item): item is typeof item & { str: string; transform: number[]; width?: number } => "str" in item && "transform" in item)
+        .map((item) => ({
+          text: item.str.trim(),
+          x: item.transform[4],
+          y: Math.round(item.transform[5] / 2) * 2,
+          width: typeof item.width === "number" ? item.width : item.str.length * 4,
+        }))
+        .filter((item) => item.text.length > 0)
         .sort((a, b) => b.y - a.y || a.x - b.x);
-      const textLines: Array<{ y: number; text: string }> = [];
+      const textLines: Array<{ y: number; items: typeof positionedItems }> = [];
       for (const item of positionedItems) {
         const previous = textLines[textLines.length - 1];
-        if (previous && Math.abs(previous.y - item.y) <= 2) previous.text += ` ${item.text}`;
-        else textLines.push({ y: item.y, text: item.text });
+        if (previous && Math.abs(previous.y - item.y) <= 2) previous.items.push(item);
+        else textLines.push({ y: item.y, items: [item] });
       }
-      let text = textLines.map((line) => line.text).join("\n");
+      // Preserve visual columns. Flattening PDF fragments with spaces can confuse a transaction amount with the running balance.
+      let text = textLines.map((line) => {
+        let output = "";
+        let previousEnd: number | null = null;
+        for (const item of line.items) {
+          const gap = previousEnd === null ? 0 : item.x - previousEnd;
+          output += (output ? (gap >= 18 ? "\t" : " ") : "") + item.text;
+          previousEnd = item.x + item.width;
+        }
+        return output;
+      }).join("\n");
       const hasTransactionLikeLine = /(?:\d{2}[/. -]\d{2}[/. -]\d{4}|\d{4}-\d{2}-\d{2}).*(?:R\$\s*)?[+-]?\d[\d.,]*(?:\s*(?:CR|DB|C|D))?\s*$/im.test(text);
       if (text.replace(/\s/g, "").length < 30 || !hasTransactionLikeLine) {
         worker ??= await createWorker("por");
@@ -246,7 +263,34 @@ async function extractPdfText(file: File): Promise<{ text: string; ocrPages: num
         if (!context) throw new Error("O navegador não conseguiu preparar a página do PDF para OCR.");
         await page.render({ canvas, canvasContext: context, viewport }).promise;
         const recognized = await worker.recognize(canvas);
-        text = recognized.data.text;
+        const recognizedWords = (recognized.data as unknown as { words?: Array<{ text: string; confidence: number; bbox: { x0: number; x1: number; y0: number } }> }).words ?? [];
+        const words = recognizedWords
+          .filter((word) => word.text.trim() && word.confidence >= 20)
+          .map((word) => ({
+            text: word.text.trim(),
+            x: word.bbox.x0,
+            right: word.bbox.x1,
+            y: Math.round(word.bbox.y0 / 8) * 8,
+          }))
+          .sort((a, b) => a.y - b.y || a.x - b.x);
+        const ocrLines: Array<{ y: number; words: typeof words }> = [];
+        for (const word of words) {
+          const previous = ocrLines[ocrLines.length - 1];
+          if (previous && Math.abs(previous.y - word.y) <= 8) previous.words.push(word);
+          else ocrLines.push({ y: word.y, words: [word] });
+        }
+        text = ocrLines.length
+          ? ocrLines.map((line) => {
+              let output = "";
+              let previousRight: number | null = null;
+              for (const word of line.words) {
+                const gap = previousRight === null ? 0 : word.x - previousRight;
+                output += (output ? (gap >= 25 ? "\t" : " ") : "") + word.text;
+                previousRight = word.right;
+              }
+              return output;
+            }).join("\n")
+          : recognized.data.text;
         ocrPages++;
         canvas.width = 0;
         canvas.height = 0;

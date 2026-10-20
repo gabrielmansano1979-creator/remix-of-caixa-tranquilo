@@ -282,13 +282,13 @@ export function parseBankTable(text: string): { rows: CsvRow[]; headerError?: st
   const candidates = [",", ";", "\t", "|"];
   const separator = candidates.sort((a, b) => splitLine(lines[0], b).length - splitLine(lines[0], a).length)[0];
   const header = splitLine(first, separator).map((cell) =>
-    cell.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim()
+    cell.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[()/:]+/g, " ").replace(/r\$/g, "").replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim()
   );
-  const dateIndex = header.findIndex((h) => /^(data|date|data lancamento|data movimento|dt lancamento|dt movimento|posting date|transaction date|data transacao|data da transacao)$/.test(h));
-  const descriptionIndex = header.findIndex((h) => /^(descricao|historico|lancamento|detalhe|memo|description|payee|beneficiario|estabelecimento|transacao|transaction|nome)$/.test(h));
-  const amountIndex = header.findIndex((h) => /^(valor|amount|quantia|montante|valor r\$|amount brl|total)$/.test(h));
-  const debitIndex = header.findIndex((h) => /^(debito|debit|saidas|saida|withdrawal|debit amount)$/.test(h));
-  const creditIndex = header.findIndex((h) => /^(credito|credit|entradas|entrada|deposit|deposito|credit amount)$/.test(h));
+  const dateIndex = header.findIndex((h) => /^(data|date|data lancamento|data movimento|dt lancamento|dt movimento|posting date|transaction date|data transacao|data da transacao|data efetiva|data operacao|data valor|data contabil|data de lancamento|data hora)$/.test(h));
+  const descriptionIndex = header.findIndex((h) => /^(descricao|historico|historico descricao|descricao historico|lancamento|detalhe|memo|description|payee|beneficiario|estabelecimento|transacao|transaction|nome|operacao|identificacao|complemento|documento|tipo lancamento|historico do lancamento|descricao do lancamento)$/.test(h));
+  const amountIndex = header.findIndex((h) => /^(valor|amount|quantia|montante|valor r\$|amount brl|total|valor lancamento|valor movimento|valor da transacao|valor transacao|vl lancamento|vl movimento)$/.test(h));
+  const debitIndex = header.findIndex((h) => /^(debito|debit|saidas|saida|withdrawal|debit amount|valor debito|vl debito|debito r\$|saidas r\$|valor saida|valor de saida|retirada|pagamento)$/.test(h));
+  const creditIndex = header.findIndex((h) => /^(credito|credit|entradas|entrada|deposit|deposito|credit amount|valor credito|vl credito|credito r\$|entradas r\$|valor entrada|valor de entrada|recebimento|depositos)$/.test(h));
   const typeIndex = header.findIndex((h) => /^(tipo|type|natureza|operacao|operation|direcao)$/.test(h));
   const senderIndex = header.findIndex((h) => /^(remetente|pagador|ordenante|origem|sender|payer|from)$/.test(h));
   const recipientIndex = header.findIndex((h) => /^(destinatario|favorecido|beneficiario|recebedor|payee|recipient|to)$/.test(h));
@@ -309,7 +309,7 @@ export function parseBankTable(text: string): { rows: CsvRow[]; headerError?: st
     const amountRaw = amountIndex >= 0 ? cells[amountIndex] ?? "" : "";
     const debit = parseMoney(debitRaw.replace(/^[+-]/, ""));
     const credit = parseMoney(creditRaw.replace(/^[+-]/, ""));
-    const signedNegative = /^\s*-/.test(amountRaw) || /^\s*\\(.*\\)\s*$/.test(amountRaw);
+    const signedNegative = /^\s*-/.test(amountRaw) || /^\s*\(.*\)\s*$/.test(amountRaw);
     const amount = amountIndex >= 0 ? parseMoney(amountRaw.replace(/^[+-]/, "").replace(/[()]/g, "")) : null;
     const chosenAmount = debit !== null ? debit : credit !== null ? credit : amount;
     if (!date || !description || chosenAmount === null) {
@@ -317,10 +317,11 @@ export function parseBankTable(text: string): { rows: CsvRow[]; headerError?: st
       continue;
     }
     const rawType = typeIndex >= 0 ? (cells[typeIndex] ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() : "";
+    const directionText = (rawType + " " + description).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
     const type = debit !== null ? "expense"
       : credit !== null ? "income"
-      : signedNegative || /debito|saida|despesa|pagamento|withdrawal|expense/.test(rawType) ? "expense"
-      : /credito|entrada|receita|deposito|recebimento|income/.test(rawType) ? "income"
+      : signedNegative || /\b(debito|saida|despesa|pagamento|pagto|compra|withdrawal|expense|saque|retirada|tarifa|boleto pago|pix enviado|transferencia enviada)\b/.test(directionText) ? "expense"
+      : /\b(credito|entrada|receita|deposito|recebimento|income|pix recebido|transferencia recebida|estorno|salario)\b/.test(directionText) ? "income"
       : null;
     const errors = type ? [] : ["A linha foi lida, mas o arquivo não informa se o valor é entrada ou saída; classifique manualmente."];
     const explicitSender = senderIndex >= 0 ? (cells[senderIndex] ?? "").trim().slice(0, 120) : "";
@@ -357,6 +358,32 @@ export function parseBankTable(text: string): { rows: CsvRow[]; headerError?: st
   return { rows, ignored };
 }
 
+
+/**
+ * Tries to interpret a PDF's extracted, tab-separated visual rows as a bank table.
+ * PDF extraction often places the title and account metadata before the actual
+ * table header, so scan the first page lines instead of assuming line 1 is the header.
+ */
+export function parsePdfStatementText(text: string): { rows: CsvRow[]; ignored: number; headerError?: string } {
+  const lines = text.replace(/\u00a0/g, " ").split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  const normalizeHeader = (line: string) => line.split("\t").map((cell) =>
+    cell.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .replace(/[()/:]+/g, " ").replace(/r\$/g, "").replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim()
+  );
+  const maxHeaderSearch = Math.min(lines.length, 80);
+  for (let i = 0; i < maxHeaderSearch; i++) {
+    const cells = normalizeHeader(lines[i]);
+    const hasDate = cells.some((cell) => /^(data|date|data lancamento|data movimento|dt lancamento|dt movimento|posting date|transaction date|data transacao|data da transacao|data efetiva|data operacao|data contabil|data hora)$/.test(cell));
+    const hasDescription = cells.some((cell) => /^(descricao|historico|historico descricao|descricao historico|lancamento|detalhe|memo|description|payee|beneficiario|estabelecimento|transacao|transaction|operacao|identificacao|complemento|documento|saldo historico)$/.test(cell));
+    const hasAmount = cells.some((cell) => /^(valor|amount|quantia|montante|total|debito|debit|credito|credit|entradas|saidas|deposito|retirada|valor debito|valor credito|vl debito|vl credito)$/.test(cell));
+    const hasBalance = cells.some((cell) => /^(saldo|balance|saldo final|running balance|saldo disponivel)$/.test(cell));
+    if (!hasDate || !hasDescription || (!hasAmount && !hasBalance)) continue;
+    const table = parseBankTable(lines.slice(i).join("\n"));
+    if (table.rows.length) return table;
+    if (hasBalance) return { rows: [], ignored: table.ignored, headerError: "O PDF contém uma coluna de saldo, mas não consegui identificar com segurança a coluna do valor movimentado. Nenhum lançamento foi importado; envie outro formato do extrato ou confira o arquivo." };
+  }
+  return parseStatementText(text);
+}
 
 /** Parser for Cora PDFs, where each transaction is a multi-line block under a daily date heading. */
 export function parseCoraStatementText(text: string): { rows: CsvRow[]; ignored: number } {

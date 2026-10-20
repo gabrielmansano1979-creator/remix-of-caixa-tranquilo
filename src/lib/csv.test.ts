@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseMoney, parseStatementText, parseCoraStatementText, parseOfxText, parseBankTable } from "./csv";
+import { parseMoney, parseStatementText, parseCoraStatementText, parsePdfStatementText, parseOfxText, parseBankTable } from "./csv";
 
 describe("parseMoney", () => {
   it("parses Brazilian decimal and thousands separators", () => {
@@ -111,6 +111,50 @@ describe("parseBankTable", () => {
     const parsed = parseBankTable("Data;Descrição;Débito;Crédito\n12/10/2026;Aluguel para IMOBILIARIA CENTRAL;1200,00;\n13/10/2026;Recebimento de CLIENTE CENTRAL;;3500,00");
     expect(parsed.rows[0].value).toMatchObject({ type: "expense", amount_cents: 120000, counterparty_name: "IMOBILIARIA CENTRAL" });
     expect(parsed.rows[1].value).toMatchObject({ type: "income", amount_cents: 350000, counterparty_name: "CLIENTE CENTRAL" });
+  });
+});
+
+
+describe("parsePdfStatementText", () => {
+  it("finds a table header after PDF metadata and distinguishes debit, credit and running balance columns", () => {
+    const pdfText = [
+      "EXTRATO DE CONTA CORRENTE",
+      "Período: 01/10/2026 a 31/10/2026",
+      "Data\tHistórico\tDébito (R$)\tCrédito (R$)\tSaldo (R$)",
+      "10/10/2026\tPIX recebido de MARIA SILVA\t\t1.250,00\t2.000,00",
+      "11/10/2026\tPagamento para INTERNET LTDA\t189,90\t\t1.810,10",
+    ].join("\n");
+    const parsed = parsePdfStatementText(pdfText);
+
+    expect(parsed.rows).toHaveLength(2);
+    expect(parsed.rows[0].value).toMatchObject({
+      type: "income",
+      amount_cents: 125000,
+      due_date: "2026-10-10",
+      counterparty_name: "MARIA SILVA",
+    });
+    expect(parsed.rows[1].value).toMatchObject({
+      type: "expense",
+      amount_cents: 18990,
+      due_date: "2026-10-11",
+      counterparty_name: "INTERNET LTDA",
+    });
+  });
+
+  it("recognizes a single transaction amount column without mistaking the balance column for the amount", () => {
+    const pdfText = [
+      "Extrato",
+      "Data\tDescrição\tValor (R$)\tSaldo (R$)",
+      "12/10/2026\tPIX recebido de CLIENTE CENTRAL\t350,00\t2.160,10",
+    ].join("\n");
+    const parsed = parsePdfStatementText(pdfText);
+    expect(parsed.rows).toHaveLength(1);
+    expect(parsed.rows[0].value).toMatchObject({
+      type: "income",
+      amount_cents: 35000,
+      due_date: "2026-10-12",
+      counterparty_name: "CLIENTE CENTRAL",
+    });
   });
 });
 
