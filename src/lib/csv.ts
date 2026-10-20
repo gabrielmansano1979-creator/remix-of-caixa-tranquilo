@@ -110,11 +110,15 @@ function extractCounterparty(transactionText: string, type: "income" | "expense"
   const patterns = type === "income"
     ? [
         /\b(?:pix|ted|doc|transfer[eê]ncia|transfer)\s+(?:recebido|recebida|recebimento)\s+(?:de|do|da|dos|das)\s+(.+)$/i,
+        /\b(?:received|credited|incoming transfer|deposit)\s+(?:from|by|of)\s+(.+)$/i,
+        /\b(?:from|payer|sender)\s*[:=-]\s*(.+)$/i,
         /\b(?:recebido|recebida|creditado|creditada)\s+(?:de|do|da|dos|das)\s+(.+)$/i,
         /\b(?:remetente|pagador|ordenante|origem)\s*[:=-]\s*(.+)$/i,
       ]
     : [
         /\b(?:pix|ted|doc|transfer[eê]ncia|transfer)\s+(?:enviado|enviada|feito)\s+(?:para|a|ao|à|pro|pra)\s+(.+)$/i,
+        /\b(?:sent|paid|payment|purchase|withdrawal)\s+(?:to|for|at|from)\s+(.+)$/i,
+        /\b(?:to|recipient|beneficiary|payee)\s*[:=-]\s*(.+)$/i,
         /\b(?:enviado|enviada|transferido|transferida|pago|paga)\s+(?:para|a|ao|pro|pra)\s+(.+)$/i,
         /\b(?:pagamento|boleto|conta|compra)\s+(?:de|do|da|dos|das|para|ao|a)\s+(.+)$/i,
         /\b(?:destinat[aá]rio|favorecido|benefici[aá]rio|recebedor)\s*[:=-]\s*(.+)$/i,
@@ -320,8 +324,8 @@ export function parseBankTable(text: string): { rows: CsvRow[]; headerError?: st
     const directionText = (rawType + " " + description).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
     const type = debit !== null ? "expense"
       : credit !== null ? "income"
-      : signedNegative || /\b(debito|saida|despesa|pagamento|pagto|compra|withdrawal|expense|saque|retirada|tarifa|boleto pago|pix enviado|transferencia enviada)\b/.test(directionText) ? "expense"
-      : /\b(credito|entrada|receita|deposito|recebimento|income|pix recebido|transferencia recebida|estorno|salario)\b/.test(directionText) ? "income"
+      : signedNegative || /\b(debito|saida|despesa|pagamento|pagto|compra|withdrawal|withdrawals|expense|saque|retirada|tarifa|boleto pago|pix enviado|transferencia enviada|paid|purchase|outgoing|sent to|transfer out|debit card|bill payment)\b/.test(directionText) ? "expense"
+      : /\b(credito|entrada|receita|deposito|recebimento|income|pix recebido|transferencia recebida|estorno|salario|received|credited|incoming|refund|transfer in|credit transfer)\b/.test(directionText) ? "income"
       : null;
     const errors = type ? [] : ["A linha foi lida, mas o arquivo não informa se o valor é entrada ou saída; classifique manualmente."];
     const explicitSender = senderIndex >= 0 ? (cells[senderIndex] ?? "").trim().slice(0, 120) : "";
@@ -422,7 +426,7 @@ export function parsePdfStatementText(text: string): { rows: CsvRow[]; ignored: 
   const signedAmountLine = /^\s*([+-])\s*(?:R\$\s*)?((?:\d{1,3}(?:\.\d{3})+|\d+),\d{2}|(?:\d{1,3}(?:,\d{3})+|\d+)\.\d{2})\s*(?:CR|DB|C|D)?\s*$/i;
   const amountAtEnd = /(?:R\$\s*)?([+-]?(?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d{2})?|[+-]?\d{1,3}(?:,\d{3})+\.\d{2})\s*(CR|C|DB|D)?\s*$/i;
   const noise = /^(?:extrato(?: bancario| de conta| da conta)?|saldo (?:inicial|final|anterior|disponivel|do dia)|total de (?:entradas|saidas|creditos|debitos)|periodo:|pagina \d|pag\.?\s*\d|ouvidoria|agencia|conta:|cnpj:|cpf:)/i;
-  const transactionHint = /\b(pix|ted|doc|transfer|transf|compra|pagamento|pagto|saque|deposito|tarifa|boleto|recebimento|credito|debito|estorno|salario|cartao|fatura|rendimentos|resgate|aplicacao|liquidacao)\b/i;
+  const transactionHint = /\b(pix|ted|doc|transfer|transf|compra|pagamento|pagto|saque|deposito|tarifa|boleto|recebimento|credito|debito|estorno|salario|cartao|fatura|rendimentos|resgate|aplicacao|liquidacao|received|payment|purchase|withdrawal|deposit|refund|credit|debit|salary|incoming|outgoing)\b/i;
   type Block = { date: string; parts: string[]; line: number };
   const blocks: Block[] = [];
   let current: Block | null = null;
