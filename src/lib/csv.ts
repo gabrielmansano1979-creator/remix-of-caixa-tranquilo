@@ -375,10 +375,12 @@ export function parsePdfStatementText(text: string): { rows: CsvRow[]; ignored: 
     const cells = normalizeHeader(lines[i]);
     const hasDate = cells.some((cell) => /^(data|date|data lancamento|data movimento|dt lancamento|dt movimento|posting date|transaction date|data transacao|data da transacao|data efetiva|data operacao|data contabil|data hora)$/.test(cell));
     const hasDescription = cells.some((cell) => /^(descricao|historico|historico descricao|descricao historico|lancamento|detalhe|memo|description|payee|beneficiario|estabelecimento|transacao|transaction|operacao|identificacao|complemento|documento|saldo historico)$/.test(cell));
-    const hasAmount = cells.some((cell) => /^(valor|amount|quantia|montante|valor r\$|total|debito|debit|credito|credit|entradas|saidas|deposito|retirada|valor debito|valor credito|vl debito|vl credito)$/.test(cell));
-    if (!hasDate || !hasDescription || !hasAmount) continue;
+    const hasAmount = cells.some((cell) => /^(valor|amount|quantia|montante|total|debito|debit|credito|credit|entradas|saidas|deposito|retirada|valor debito|valor credito|vl debito|vl credito)$/.test(cell));
+    const hasBalance = cells.some((cell) => /^(saldo|balance|saldo final|running balance|saldo disponivel)$/.test(cell));
+    if (!hasDate || !hasDescription || (!hasAmount && !hasBalance)) continue;
     const table = parseBankTable(lines.slice(i).join("\n"));
     if (table.rows.length) return table;
+    if (hasBalance) return { rows: [], ignored: table.ignored, headerError: "O PDF contém uma coluna de saldo, mas não consegui identificar com segurança a coluna do valor movimentado. Nenhum lançamento foi importado; envie outro formato do extrato ou confira o arquivo." };
   }
   return parseStatementText(text);
 }
