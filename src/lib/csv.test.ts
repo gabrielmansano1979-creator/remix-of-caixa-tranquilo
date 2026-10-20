@@ -107,6 +107,38 @@ describe("parseBankTable", () => {
     expect(parsed.rows[1].errors[0]).toContain("classifique manualmente");
   });
 
+  it("recognizes English and international bank statement headers", () => {
+    const parsed = parseBankTable([
+      "Posting Date,Transaction Details,Withdrawals,Deposits,Running Balance",
+      "2026-10-14,PIX received from ALPHA CUSTOMER,,875.40,3210.00",
+      "2026-10-15,Payment to BETA SUPPLIER,129.90,,3080.10",
+    ].join("\n"));
+    expect(parsed.rows).toHaveLength(2);
+    expect(parsed.rows[0].value).toMatchObject({
+      type: "income", amount_cents: 87540, due_date: "2026-10-14",
+      counterparty_name: "ALPHA CUSTOMER",
+    });
+    expect(parsed.rows[1].value).toMatchObject({
+      type: "expense", amount_cents: 12990, due_date: "2026-10-15",
+      counterparty_name: "BETA SUPPLIER",
+    });
+  });
+
+  it("recognizes common alternative Brazilian headers with punctuation and explicit parties", () => {
+    const parsed = parseBankTable([
+      "Data da transação;Histórico da movimentação;Valor da operação;Nome do pagador;Nome do destinatário",
+      "16/10/2026;PIX recebido de CLIENTE DELTA;250,00;CLIENTE DELTA;",
+      "17/10/2026;PIX enviado para FORNECEDOR ÉPSILON;-89,90;;FORNECEDOR ÉPSILON",
+    ].join("\n"));
+    expect(parsed.rows).toHaveLength(2);
+    expect(parsed.rows[0].value).toMatchObject({
+      type: "income", amount_cents: 25000, counterparty_name: "CLIENTE DELTA",
+    });
+    expect(parsed.rows[1].value).toMatchObject({
+      type: "expense", amount_cents: 8990, counterparty_name: "FORNECEDOR ÉPSILON",
+    });
+  });
+
   it("recognizes separate debit and credit columns", () => {
     const parsed = parseBankTable("Data;Descrição;Débito;Crédito\n12/10/2026;Aluguel para IMOBILIARIA CENTRAL;1200,00;\n13/10/2026;Recebimento de CLIENTE CENTRAL;;3500,00");
     expect(parsed.rows[0].value).toMatchObject({ type: "expense", amount_cents: 120000, counterparty_name: "IMOBILIARIA CENTRAL" });
@@ -160,6 +192,24 @@ describe("parsePdfStatementText", () => {
 
 
 describe("additional PDF layout regression cases", () => {
+  it("parses an English bank PDF table with posting date, transaction details, withdrawals and deposits", () => {
+    const parsed = parsePdfStatementText([
+      "ACCOUNT STATEMENT",
+      "Posting Date\tTransaction Details\tWithdrawals\tDeposits\tRunning Balance",
+      "2026-10-14\tPIX received from ALPHA CUSTOMER\t\t875.40\t3210.00",
+      "2026-10-15\tPayment to BETA SUPPLIER\t129.90\t\t3080.10",
+    ].join("\n"));
+    expect(parsed.rows).toHaveLength(2);
+    expect(parsed.rows[0].value).toMatchObject({
+      type: "income", amount_cents: 87540, due_date: "2026-10-14",
+      counterparty_name: "ALPHA CUSTOMER",
+    });
+    expect(parsed.rows[1].value).toMatchObject({
+      type: "expense", amount_cents: 12990, due_date: "2026-10-15",
+      counterparty_name: "BETA SUPPLIER",
+    });
+  });
+
   it("parses aligned PDF columns separated by multiple spaces instead of tabs", () => {
     const pdfText = [
       "EXTRATO BANCÁRIO",

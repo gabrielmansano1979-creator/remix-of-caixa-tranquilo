@@ -110,11 +110,15 @@ function extractCounterparty(transactionText: string, type: "income" | "expense"
   const patterns = type === "income"
     ? [
         /\b(?:pix|ted|doc|transfer[eê]ncia|transfer)\s+(?:recebido|recebida|recebimento)\s+(?:de|do|da|dos|das)\s+(.+)$/i,
+        /\b(?:received|credited|incoming transfer|deposit)\s+(?:from|by|of)\s+(.+)$/i,
+        /\b(?:from|payer|sender)\s*[:=-]\s*(.+)$/i,
         /\b(?:recebido|recebida|creditado|creditada)\s+(?:de|do|da|dos|das)\s+(.+)$/i,
         /\b(?:remetente|pagador|ordenante|origem)\s*[:=-]\s*(.+)$/i,
       ]
     : [
         /\b(?:pix|ted|doc|transfer[eê]ncia|transfer)\s+(?:enviado|enviada|feito)\s+(?:para|a|ao|à|pro|pra)\s+(.+)$/i,
+        /\b(?:sent|paid|payment|purchase|withdrawal)\s+(?:to|for|at|from)\s+(.+)$/i,
+        /\b(?:to|recipient|beneficiary|payee)\s*[:=-]\s*(.+)$/i,
         /\b(?:enviado|enviada|transferido|transferida|pago|paga)\s+(?:para|a|ao|pro|pra)\s+(.+)$/i,
         /\b(?:pagamento|boleto|conta|compra)\s+(?:de|do|da|dos|das|para|ao|a)\s+(.+)$/i,
         /\b(?:destinat[aá]rio|favorecido|benefici[aá]rio|recebedor)\s*[:=-]\s*(.+)$/i,
@@ -282,17 +286,17 @@ export function parseBankTable(text: string): { rows: CsvRow[]; headerError?: st
   const candidates = [",", ";", "\t", "|"];
   const separator = candidates.sort((a, b) => splitLine(lines[0], b).length - splitLine(lines[0], a).length)[0];
   const header = splitLine(first, separator).map((cell) =>
-    cell.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[()/:]+/g, " ").replace(/r\$/g, "").replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim()
+    cell.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[.,()/:#]+/g, " ").replace(/r\$/g, "").replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim()
   );
-  const dateIndex = header.findIndex((h) => /^(data|date|data lancamento|data movimento|dt lancamento|dt movimento|posting date|transaction date|data transacao|data da transacao|data efetiva|data operacao|data valor|data contabil|data de lancamento|data do lancamento|data do movimento|data hora)$/.test(h));
-  const descriptionIndex = header.findIndex((h) => /^(descricao|historico|historico descricao|descricao historico|lancamento|detalhe|memo|description|payee|beneficiario|estabelecimento|transacao|transaction|nome|operacao|identificacao|complemento|documento|tipo lancamento|historico do lancamento|descricao do lancamento|historico da transacao|descricao da transacao|detalhes)$/.test(h));
-  const amountIndex = header.findIndex((h) => /^(valor|amount|quantia|montante|valor r\$|amount brl|total|valor lancamento|valor movimento|valor da transacao|valor transacao|valor da movimentacao|valor movimentacao|valor do lancamento|valor lancamento|vl lancamento|vl movimento)$/.test(h));
-  const debitIndex = header.findIndex((h) => /^(debito|debit|saidas|saida|withdrawal|debit amount|valor debito|vl debito|debito r\$|saidas r\$|valor saida|valor de saida|retirada|pagamento)$/.test(h));
-  const creditIndex = header.findIndex((h) => /^(credito|credit|entradas|entrada|deposit|deposito|credit amount|valor credito|vl credito|credito r\$|entradas r\$|valor entrada|valor de entrada|recebimento|depositos)$/.test(h));
+  const dateIndex = header.findIndex((h) => /^(data|date|data lancamento|data movimento|dt lancamento|dt movimento|posting date|transaction date|data transacao|data da transacao|data efetiva|data operacao|data valor|data contabil|data contabilizacao|data de lancamento|data do lancamento|data do movimento|data hora|transaction posting date|value date|booking date|effective date)$/.test(h));
+  const descriptionIndex = header.findIndex((h) => /^(descricao|historico|historico descricao|descricao historico|lancamento|detalhe|detalhes|memo|description|transaction description|transaction details|details|narrative|particulars|payee|beneficiario|estabelecimento|transacao|transaction|nome|operacao|identificacao|complemento|documento|tipo lancamento|historico do lancamento|descricao do lancamento|historico da transacao|descricao da transacao|historico movimento|descricao movimento|historico da movimentacao|descricao da movimentacao|detalhes da transacao)$/.test(h));
+  const amountIndex = header.findIndex((h) => /^(valor|amount|quantia|montante|valor r\$|amount brl|total|valor lancamento|valor movimento|valor da transacao|valor transacao|valor da movimentacao|valor movimentacao|valor do lancamento|valor lancamento|vl lancamento|vl movimento|transaction amount|amount of transaction|movement amount|valor da operacao|valor operacao|importe)$/.test(h));
+  const debitIndex = header.findIndex((h) => /^(debito|debitos|debit|debits|saidas|saida|withdrawal|withdrawals|debit amount|valor debito|vl debito|debito r\$|saidas r\$|valor saida|valor de saida|valor de debito|valor dos debitos|retirada|retiradas|pagamento)$/.test(h));
+  const creditIndex = header.findIndex((h) => /^(credito|creditos|credit|credits|entradas|entrada|deposit|deposits|deposito|credit amount|valor credito|vl credito|credito r\$|entradas r\$|valor entrada|valor de entrada|valor de credito|valor dos creditos|recebimento|depositos)$/.test(h));
   const typeIndex = header.findIndex((h) => /^(tipo|type|natureza|operacao|operation|direcao)$/.test(h));
-  const senderIndex = header.findIndex((h) => /^(remetente|pagador|ordenante|origem|sender|payer|from)$/.test(h));
-  const recipientIndex = header.findIndex((h) => /^(destinatario|favorecido|beneficiario|recebedor|payee|recipient|to)$/.test(h));
-  const counterpartyIndex = header.findIndex((h) => /^(nome|contraparte|counterparty|nome contraparte|nome favorecido|nome remetente)$/.test(h));
+  const senderIndex = header.findIndex((h) => /^(remetente|pagador|nome pagador|nome do pagador|ordenante|origem|sender|payer|from|sender name|payer name)$/.test(h));
+  const recipientIndex = header.findIndex((h) => /^(destinatario|nome destinatario|nome do destinatario|favorecido|nome favorecido|beneficiario|nome beneficiario|recebedor|payee|recipient|recipient name|beneficiary|to)$/.test(h));
+  const counterpartyIndex = header.findIndex((h) => /^(nome|contraparte|counterparty|nome contraparte|nome favorecido|nome remetente|nome cliente|nome contraparte financeira|nome da contraparte|counterparty name|counterparty)$/.test(h));
   if (dateIndex < 0 || descriptionIndex < 0 || (amountIndex < 0 && debitIndex < 0 && creditIndex < 0)) {
     return { rows: [], headerError: "Não reconheci as colunas. Preciso identificar data, descrição e valor (ou débito/crédito).", ignored: 0 };
   }
@@ -320,8 +324,8 @@ export function parseBankTable(text: string): { rows: CsvRow[]; headerError?: st
     const directionText = (rawType + " " + description).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
     const type = debit !== null ? "expense"
       : credit !== null ? "income"
-      : signedNegative || /\b(debito|saida|despesa|pagamento|pagto|compra|withdrawal|expense|saque|retirada|tarifa|boleto pago|pix enviado|transferencia enviada)\b/.test(directionText) ? "expense"
-      : /\b(credito|entrada|receita|deposito|recebimento|income|pix recebido|transferencia recebida|estorno|salario)\b/.test(directionText) ? "income"
+      : signedNegative || /\b(debito|saida|despesa|pagamento|pagto|compra|withdrawal|withdrawals|expense|saque|retirada|tarifa|boleto pago|pix enviado|transferencia enviada|paid|payment|purchase|outgoing|sent|transfer out|debit card|bill payment)\b/.test(directionText) ? "expense"
+      : /\b(credito|entrada|receita|deposito|recebimento|income|pix recebido|transferencia recebida|estorno|salario|received|credited|incoming|refund|transfer in|credit transfer)\b/.test(directionText) ? "income"
       : null;
     const errors = type ? [] : ["A linha foi lida, mas o arquivo não informa se o valor é entrada ou saída; classifique manualmente."];
     const explicitSender = senderIndex >= 0 ? (cells[senderIndex] ?? "").trim().slice(0, 120) : "";
@@ -377,16 +381,16 @@ export function parsePdfStatementText(text: string): { rows: CsvRow[]; ignored: 
   };
   const normalize = (cell: string) => cell.toLowerCase()
     .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-    .replace(/[()/:]+/g, " ").replace(/r\$/g, "")
+    .replace(/[.,()/:#]+/g, " ").replace(/r\$/g, "")
     .replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
   const isDateHeader = (cell: string) =>
-    /^(data|date|data lancamento|data do lancamento|data movimento|data do movimento|dt lancamento|dt movimento|posting date|transaction date|data transacao|data da transacao|data efetiva|data operacao|data contabil|data valor|data hora|dia|data de movimento|data da operacao|data do evento)$/.test(cell);
+    /^(data|date|data lancamento|data do lancamento|data movimento|data do movimento|dt lancamento|dt movimento|posting date|transaction date|transaction posting date|data transacao|data da transacao|data efetiva|data operacao|data contabil|data contabilizacao|data valor|data hora|dia|data de movimento|data da operacao|data do evento|value date|booking date|effective date)$/.test(cell);
   const isDescriptionHeader = (cell: string) =>
-    /^(descricao|historico|historico descricao|descricao historico|lancamento|detalhe|memo|description|payee|beneficiario|estabelecimento|transacao|transaction|operacao|identificacao|complemento|documento|saldo historico|historico da transacao|descricao da transacao|detalhes|movimentacao|movimento|origem destino)$/.test(cell);
+    /^(descricao|historico|historico descricao|descricao historico|lancamento|detalhe|detalhes|memo|description|transaction description|transaction details|details|narrative|particulars|payee|beneficiario|estabelecimento|transacao|transaction|operacao|identificacao|complemento|documento|saldo historico|historico da transacao|descricao da transacao|historico da movimentacao|descricao da movimentacao|historico movimento|descricao movimento|detalhes da transacao|movimentacao|movimento|origem destino)$/.test(cell);
   const isAmountHeader = (cell: string) =>
-    /^(valor|amount|quantia|montante|total|debito|debit|credito|credit|entradas|saidas|deposito|retirada|valor debito|valor credito|vl debito|vl credito|valor da transacao|valor transacao|valor movimentacao|valor movimento|valor lancamento|valor da movimentacao|valor do lancamento|valor entrada|valor saida|debitos|creditos|withdrawal|deposit|entrada|saida|valor r\$|valor da operacao|valor operacao|importe|creditos r\$|debitos r\$|valor credito r\$|valor debito r\$)$/.test(cell);
+    /^(valor|amount|quantia|montante|total|debito|debit|credito|credit|entradas|saidas|deposito|retirada|valor debito|valor credito|vl debito|vl credito|valor da transacao|valor transacao|valor movimentacao|valor movimento|valor lancamento|valor da movimentacao|valor do lancamento|valor entrada|valor saida|debitos|creditos|withdrawal|withdrawals|deposit|deposits|entrada|saida|valor r\$|valor da operacao|valor operacao|importe|creditos r\$|debitos r\$|valor credito r\$|valor debito r\$|transaction amount|amount of transaction|movement amount|debits|credits)$/.test(cell);
   const isBalanceHeader = (cell: string) =>
-    /^(saldo|balance|saldo final|saldo inicial|running balance|saldo disponivel|saldo do dia|saldo atual|saldo anterior|available balance|closing balance|opening balance|saldo apos movimento|saldo apos lancamento|saldo contabil)$/.test(cell);
+    /^(saldo|balance|saldo final|saldo inicial|running balance|saldo disponivel|saldo do dia|saldo atual|saldo anterior|available balance|closing balance|opening balance|saldo apos movimento|saldo apos lancamento|saldo contabil|available balance|closing balance|opening balance|current balance)$/.test(cell);
 
   // Strategy 1: use a detected header to map the actual columns.
   for (let i = 0; i < Math.min(lines.length, 160); i++) {
@@ -422,7 +426,7 @@ export function parsePdfStatementText(text: string): { rows: CsvRow[]; ignored: 
   const signedAmountLine = /^\s*([+-])\s*(?:R\$\s*)?((?:\d{1,3}(?:\.\d{3})+|\d+),\d{2}|(?:\d{1,3}(?:,\d{3})+|\d+)\.\d{2})\s*(?:CR|DB|C|D)?\s*$/i;
   const amountAtEnd = /(?:R\$\s*)?([+-]?(?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d{2})?|[+-]?\d{1,3}(?:,\d{3})+\.\d{2})\s*(CR|C|DB|D)?\s*$/i;
   const noise = /^(?:extrato(?: bancario| de conta| da conta)?|saldo (?:inicial|final|anterior|disponivel|do dia)|total de (?:entradas|saidas|creditos|debitos)|periodo:|pagina \d|pag\.?\s*\d|ouvidoria|agencia|conta:|cnpj:|cpf:)/i;
-  const transactionHint = /\b(pix|ted|doc|transfer|transf|compra|pagamento|pagto|saque|deposito|tarifa|boleto|recebimento|credito|debito|estorno|salario|cartao|fatura|rendimentos|resgate|aplicacao|liquidacao)\b/i;
+  const transactionHint = /\b(pix|ted|doc|transfer|transf|compra|pagamento|pagto|saque|deposito|tarifa|boleto|recebimento|credito|debito|estorno|salario|cartao|fatura|rendimentos|resgate|aplicacao|liquidacao|received|payment|purchase|withdrawal|deposit|refund|credit|debit|salary|incoming|outgoing)\b/i;
   type Block = { date: string; parts: string[]; line: number };
   const blocks: Block[] = [];
   let current: Block | null = null;
