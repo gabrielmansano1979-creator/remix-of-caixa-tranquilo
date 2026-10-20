@@ -680,7 +680,7 @@ export function parseCoraStatementText(text: string): { rows: CsvRow[]; ignored:
       const beforeAmount = line.slice(0, money.index).trim();
       if (operation.test(beforeAmount)) {
         startOperation(beforeAmount, index);
-      } else if (beforeAmount && pending) {
+      } else if (beforeAmount && pendingState.current) {
         pendingState.current.lines.push(beforeAmount);
       }
       if (pendingState.current) flush({ sign: money[1], amount: money[2] }, index + 1);
