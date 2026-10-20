@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 export function CsvImportDialog({ open, onOpenChange, onLimit }: { open: boolean; onOpenChange: (o: boolean) => void; onLimit: (k: LimitKind, m: string) => void }) {
   const qc = useQueryClient();
   const { data: access } = useQuery(accessQuery);
+  const { data: businessName } = useQuery({ queryKey: ["profile-lite"], enabled: open, queryFn: async () => { const { data, error } = await supabase.from("profiles").select("business_name").maybeSingle(); if (error) throw error; return data?.business_name?.trim() || ""; } });
   const [rows, setRows] = useState<CsvRow[] | null>(null);
   const [fileErr, setFileErr] = useState<string | null>(null);
   const [fileWarning, setFileWarning] = useState<string | null>(null);
@@ -86,7 +87,8 @@ export function CsvImportDialog({ open, onOpenChange, onLimit }: { open: boolean
         const isCora = /Cora\s+SCFI|37\.880\.206\/0001-63/i.test(extracted.text);
         const parsed = isCora ? parseCoraStatementText(extracted.text) : parseStatementText(extracted.text);
         if (!parsed.rows.length) throw new Error("Não foram encontradas linhas de lançamentos reconhecíveis no PDF.");
-        setRows(parsed.rows);
+        const previewRows = isCora ? parsed.rows.map((row) => { const company = businessName || row.raw.titular_conta || "Sua empresa"; const counterparty = row.value?.type === "income" ? row.raw.remetente : row.raw.destinatario; return { ...row, raw: { ...row.raw, titular_extrato: row.raw.titular_conta || "", titular_conta: company, remetente: row.value?.type === "income" ? (counterparty || row.raw.remetente || "") : company, destinatario: row.value?.type === "income" ? company : (counterparty || row.raw.destinatario || "") } }; }) : parsed.rows;
+        setRows(previewRows);
         if (parsed.ignored) setFileWarning(`${parsed.ignored} linha(s) do documento não foram reconhecidas como lançamentos e serão ignoradas.`);
         if (extracted.ocrPages) setFileWarning((current) => `${current ? `${current} ` : ""}${extracted.ocrPages} página(s) precisaram de OCR. Confira cada valor com o PDF original.`);
         return;
