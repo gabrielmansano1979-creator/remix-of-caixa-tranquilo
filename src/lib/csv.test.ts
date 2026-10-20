@@ -195,9 +195,9 @@ describe("additional PDF layout regression cases", () => {
   it("parses an English bank PDF table with posting date, transaction details, withdrawals and deposits", () => {
     const parsed = parsePdfStatementText([
       "ACCOUNT STATEMENT",
-      "Posting Date    Transaction Details    Withdrawals    Deposits    Running Balance",
-      "2026-10-14    PIX received from ALPHA CUSTOMER        875.40    3210.00",
-      "2026-10-15    Payment to BETA SUPPLIER    129.90        3080.10",
+      "Posting Date\tTransaction Details\tWithdrawals\tDeposits\tRunning Balance",
+      "2026-10-14\tPIX received from ALPHA CUSTOMER\t\t875.40\t3210.00",
+      "2026-10-15\tPayment to BETA SUPPLIER\t129.90\t\t3080.10",
     ].join("\n"));
     expect(parsed.rows).toHaveLength(2);
     expect(parsed.rows[0].value).toMatchObject({
