@@ -324,7 +324,7 @@ export function parseBankTable(text: string): { rows: CsvRow[]; headerError?: st
     const directionText = (rawType + " " + description).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
     const type = debit !== null ? "expense"
       : credit !== null ? "income"
-      : signedNegative || /\b(debito|saida|despesa|pagamento|pagto|compra|withdrawal|withdrawals|expense|saque|retirada|tarifa|boleto pago|pix enviado|transferencia enviada|paid|purchase|outgoing|sent to|transfer out|debit card|bill payment)\b/.test(directionText) ? "expense"
+      : signedNegative || /\b(debito|saida|despesa|pagamento|pagto|compra|withdrawal|withdrawals|expense|saque|retirada|tarifa|boleto pago|pix enviado|transferencia enviada|paid|payment|purchase|outgoing|sent|transfer out|debit card|bill payment)\b/.test(directionText) ? "expense"
       : /\b(credito|entrada|receita|deposito|recebimento|income|pix recebido|transferencia recebida|estorno|salario|received|credited|incoming|refund|transfer in|credit transfer)\b/.test(directionText) ? "income"
       : null;
     const errors = type ? [] : ["A linha foi lida, mas o arquivo não informa se o valor é entrada ou saída; classifique manualmente."];
