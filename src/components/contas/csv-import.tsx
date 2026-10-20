@@ -246,11 +246,11 @@ async function extractPdfText(file: File): Promise<{ text: string; ocrPages: num
         let previousEnd: number | null = null;
         for (const item of line.items) {
           const gap = previousEnd === null ? 0 : item.x - previousEnd;
-          output += (output ? (gap >= 18 ? "\\t" : " ") : "") + item.text;
+          output += (output ? (gap >= 18 ? "\t" : " ") : "") + item.text;
           previousEnd = item.x + item.width;
         }
         return output;
-      }).join("\\n");
+      }).join("\n");
       const hasTransactionLikeLine = /(?:\d{2}[/. -]\d{2}[/. -]\d{4}|\d{4}-\d{2}-\d{2}).*(?:R\$\s*)?[+-]?\d[\d.,]*(?:\s*(?:CR|DB|C|D))?\s*$/im.test(text);
       if (text.replace(/\s/g, "").length < 30 || !hasTransactionLikeLine) {
         worker ??= await createWorker("por");
