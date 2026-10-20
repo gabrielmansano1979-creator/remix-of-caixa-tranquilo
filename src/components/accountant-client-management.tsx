@@ -17,11 +17,13 @@ type AccountantPortal = {
   }>;
   pending_requests: Array<{ id: string; client_name: string; requested_at: string }>;
   invited_companies: Array<{ client_name: string; accepted_at: string; access_granted: boolean }>;
-  audit_logs: Array<{ id: string; client_user_id: string; client_name: string; action: "insert" | "update" | "delete"; entity_type: string; entity_id: string; details: { before?: Record<string, string | null>; after?: Record<string, string | null> }; created_at: string }>;
+  audit_logs: Array<{ id: string; client_user_id: string; client_name: string; actor_user_id?: string | null; action: "insert" | "update" | "delete"; entity_type: string; entity_id: string | null; details: { registered_company?: string; before?: Record<string, string | null> | null; after?: Record<string, string | null> | null }; created_at: string }>;
 };
 
 const money = (cents: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100);
 const date = (value: string) => new Date(value).toLocaleDateString("pt-BR");
+const dateTime = (value: string) => new Date(value).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+const auditMoney = (value?: string | null) => value && Number.isFinite(Number(value)) ? money(Number(value)) : "—";
 
 export function AccountantClientManagement() {
 
@@ -138,10 +140,35 @@ export function AccountantClientManagement() {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle className="flex items-center gap-2"><History className="h-5 w-5" />Auditoria financeira</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="flex items-center gap-2"><History className="h-5 w-5" />Auditoria financeira privada</CardTitle></CardHeader>
         <CardContent>
-          <p className="mb-4 text-sm text-muted-foreground">Registro de inclusão, alteração e exclusão de lançamentos dos clientes que autorizaram seu acesso. Exibimos até os 500 eventos mais recentes disponíveis.</p>
-          {data.audit_logs.length ? <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left text-sm"><thead><tr className="border-b text-xs text-muted-foreground"><th className="px-3 py-3">Data</th><th className="px-3 py-3">Empresa</th><th className="px-3 py-3">Ação</th><th className="px-3 py-3">Descrição</th><th className="px-3 py-3">Valor</th></tr></thead><tbody>{data.audit_logs.map((item) => { const row = item.details.after ?? item.details.before ?? {}; const action = item.action === "insert" ? "Inclusão" : item.action === "update" ? "Alteração" : "Exclusão"; return <tr key={item.id} className="border-b last:border-0"><td className="px-3 py-3">{date(item.created_at)}</td><td className="px-3 py-3 font-medium">{item.client_name}</td><td className="px-3 py-3">{action}</td><td className="px-3 py-3">{row.description ?? "—"}</td><td className="px-3 py-3">{row.amount_cents ? money(Number(row.amount_cents)) : "—"}</td></tr>; })}</tbody></table></div> : <p className="text-sm text-muted-foreground">Nenhuma alteração financeira registrada para os clientes autorizados. Novos lançamentos e alterações serão registrados automaticamente.</p>}
+          <p className="mb-4 text-sm text-muted-foreground">Trilha de inclusão, alteração e exclusão dos lançamentos das empresas que autorizaram seu acesso. O nome da empresa cadastrada no Critical Cash é exibido separadamente da contraparte. Até 500 eventos recentes.</p>
+          {data.audit_logs.length ? <div className="overflow-x-auto"><table className="w-full min-w-[1500px] text-left text-sm"><thead><tr className="border-b text-xs text-muted-foreground">
+            <th className="px-3 py-3">Data e hora</th><th className="px-3 py-3">Empresa do SaaS</th><th className="px-3 py-3">ID do responsável</th><th className="px-3 py-3">Ação</th><th className="px-3 py-3">Tipo</th><th className="px-3 py-3">Descrição</th><th className="px-3 py-3">Pagador</th><th className="px-3 py-3">Beneficiário</th><th className="px-3 py-3">Valor anterior</th><th className="px-3 py-3">Valor posterior</th><th className="px-3 py-3">Situação anterior</th><th className="px-3 py-3">Situação posterior</th><th className="px-3 py-3">ID do lançamento</th>
+          </tr></thead><tbody>{data.audit_logs.map((item) => {
+            const before = item.details.before ?? null;
+            const after = item.details.after ?? null;
+            const current = after ?? before ?? {};
+            const type = current.type;
+            const action = item.action === "insert" ? "Inclusão" : item.action === "update" ? "Alteração" : "Exclusão";
+            const payer = type === "income" ? current.counterparty_name : null;
+            const beneficiary = type === "expense" ? current.counterparty_name : null;
+            return <tr key={item.id} className="border-b align-top last:border-0">
+              <td className="whitespace-nowrap px-3 py-3">{dateTime(item.created_at)}</td>
+              <td className="px-3 py-3"><div className="font-medium">{item.details.registered_company || item.client_name}</div><div className="text-xs text-muted-foreground">{type === "income" ? "Empresa que recebe" : type === "expense" ? "Empresa que paga" : "Empresa proprietária"}</div></td>
+              <td className="px-3 py-3 font-mono text-xs">{item.actor_user_id || "Não identificado"}</td>
+              <td className="px-3 py-3">{action}</td>
+              <td className="px-3 py-3">{type === "income" ? "Entrada" : type === "expense" ? "Saída" : "—"}</td>
+              <td className="max-w-56 whitespace-normal px-3 py-3">{current.description || "—"}</td>
+              <td className="px-3 py-3">{payer || "—"}</td>
+              <td className="px-3 py-3">{beneficiary || "—"}</td>
+              <td className="whitespace-nowrap px-3 py-3">{auditMoney(before?.amount_cents)}</td>
+              <td className="whitespace-nowrap px-3 py-3">{auditMoney(after?.amount_cents)}</td>
+              <td className="px-3 py-3">{before?.status === "paid" ? "Pago" : before?.status === "pending" ? "Pendente" : "—"}</td>
+              <td className="px-3 py-3">{after?.status === "paid" ? "Pago" : after?.status === "pending" ? "Pendente" : "—"}</td>
+              <td className="px-3 py-3 font-mono text-xs">{item.entity_id || "—"}</td>
+            </tr>;
+          })}</tbody></table></div> : <p className="text-sm text-muted-foreground">Nenhuma alteração financeira registrada para as empresas autorizadas. Novas inclusões, alterações e exclusões serão registradas automaticamente depois que a migração de auditoria estiver aplicada.</p>}
         </CardContent>
       </Card>
     </section>
