@@ -61,28 +61,30 @@ function CaixaPage() {
   const p = proj.data;
   if (!p) return null;
   const hasEntries = (entries.data?.length ?? 0) > 0;
-  const ledger = useMemo(() => {
+  const ledger = (() => {
     const all = entries.data ?? [];
     const balanceDate = profile.data?.balance_date ?? todaySP();
     const snapshot = profile.data?.initial_balance_cents ?? 0;
+    const effectiveDate = (e: (typeof all)[number]) => (e.paid_at ?? e.due_date).slice(0, 10);
     const net = (e: (typeof all)[number]) => (e.type === "income" ? 1 : -1) * e.amount_cents;
-    const before = all.filter((e) => e.due_date < periodStart);
-    const between = (e: (typeof all)[number], a: string, b: string) => e.due_date > a && e.due_date < b;
+    const paid = all.filter((e) => e.status === "paid");
     let opening = snapshot;
     if (balanceDate >= periodStart) {
-      opening -= all.filter((e) => e.due_date > periodStart && e.due_date <= balanceDate).reduce((sum, e) => sum + net(e), 0);
+      opening -= paid.filter((e) => effectiveDate(e) >= periodStart && effectiveDate(e) <= balanceDate).reduce((sum, e) => sum + net(e), 0);
     } else {
-      opening += all.filter((e) => e.due_date > balanceDate && e.due_date < periodStart).reduce((sum, e) => sum + net(e), 0);
+      opening += paid.filter((e) => effectiveDate(e) > balanceDate && effectiveDate(e) < periodStart).reduce((sum, e) => sum + net(e), 0);
     }
     const rows = all.filter((e) => e.due_date >= periodStart && e.due_date <= periodEnd)
       .slice().sort((a, b) => a.due_date.localeCompare(b.due_date) || a.created_at.localeCompare(b.created_at));
-    let balance = opening;
+    let actual = opening;
+    let projected = opening;
     const detailed = rows.map((e) => {
-      balance += net(e);
-      return { ...e, running_balance: balance };
+      if (e.status === "paid") actual += net(e);
+      projected += net(e);
+      return { ...e, actual_balance: actual, projected_balance: projected };
     });
-    return { opening, closing: balance, rows: detailed, priorCount: before.length };
-  }, [entries.data, profile.data?.balance_date, profile.data?.initial_balance_cents, periodStart, periodEnd]);
+    return { opening, closing: actual, projectedClosing: projected, rows: detailed };
+  })();
 
   return (
     <div className="space-y-8">
@@ -118,20 +120,20 @@ function CaixaPage() {
           </div>
           <Chart p={p} />
           <section className="premium-surface space-y-4 rounded-2xl p-6 md:p-7">
-            <div><p className="text-[11px] font-bold uppercase tracking-[0.18em] text-primary">Extrato de caixa</p><h2 className="mt-1 text-lg font-semibold">Saldo antes e depois de cada movimentação</h2><p className="mt-1 text-sm text-muted-foreground">O saldo de abertura considera o saldo informado no perfil e os lançamentos cadastrados anteriores ao período. Contas pendentes aparecem como saldo previsto.</p></div>
+            <div><p className="text-[11px] font-bold uppercase tracking-[0.18em] text-primary">Extrato de caixa</p><h2 className="mt-1 text-lg font-semibold">Saldo antes e depois de cada movimentação</h2><p className="mt-1 text-sm text-muted-foreground">O saldo efetivo muda apenas com movimentações marcadas como pagas. Contas pendentes são mostradas separadamente no saldo previsto.</p></div>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="space-y-1 text-sm"><span className="font-medium">Data inicial</span><Input type="date" value={periodStart} max={periodEnd} onChange={(e) => setPeriodStart(e.target.value)} className="h-11 rounded-xl" /></label>
               <label className="space-y-1 text-sm"><span className="font-medium">Data final</span><Input type="date" value={periodEnd} min={periodStart} onChange={(e) => setPeriodEnd(e.target.value)} className="h-11 rounded-xl" /></label>
             </div>
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <div className="rounded-xl border p-4"><p className="text-xs text-muted-foreground">Saldo antes do período</p><p className="num mt-1 text-lg font-semibold">{formatBRL(ledger.opening)}</p></div>
               <div className="rounded-xl border p-4"><p className="text-xs text-muted-foreground">Movimentações no período</p><p className="mt-1 text-lg font-semibold">{ledger.rows.length}</p></div>
-              <div className="rounded-xl border p-4"><p className="text-xs text-muted-foreground">Saldo após a última movimentação</p><p className="num mt-1 text-lg font-semibold">{formatBRL(ledger.closing)}</p></div>
+              <div className="rounded-xl border p-4"><p className="text-xs text-muted-foreground">Saldo efetivo após todas as movimentações pagas</p><p className="num mt-1 text-lg font-semibold">{formatBRL(ledger.closing)}</p></div><div className="rounded-xl border p-4"><p className="text-xs text-muted-foreground">Saldo previsto ao final do período</p><p className="num mt-1 text-lg font-semibold">{formatBRL(ledger.projectedClosing)}</p></div>
             </div>
-            <div className="overflow-x-auto"><table className="w-full min-w-[900px] text-left text-sm"><thead><tr className="border-b text-xs text-muted-foreground"><th className="px-3 py-3">Data</th><th className="px-3 py-3">Movimentação</th><th className="px-3 py-3">Contraparte</th><th className="px-3 py-3">Situação</th><th className="px-3 py-3 text-right">Entrada</th><th className="px-3 py-3 text-right">Saída</th><th className="px-3 py-3 text-right">Saldo após movimentação</th></tr></thead><tbody>
-              <tr className="border-b bg-muted/30 font-medium"><td className="px-3 py-3" colSpan={6}>Saldo de abertura · antes da primeira movimentação</td><td className="num px-3 py-3 text-right">{formatBRL(ledger.opening)}</td></tr>
-              {ledger.rows.map((e) => <tr key={e.id} className="border-b last:border-0"><td className="whitespace-nowrap px-3 py-3">{formatDate(e.due_date)}</td><td className="px-3 py-3"><div className="font-medium">{e.description}</div><div className="text-xs text-muted-foreground">{e.type === "income" ? "Entrada" : "Saída"}</div></td><td className="px-3 py-3">{e.counterparty_name || "—"}</td><td className="px-3 py-3">{e.status === "paid" ? "Pago" : "Pendente · previsto"}</td><td className="num px-3 py-3 text-right">{e.type === "income" ? formatBRL(e.amount_cents) : "—"}</td><td className="num px-3 py-3 text-right">{e.type === "expense" ? formatBRL(e.amount_cents) : "—"}</td><td className="num px-3 py-3 text-right font-semibold">{formatBRL(e.running_balance)}</td></tr>)}
-              {!ledger.rows.length && <tr><td className="px-3 py-6 text-center text-muted-foreground" colSpan={7}>Nenhuma movimentação neste período.</td></tr>}
+            <div className="overflow-x-auto"><table className="w-full min-w-[900px] text-left text-sm"><thead><tr className="border-b text-xs text-muted-foreground"><th className="px-3 py-3">Data</th><th className="px-3 py-3">Movimentação</th><th className="px-3 py-3">Contraparte</th><th className="px-3 py-3">Situação</th><th className="px-3 py-3 text-right">Entrada</th><th className="px-3 py-3 text-right">Saída</th><th className="px-3 py-3 text-right">Saldo efetivo após movimentação</th><th className="px-3 py-3 text-right">Saldo previsto</th></tr></thead><tbody>
+              <tr className="border-b bg-muted/30 font-medium"><td className="px-3 py-3" colSpan={6}>Saldo de abertura · antes da primeira movimentação</td><td className="num px-3 py-3 text-right">{formatBRL(ledger.opening)}</td><td className="num px-3 py-3 text-right">{formatBRL(ledger.opening)}</td></tr>
+              {ledger.rows.map((e) => <tr key={e.id} className="border-b last:border-0"><td className="whitespace-nowrap px-3 py-3">{formatDate(e.due_date)}</td><td className="px-3 py-3"><div className="font-medium">{e.description}</div><div className="text-xs text-muted-foreground">{e.type === "income" ? "Entrada" : "Saída"}</div></td><td className="px-3 py-3">{e.counterparty_name || "—"}</td><td className="px-3 py-3">{e.status === "paid" ? "Pago" : "Pendente · previsto"}</td><td className="num px-3 py-3 text-right">{e.type === "income" ? formatBRL(e.amount_cents) : "—"}</td><td className="num px-3 py-3 text-right">{e.type === "expense" ? formatBRL(e.amount_cents) : "—"}</td><td className="num px-3 py-3 text-right font-semibold">{formatBRL(e.actual_balance)}</td><td className="num px-3 py-3 text-right">{formatBRL(e.projected_balance)}</td></tr>)}
+              {!ledger.rows.length && <tr><td className="px-3 py-6 text-center text-muted-foreground" colSpan={8}>Nenhuma movimentação neste período.</td></tr>}
               <tr className="bg-muted/30 font-semibold"><td className="px-3 py-3" colSpan={6}>Saldo final do período</td><td className="num px-3 py-3 text-right">{formatBRL(ledger.closing)}</td></tr>
             </tbody></table></div>
           </section>
