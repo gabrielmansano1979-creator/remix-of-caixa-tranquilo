@@ -159,6 +159,49 @@ describe("parsePdfStatementText", () => {
 });
 
 
+describe("additional PDF layout regression cases", () => {
+  it("parses aligned PDF columns separated by multiple spaces instead of tabs", () => {
+    const pdfText = [
+      "EXTRATO BANCÁRIO",
+      "Data do lançamento    Histórico da transação    Valor da transação    Saldo disponível",
+      "14/10/2026    PIX recebido de CLIENTE ALFA    875,40    3.210,00",
+      "15/10/2026    Pagamento para FORNECEDOR BETA    -129,90    3.080,10",
+    ].join("\n");
+    const parsed = parsePdfStatementText(pdfText);
+    expect(parsed.rows).toHaveLength(2);
+    expect(parsed.rows[0].value).toMatchObject({
+      type: "income", amount_cents: 87540, due_date: "2026-10-14", counterparty_name: "CLIENTE ALFA",
+    });
+    expect(parsed.rows[1].value).toMatchObject({
+      type: "expense", amount_cents: 12990, due_date: "2026-10-15", counterparty_name: "FORNECEDOR BETA",
+    });
+  });
+
+  it("never treats a balance-only column as the transaction amount", () => {
+    const pdfText = [
+      "Extrato de movimentações",
+      "Data    Histórico    Saldo disponível",
+      "16/10/2026    Saldo anterior    2.500,00",
+    ].join("\n");
+    const parsed = parsePdfStatementText(pdfText);
+    expect(parsed.rows).toHaveLength(0);
+    expect(parsed.headerError).toContain("saldo");
+  });
+
+  it("keeps ambiguous PDF transaction direction out of valid imports", () => {
+    const pdfText = [
+      "Extrato",
+      "Data\tDescrição\tValor",
+      "17/10/2026\tMovimentação CLIENTE GAMA\t75,00",
+    ].join("\n");
+    const parsed = parsePdfStatementText(pdfText);
+    expect(parsed.rows).toHaveLength(1);
+    expect(parsed.rows[0].value).toBeUndefined();
+    expect(parsed.rows[0].errors.join(" ")).toContain("classifique manualmente");
+  });
+});
+
+
 describe("parseCoraStatementText", () => {
   const header = [
     "Cora SCFI - CNPJ 37.880.206/0001-63",
