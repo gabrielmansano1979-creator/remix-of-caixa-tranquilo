@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -6,7 +7,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { addDays, parseDbError, todaySP, type Entry, type LimitKind } from "@/lib/app-data";
+import { addDays, parseDbError, profileQuery, todaySP, type Entry, type LimitKind } from "@/lib/app-data";
 import { MoneyInput } from "@/components/money-input";
 import { FieldError } from "@/components/auth-shell";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -24,6 +25,8 @@ const schema = z
     counterparty_name: z.string().trim().max(120),
     counterparty_whatsapp: z.string().trim().max(25).refine((v) => !v || toE164(v), "WhatsApp inválido. Use DDD + número."),
     pix_url: z.string().trim().max(2000).url("Informe um link válido.").refine(v => v.startsWith("https://"), "Use um link https.").or(z.literal("")),
+  }).superRefine((value, ctx) => {
+    if (!value.counterparty_name.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["counterparty_name"], message: value.type === "income" ? "Informe quem pagou à empresa." : "Informe quem recebeu o pagamento." });
   });
 type FormV = z.infer<typeof schema>;
 
@@ -33,6 +36,7 @@ export function EntryFormDialog({ open, onOpenChange, entry, onLimit }: {
   open: boolean; onOpenChange: (o: boolean) => void; entry?: Entry | null; onLimit: (k: LimitKind, msg: string) => void;
 }) {
   const qc = useQueryClient();
+  const { data: profile } = useQuery(profileQuery);
   const addAnother = useRef(false);
   const blank = (): FormV => ({
     type: (typeof window !== "undefined" && (localStorage.getItem(LAST_TYPE) as "income" | "expense")) || "income",
@@ -117,8 +121,10 @@ export function EntryFormDialog({ open, onOpenChange, entry, onLimit }: {
             <FieldError msg={formState.errors.due_date?.message} />
           </div>
           <div>
-            <Label htmlFor="cp_name">{type === "income" ? "Nome do cliente" : "Nome do fornecedor"}</Label>
-            <Input id="cp_name" className="mt-1.5 h-11 rounded-xl" {...register("counterparty_name")} />
+            <Label htmlFor="cp_name">{type === "income" ? "Quem pagou à empresa?" : "Quem recebeu o pagamento?"} *</Label>
+            <Input id="cp_name" required maxLength={120} placeholder={type === "income" ? "Nome da pessoa ou empresa pagadora" : "Nome da pessoa ou empresa beneficiária"} className="mt-1.5 h-11 rounded-xl" {...register("counterparty_name")} />
+            <FieldError msg={formState.errors.counterparty_name?.message} />
+            <p className="mt-1 text-xs text-muted-foreground">{type === "income" ? "Empresa que recebe: " : "Empresa que paga: "}<span className="font-medium text-foreground">{profile?.business_name?.trim() || "Cadastre o nome da sua empresa no perfil"}</span></p>
           </div>
           <div>
             <Label htmlFor="cp_wa">WhatsApp {type === "income" ? "do cliente" : "(opcional)"}</Label>
