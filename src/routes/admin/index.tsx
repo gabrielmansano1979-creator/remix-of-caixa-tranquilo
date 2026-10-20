@@ -621,8 +621,6 @@ function AdminPage() {
               <Metric icon={<Users className="h-4 w-4" />} label="Pedidos de acesso contábil pendentes" value={String(count("accountant_requests_pending"))} />
               <Metric icon={<CreditCard className="h-4 w-4" />} label="Assinaturas canceladas" value={String(count("subscribers_canceled"))} />
               <Metric icon={<CreditCard className="h-4 w-4" />} label="Assinaturas expiradas" value={String(count("subscribers_expired"))} />
-              <Metric icon={<AlertTriangle className="h-4 w-4" />} label="Assinaturas incompletas" value={String(count("subscribers_incomplete"))} />
-              <Metric icon={<CreditCard className="h-4 w-4" />} label="Assinaturas não pagas" value={String(count("subscribers_unpaid"))} />
               <Metric icon={<Clock3 className="h-4 w-4" />} label="Pix aguardando confirmação" value={String(count("subscribers_pending_pix"))} />
             </div>
 
