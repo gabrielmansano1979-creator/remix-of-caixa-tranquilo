@@ -238,26 +238,31 @@ export function parseOfxText(text: string): { rows: CsvRow[]; ignored: number } 
     }
 
     const type = amountNumber < 0 ? "expense" : "income";
-    rows.push({
+    const counterparty = extractCounterparty(description, type);
+    const errors = counterparty ? [] : [type === "income"
+      ? "Pagador não identificado no OFX; informe quem pagou à empresa antes de importar."
+      : "Beneficiário não identificado no OFX; informe quem recebeu o pagamento antes de importar."];
+    const row: CsvRow = {
       line: index + 1,
       raw: {
         descricao: description,
         valor: String(Math.abs(amountNumber)),
         vencimento: date,
         tipo: type === "income" ? "entrada" : "saida",
-        nome: tag(block, "NAME").slice(0, 120),
+        nome: counterparty,
       },
-      errors: [],
-      value: {
-        type,
-        description,
-        amount_cents: amountCents,
-        due_date: date,
-        counterparty_name: tag(block, "NAME").slice(0, 120),
-        counterparty_email: "",
-        counterparty_whatsapp: "",
-      },
-    });
+      errors,
+    };
+    if (counterparty) row.value = {
+      type,
+      description,
+      amount_cents: amountCents,
+      due_date: date,
+      counterparty_name: counterparty,
+      counterparty_email: "",
+      counterparty_whatsapp: "",
+    };
+    rows.push(row);
   }
   return { rows, ignored };
 }
@@ -322,6 +327,7 @@ export function parseBankTable(text: string): { rows: CsvRow[]; headerError?: st
         ? (recipient || (counterpartyIndex >= 0 ? cells[counterpartyIndex] ?? "" : ""))
         : (counterpartyIndex >= 0 ? cells[counterpartyIndex] ?? "" : "");
     const counterparty = explicitCounterparty.trim().slice(0, 120);
+    if (type && !counterparty) errors.push(type === "income" ? "Informe quem pagou à empresa antes de importar." : "Informe quem recebeu o pagamento antes de importar.");
     const row: CsvRow = {
       line: index + 2,
       raw: {
@@ -335,7 +341,7 @@ export function parseBankTable(text: string): { rows: CsvRow[]; headerError?: st
       },
       errors,
     };
-    if (type) row.value = {
+    if (type && counterparty && !errors.length) row.value = {
       type, description, amount_cents: chosenAmount, due_date: date,
       counterparty_name: counterparty, counterparty_email: "", counterparty_whatsapp: "",
     };
