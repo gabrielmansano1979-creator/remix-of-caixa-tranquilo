@@ -2,7 +2,7 @@ import { toE164 } from "@/lib/phone";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 
-export type ReportFormat = "pdf" | "excel" | "csv";
+export type ReportFormat = "pdf";
 export type ReportColumn = { key: string; label: string };
 export type ReportRow = Record<string, string | number | null>;
 
@@ -21,65 +21,59 @@ export async function exportReport({
   rows: ReportRow[];
   summary?: Array<[string, string | number]>;
 }) {
-  if (format === "csv") {
-    const values = [
-      [title],
-      ...summary,
-      [],
-      columns.map((column) => column.label),
-      ...rows.map((row) => columns.map((column) => row[column.key] ?? "")),
-    ];
-    const csv =
-      "\uFEFF" +
-      values
-        .map((line) => line.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(";"))
-        .join("\r\n");
-    download(new Blob([csv], { type: "text/csv;charset=utf-8" }), `${fileName}.csv`);
-    return;
-  }
+  const pdf = new jsPDF({ orientation: columns.length > 3 ? "landscape" : "portrait", unit: "mm", format: "a4" });
+  const margin = 12;
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const normalizedTitle = String(title || "Relatório Critical Cash").replace(/[\\r\\n]+/g, " ").trim();
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(14);
+  const titleLines = pdf.splitTextToSize(normalizedTitle, pageWidth - margin * 2);
+  pdf.text(titleLines, margin, 14);
 
-  if (format === "excel") {
-    const ExcelJS = (await import("exceljs")).default;
-    const workbook = new ExcelJS.Workbook();
-    const summarySheet = workbook.addWorksheet("Resumo");
-    summarySheet.addRows([[title], ...summary]);
-    const detailSheet = workbook.addWorksheet("Detalhamento");
-    detailSheet.addRow(columns.map((column) => column.label));
-    rows.forEach((row) => detailSheet.addRow(columns.map((column) => row[column.key] ?? "")));
-    const buffer = await workbook.xlsx.writeBuffer();
-    download(
-      new Blob([new Uint8Array(buffer)], {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      }),
-      `${fileName}.xlsx`,
-    );
-    return;
-  }
-
-  const pdf = new jsPDF({ orientation: "landscape" });
-  pdf.setFontSize(16);
-  pdf.text(title, 14, 18);
+  let summaryY = 18 + titleLines.length * 5;
   if (summary.length) {
-    pdf.setFontSize(10);
-    summary.forEach(([label, value], index) => pdf.text(`${label}: ${value}`, 14, 27 + index * 6));
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(8.5);
+    for (const [label, value] of summary) {
+      const wrapped = pdf.splitTextToSize(`${String(label)}: ${String(value ?? "—")}`, pageWidth - margin * 2);
+      if (summaryY + wrapped.length * 4.1 > pageHeight - 18) break;
+      pdf.text(wrapped, margin, summaryY);
+      summaryY += wrapped.length * 4.1 + 1;
+    }
   }
+
+  const firstTableY = Math.min(Math.max(summaryY + 3, 30 + titleLines.length * 4), pageHeight - 28);
   autoTable(pdf, {
-    startY: 31 + summary.length * 6,
-    head: [columns.map((column) => column.label)],
+    startY: firstTableY,
+    margin: { top: 16, right: margin, bottom: 13, left: margin },
+    head: [columns.map((column) => String(column.label ?? ""))],
     body: rows.map((row) => columns.map((column) => String(row[column.key] ?? "—"))),
-    styles: { fontSize: 8, cellPadding: 2.5 },
-    headStyles: { fillColor: [24, 38, 58] },
+    styles: {
+      font: "helvetica",
+      fontSize: columns.length > 6 ? 6.5 : columns.length > 4 ? 7 : 8,
+      cellPadding: 2.2,
+      overflow: "linebreak",
+      valign: "top",
+      lineColor: [220, 225, 231],
+      lineWidth: 0.1,
+    },
+    headStyles: { fillColor: [24, 38, 58], textColor: [255, 255, 255], fontStyle: "bold", valign: "middle" },
+    alternateRowStyles: { fillColor: [246, 248, 250] },
+    columnStyles: Object.fromEntries(columns.map((column, index) => [index, { cellWidth: "auto", overflow: "linebreak" }])),
+    horizontalPageBreak: columns.length > 5,
+    horizontalPageBreakRepeat: [0],
+    rowPageBreak: "auto",
+    showHead: "everyPage",
+    didDrawPage: (data) => {
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(8);
+      pdf.setTextColor(90, 98, 110);
+      pdf.text("Critical Cash · Exportação em PDF", margin, pageHeight - 6);
+      pdf.text(`Página ${data.pageNumber}`, pageWidth - margin, pageHeight - 6, { align: "right" });
+    },
   });
   pdf.save(`${fileName}.pdf`);
-}
-
-function download(blob: Blob, fileName: string) {
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = fileName;
-  anchor.click();
-  setTimeout(() => URL.revokeObjectURL(url), 500);
 }
 
 export type ReportPeriod = "mensal" | "anual";

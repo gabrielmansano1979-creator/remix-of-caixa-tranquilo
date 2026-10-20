@@ -13,7 +13,6 @@ import {
   exportReport,
   formatPixKeyType,
   getPartnerAffiliateLinks,
-  type ReportFormat,
 } from "@/lib/reporting";
 import { AccountantClientManagement } from "@/components/accountant-client-management";
 
@@ -459,12 +458,12 @@ function AccountantPage() {
     data: new Date(item.created_at).toLocaleDateString("pt-BR"),
     pago_em: item.paid_at ? new Date(item.paid_at).toLocaleDateString("pt-BR") : "—",
   }));
-  const exportClients = async (format: ReportFormat) => {
+  const exportClients = async () => {
     try {
       await exportReport({
         title: "Relatório de clientes que autorizaram compartilhamento",
         fileName: "clientes-compartilhados",
-        format,
+        format: "pdf",
         columns: [
           { key: "cliente", label: "Cliente" },
           { key: "descricao", label: "Descrição" },
@@ -495,12 +494,12 @@ function AccountantPage() {
       toast.error(error instanceof Error ? error.message : "Não foi possível gerar o relatório.");
     }
   };
-  const exportCommissions = async (format: ReportFormat) => {
+  const exportCommissions = async () => {
     try {
       await exportReport({
         title: "Extrato de comissões",
         fileName: "extrato-comissoes",
-        format,
+        format: "pdf",
         columns: [
           { key: "cliente", label: "Cliente" },
           { key: "base_calculo", label: "Valor pago após desconto" },
@@ -747,15 +746,13 @@ function LinkCard({ title, value, onCopy }: { title: string; value: string; onCo
   );
 }
 
-function ExportButtons({ onExport }: { onExport: (format: ReportFormat) => Promise<void> }) {
+function ExportButtons({ onExport }: { onExport: () => Promise<void> }) {
   return (
     <div className="flex gap-1">
-      {(["pdf", "excel", "csv"] as const).map((format) => (
-        <Button key={format} variant="outline" size="sm" onClick={() => void onExport(format)}>
-          <Download className="mr-1 h-3.5 w-3.5" />
-          {format.toUpperCase()}
-        </Button>
-      ))}
+      <Button variant="outline" size="sm" onClick={() => void onExport()}>
+        <Download className="mr-1 h-3.5 w-3.5" />
+        PDF
+      </Button>
     </div>
   );
 }

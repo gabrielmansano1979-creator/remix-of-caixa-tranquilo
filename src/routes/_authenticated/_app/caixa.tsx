@@ -4,15 +4,17 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { CartesianGrid, Line, LineChart, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import {
-  AlertOctagon, AlertTriangle, CalendarDays, CheckCircle2, Circle, Inbox, MessageCircle, Pencil, RotateCcw, ShieldAlert, ShieldCheck, ShieldQuestion, TrendingDown, TrendingUp, Wallet,
+  AlertOctagon, AlertTriangle, CalendarDays, CheckCircle2, Circle, Download, FileText, Inbox, MessageCircle, Pencil, RotateCcw, ShieldAlert, ShieldCheck, ShieldQuestion, TrendingDown, TrendingUp, Wallet,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { accessQuery, entriesQuery, parseDbError, profileQuery, todaySP } from "@/lib/app-data";
 import { formatBRL, formatDate } from "@/lib/format";
 import { createWhatsAppUrl } from "@/lib/whatsapp-message";
+import { downloadFinancialDocument } from "@/lib/financial-documents";
 import { useMarkPaid } from "@/components/contas/shared";
 import { MoneyInput } from "@/components/money-input";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export const Route = createFileRoute("/_authenticated/_app/caixa")({
@@ -40,6 +42,9 @@ function CaixaPage() {
   const proj = useQuery(projectionQuery);
   const entries = useQuery(entriesQuery);
   const access = useQuery(accessQuery);
+  const profile = useQuery(profileQuery);
+  const [periodStart, setPeriodStart] = useState(() => `${todaySP().slice(0, 7)}-01`);
+  const [periodEnd, setPeriodEnd] = useState(() => todaySP());
 
   if (proj.isLoading || entries.isLoading) {
     return <div className="space-y-4"><Skeleton className="h-32 rounded-2xl" /><div className="grid gap-4 sm:grid-cols-2"><Skeleton className="h-32 rounded-2xl" /><Skeleton className="h-32 rounded-2xl" /></div><Skeleton className="h-64 rounded-2xl" /></div>;
@@ -57,6 +62,104 @@ function CaixaPage() {
   const p = proj.data;
   if (!p) return null;
   const hasEntries = (entries.data?.length ?? 0) > 0;
+  const ledger = (() => {
+    const all = entries.data ?? [];
+    const balanceDate = profile.data?.balance_date ?? todaySP();
+    const snapshot = profile.data?.initial_balance_cents ?? 0;
+    const effectiveDate = (e: (typeof all)[number]) => (e.paid_at ?? e.due_date).slice(0, 10);
+    const effectiveTime = (e: (typeof all)[number]) => e.paid_at ? new Date(e.paid_at).getTime() : new Date(`${e.due_date}T12:00:00-03:00`).getTime();
+    const net = (e: (typeof all)[number]) => (e.type === "income" ? 1 : -1) * e.amount_cents;
+    const paid = all.filter((e) => e.status === "paid");
+    const periodStartTime = new Date(`${periodStart}T00:00:00-03:00`).getTime();
+    const snapshotTime = profile.data?.balance_updated_at ? new Date(profile.data.balance_updated_at).getTime() : new Date(`${balanceDate}T23:59:59-03:00`).getTime();
+    let opening = snapshot;
+    if (snapshotTime >= periodStartTime) {
+      opening -= paid.filter((e) => effectiveTime(e) >= periodStartTime && effectiveTime(e) <= snapshotTime).reduce((sum, e) => sum + net(e), 0);
+    } else {
+      opening += paid.filter((e) => effectiveTime(e) > snapshotTime && effectiveTime(e) < periodStartTime).reduce((sum, e) => sum + net(e), 0);
+    }
+    const rows = all.filter((e) => effectiveDate(e) >= periodStart && effectiveDate(e) <= periodEnd)
+      .slice().sort((a, b) => effectiveTime(a) - effectiveTime(b) || a.created_at.localeCompare(b.created_at));
+    let actual = opening;
+    let projected = opening;
+    const detailed = rows.map((e) => {
+      if (e.status === "paid") actual += net(e);
+      projected += net(e);
+      return { ...e, actual_balance: actual, projected_balance: projected };
+    });
+    return { opening, closing: actual, projectedClosing: projected, rows: detailed };
+  })();
+
+  const downloadClientDocument = async (kind: "cash-flow" | "payables-receivables" | "expenses-goals") => {
+    const companyName = String(profile.data?.business_name || profile.data?.full_name || "Minha empresa");
+    const periodLabel = `${formatDate(periodStart)} a ${formatDate(periodEnd)}`;
+    const baseRows = ledger.rows.map((entry) => ({
+      date: formatDate(entry.status === "paid" ? (entry.paid_at ?? entry.due_date).slice(0, 10) : entry.due_date),
+      description: entry.description,
+      counterparty: entry.counterparty_name || "Contraparte não informada no histórico",
+      status: entry.status === "paid" ? "Pago" : "Pendente",
+      income: entry.type === "income" ? formatBRL(entry.amount_cents) : "—",
+      expense: entry.type === "expense" ? formatBRL(entry.amount_cents) : "—",
+      effective_balance: formatBRL(entry.actual_balance),
+      projected_balance: formatBRL(entry.projected_balance),
+      amount: formatBRL(entry.amount_cents),
+      type: entry.type === "income" ? "Entrada / a receber" : "Saída / a pagar",
+    }));
+    const expenses = ledger.rows.filter((entry) => entry.type === "expense");
+    const expenseTotals = new Map<string, number>();
+    expenses.forEach((entry) => expenseTotals.set(entry.description, (expenseTotals.get(entry.description) ?? 0) + entry.amount_cents));
+    const largestExpense = [...expenseTotals.entries()].sort((a, b) => b[1] - a[1])[0];
+    const commonSummary: Array<[string, string | number]> = [
+      ["Saldo inicial do período", formatBRL(ledger.opening)],
+      ["Saldo efetivo final", formatBRL(ledger.closing)],
+      ["Saldo projetado final", formatBRL(ledger.projectedClosing)],
+    ];
+    try {
+      if (kind === "cash-flow") {
+        await downloadFinancialDocument({
+          companyName, title: "01 — Relatório de Fluxo de Caixa", slug: "01-fluxo-de-caixa", periodStart, periodEnd,
+          columns: [
+            { key: "date", label: "Data" }, { key: "description", label: "Movimentação" },
+            { key: "counterparty", label: "Pagador / beneficiário" }, { key: "status", label: "Situação" },
+            { key: "income", label: "Entrada" }, { key: "expense", label: "Saída" },
+            { key: "effective_balance", label: "Saldo efetivo após movimentação" }, { key: "projected_balance", label: "Saldo previsto" },
+          ],
+          rows: baseRows, summary: commonSummary,
+        });
+      } else if (kind === "payables-receivables") {
+        await downloadFinancialDocument({
+          companyName, title: "02 — Relatório de Contas a Pagar e a Receber", slug: "02-contas-a-pagar-e-receber", periodStart, periodEnd,
+          columns: [
+            { key: "date", label: "Vencimento / data" }, { key: "type", label: "Tipo" },
+            { key: "description", label: "Descrição" }, { key: "counterparty", label: "Contraparte" },
+            { key: "status", label: "Situação" }, { key: "amount", label: "Valor" },
+          ],
+          rows: baseRows, summary: [
+            ["Contas pendentes", String(ledger.rows.filter((entry) => entry.status !== "paid").length)],
+            ["Saldo efetivo final", formatBRL(ledger.closing)], ["Saldo projetado final", formatBRL(ledger.projectedClosing)],
+          ],
+        });
+      } else {
+        await downloadFinancialDocument({
+          companyName, title: "03 — Relatório de Despesas e Metas", slug: "03-despesas-e-metas", periodStart, periodEnd,
+          columns: [
+            { key: "date", label: "Vencimento / data" }, { key: "description", label: "Descrição da despesa" },
+            { key: "counterparty", label: "Beneficiário" }, { key: "status", label: "Situação" }, { key: "amount", label: "Valor" },
+          ],
+          rows: baseRows.filter((row) => row.type === "Saída / a pagar"),
+          summary: [
+            ["Total de despesas registradas", formatBRL(expenses.reduce((sum, entry) => sum + entry.amount_cents, 0))],
+            ["Maior destino identificado pela descrição", largestExpense ? `${largestExpense[0]} — ${formatBRL(largestExpense[1])}` : "Nenhuma despesa no período"],
+            ["Meta de faturamento", "Consulte a meta cadastrada na área de metas; este relatório não inventa um valor ausente."],
+            ...commonSummary,
+          ],
+        });
+      }
+      toast.success(`Documento gerado: ${kind === "cash-flow" ? "Fluxo de Caixa" : kind === "payables-receivables" ? "Contas a Pagar e a Receber" : "Despesas e Metas"} — ${periodLabel}`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível gerar o PDF.");
+    }
+  };
 
   return (
     <div className="space-y-8">
@@ -71,6 +174,14 @@ function CaixaPage() {
         </span>
       </div>
       <Activation hasEntries={hasEntries} />
+      <section className="premium-surface space-y-4 rounded-2xl p-6 md:p-7">
+        <div><p className="text-[11px] font-bold uppercase tracking-[0.18em] text-primary">Documentos para download</p><h2 className="mt-1 text-lg font-semibold">Meus relatórios em PDF</h2><p className="mt-1 text-sm text-muted-foreground">Documentos exclusivos da sua empresa. Relatórios internos da área do contador não aparecem aqui.</p></div>
+        <div className="grid gap-3 md:grid-cols-3">
+          <div className="rounded-xl border p-4"><FileText className="h-5 w-5 text-primary" /><h3 className="mt-2 font-semibold">01 — Relatório de Fluxo de Caixa</h3><p className="mt-1 text-sm text-muted-foreground">Saldo inicial, movimentações e saldos efetivo e projetado.</p><Button className="mt-3 w-full" variant="outline" onClick={() => void downloadClientDocument("cash-flow")}><Download className="mr-2 h-4 w-4" />Baixar PDF</Button></div>
+          <div className="rounded-xl border p-4"><FileText className="h-5 w-5 text-primary" /><h3 className="mt-2 font-semibold">02 — Contas a Pagar e a Receber</h3><p className="mt-1 text-sm text-muted-foreground">Vencimentos, contrapartes, valores e pendências.</p><Button className="mt-3 w-full" variant="outline" onClick={() => void downloadClientDocument("payables-receivables")}><Download className="mr-2 h-4 w-4" />Baixar PDF</Button></div>
+          <div className="rounded-xl border p-4"><FileText className="h-5 w-5 text-primary" /><h3 className="mt-2 font-semibold">03 — Despesas e Metas</h3><p className="mt-1 text-sm text-muted-foreground">Despesas, principais destinos identificados e referência à meta de faturamento.</p><Button className="mt-3 w-full" variant="outline" onClick={() => void downloadClientDocument("expenses-goals")}><Download className="mr-2 h-4 w-4" />Baixar PDF</Button></div>
+        </div>
+      </section>
       {!hasEntries ? (
         <div className="flex flex-col items-center rounded-2xl border bg-card p-10 text-center shadow-[var(--shadow-soft)]">
           <span className="grid h-16 w-16 place-items-center rounded-full bg-accent text-accent-foreground"><Inbox className="h-8 w-8" /></span>
@@ -91,6 +202,24 @@ function CaixaPage() {
             <ProjCard label="Saldo projetado em 30 dias" value={p.series[30]?.balance ?? p.current} current={p.current} />
           </div>
           <Chart p={p} />
+          <section className="premium-surface space-y-4 rounded-2xl p-6 md:p-7">
+            <div><p className="text-[11px] font-bold uppercase tracking-[0.18em] text-primary">Extrato de caixa</p><h2 className="mt-1 text-lg font-semibold">Saldo antes e depois de cada movimentação</h2><p className="mt-1 text-sm text-muted-foreground">O saldo efetivo muda apenas com movimentações marcadas como pagas. Contas pendentes são mostradas separadamente no saldo previsto.</p></div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="space-y-1 text-sm"><span className="font-medium">Data inicial</span><Input type="date" value={periodStart} max={periodEnd} onChange={(e) => setPeriodStart(e.target.value)} className="h-11 rounded-xl" /></label>
+              <label className="space-y-1 text-sm"><span className="font-medium">Data final</span><Input type="date" value={periodEnd} min={periodStart} onChange={(e) => setPeriodEnd(e.target.value)} className="h-11 rounded-xl" /></label>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="rounded-xl border p-4"><p className="text-xs text-muted-foreground">Saldo antes do período</p><p className="num mt-1 text-lg font-semibold">{formatBRL(ledger.opening)}</p></div>
+              <div className="rounded-xl border p-4"><p className="text-xs text-muted-foreground">Movimentações no período</p><p className="mt-1 text-lg font-semibold">{ledger.rows.length}</p></div>
+              <div className="rounded-xl border p-4"><p className="text-xs text-muted-foreground">Saldo efetivo após todas as movimentações pagas</p><p className="num mt-1 text-lg font-semibold">{formatBRL(ledger.closing)}</p></div><div className="rounded-xl border p-4"><p className="text-xs text-muted-foreground">Saldo previsto ao final do período</p><p className="num mt-1 text-lg font-semibold">{formatBRL(ledger.projectedClosing)}</p></div>
+            </div>
+            <div className="overflow-x-auto"><table className="w-full min-w-[900px] text-left text-sm"><thead><tr className="border-b text-xs text-muted-foreground"><th className="px-3 py-3">Data</th><th className="px-3 py-3">Movimentação</th><th className="px-3 py-3">Contraparte</th><th className="px-3 py-3">Situação</th><th className="px-3 py-3 text-right">Entrada</th><th className="px-3 py-3 text-right">Saída</th><th className="px-3 py-3 text-right">Saldo efetivo após movimentação</th><th className="px-3 py-3 text-right">Saldo previsto</th></tr></thead><tbody>
+              <tr className="border-b bg-muted/30 font-medium"><td className="px-3 py-3" colSpan={6}>Saldo de abertura · antes da primeira movimentação</td><td className="num px-3 py-3 text-right">{formatBRL(ledger.opening)}</td><td className="num px-3 py-3 text-right">{formatBRL(ledger.opening)}</td></tr>
+              {ledger.rows.map((e) => <tr key={e.id} className="border-b last:border-0"><td className="whitespace-nowrap px-3 py-3">{formatDate(e.status === "paid" ? (e.paid_at ?? e.due_date).slice(0, 10) : e.due_date)}</td><td className="px-3 py-3"><div className="font-medium">{e.description}</div><div className="text-xs text-muted-foreground">{e.type === "income" ? "Entrada" : "Saída"}</div></td><td className="px-3 py-3">{e.counterparty_name || "—"}</td><td className="px-3 py-3">{e.status === "paid" ? "Pago" : "Pendente · previsto"}</td><td className="num px-3 py-3 text-right">{e.type === "income" ? formatBRL(e.amount_cents) : "—"}</td><td className="num px-3 py-3 text-right">{e.type === "expense" ? formatBRL(e.amount_cents) : "—"}</td><td className="num px-3 py-3 text-right font-semibold">{formatBRL(e.actual_balance)}</td><td className="num px-3 py-3 text-right">{formatBRL(e.projected_balance)}</td></tr>)}
+              {!ledger.rows.length && <tr><td className="px-3 py-6 text-center text-muted-foreground" colSpan={8}>Nenhuma movimentação neste período.</td></tr>}
+              <tr className="bg-muted/30 font-semibold"><td className="px-3 py-3" colSpan={6}>Saldo final efetivo (após todas as movimentações pagas)</td><td className="num px-3 py-3 text-right">{formatBRL(ledger.closing)}</td><td className="num px-3 py-3 text-right">{formatBRL(ledger.projectedClosing)}</td></tr>
+            </tbody></table></div>
+          </section>
           <Risks limit={access.data?.limits.top_risks ?? 5} canWrite={access.data?.can_write ?? true} />
         </>
       )}

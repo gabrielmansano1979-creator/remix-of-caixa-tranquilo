@@ -22,7 +22,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
-import { exportReport, type ReportFormat } from "@/lib/reporting";
+import { exportReport } from "@/lib/reporting";
 import { normalizeCpfCnpj } from "@/lib/identity";
 
 export const Route = createFileRoute("/admin/")({
@@ -355,7 +355,7 @@ function AdminPage() {
     }
   };
 
-  const exportAdmin = async (format: ReportFormat) => {
+  const exportAdmin = async () => {
     const rows = commissions.map((commission) => ({
       contador: commission.partner_name ?? "Não identificado",
       valor: money(Number(commission.amount)),
@@ -367,7 +367,7 @@ function AdminPage() {
       await exportReport({
         title: "Faturamento e comissões por contador",
         fileName: "faturamento-por-afiliado",
-        format,
+        format: "pdf",
         columns: [
           { key: "contador", label: "Contador" },
           { key: "valor", label: "Comissão" },
@@ -460,16 +460,10 @@ function AdminPage() {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          {(["pdf", "excel", "csv"] as const).map((format) => (
-            <Button
-              key={format}
-              variant="outline"
-              onClick={() => void exportAdmin(format)}
-            >
-              <Download className="mr-2 h-4 w-4" />
-              {format.toUpperCase()}
-            </Button>
-          ))}
+          <Button variant="outline" onClick={() => void exportAdmin()}>
+            <Download className="mr-2 h-4 w-4" />
+            Exportar PDF
+          </Button>
           <Button
             variant="outline"
             onClick={async () => {

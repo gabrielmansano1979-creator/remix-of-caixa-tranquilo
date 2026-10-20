@@ -71,6 +71,7 @@ export function parseCsv(text: string): { rows: CsvRow[]; headerError?: string }
     const tipo = raw.tipo.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     const type = tipo === "entrada" ? "income" : tipo === "saida" ? "expense" : null;
     if (!type) errors.push("Tipo deve ser entrada ou saida");
+    if (type && !raw.nome.trim()) errors.push(type === "income" ? "Informe quem pagou à empresa (coluna nome)." : "Informe quem recebeu o pagamento (coluna nome).");
     const email = (raw.email ?? "").toLowerCase();
     const wa = toE164(raw.whatsapp ?? "");
     if (raw.whatsapp && !wa) errors.push("WhatsApp inválido");
@@ -115,6 +116,7 @@ function extractCounterparty(transactionText: string, type: "income" | "expense"
     : [
         /\b(?:pix|ted|doc|transfer[eê]ncia|transfer)\s+(?:enviado|enviada|feito)\s+(?:para|a|ao|à|pro|pra)\s+(.+)$/i,
         /\b(?:enviado|enviada|transferido|transferida|pago|paga)\s+(?:para|a|ao|pro|pra)\s+(.+)$/i,
+        /\b(?:pagamento|boleto|conta|compra)\s+(?:de|do|da|dos|das|para|ao|a)\s+(.+)$/i,
         /\b(?:destinat[aá]rio|favorecido|benefici[aá]rio|recebedor)\s*[:=-]\s*(.+)$/i,
       ];
   for (const pattern of patterns) {
@@ -186,6 +188,7 @@ export function parseStatementText(text: string): { rows: CsvRow[]; ignored: num
     if (!parties.sender && type === "income") parties.sender = counterparty;
     if (!parties.recipient && type === "expense") parties.recipient = counterparty;
     if (!description) errors.push("Descrição não identificada no documento.");
+    if (type && !counterparty.trim()) errors.push(type === "income" ? "Pagador não identificado; informe quem pagou à empresa antes de importar." : "Beneficiário não identificado; informe quem recebeu o pagamento antes de importar.");
 
     const row: CsvRow = {
       line: index + 1,
@@ -229,33 +232,44 @@ export function parseOfxText(text: string): { rows: CsvRow[]; ignored: number } 
     const amountCents = Number.isFinite(amountNumber) && amountNumber !== 0
       ? Math.round(Math.abs(amountNumber) * 100)
       : null;
-    const description = [tag(block, "NAME"), tag(block, "MEMO")].filter(Boolean).join(" — ").slice(0, 200);
+    const name = tag(block, "NAME").slice(0, 120);
+    const memo = tag(block, "MEMO");
+    const description = [name, memo].filter(Boolean).join(" — ").slice(0, 200);
     if (!date || amountCents === null || !description) {
       ignored++;
       continue;
     }
 
     const type = amountNumber < 0 ? "expense" : "income";
-    rows.push({
+    const normalizedName = name.normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toLowerCase().trim();
+    const genericName = /^(pix|ted|doc|transfer|transferencia|pagamento|compra|debito|credito|recebimento|saque|tarifa)(\\s+(recebido|recebida|enviado|enviada|cartao|debito|credito))?$/.test(normalizedName);
+    // OFX NAME commonly contains the merchant/person even when MEMO contains only the operation type.
+    // Use NAME as a fallback only when it looks like an actual party, not a generic transaction label.
+    const counterparty = extractCounterparty(description, type) || (name && !genericName ? name : "");
+    const errors = counterparty ? [] : [type === "income"
+      ? "Pagador não identificado no OFX; informe quem pagou à empresa antes de importar."
+      : "Beneficiário não identificado no OFX; informe quem recebeu o pagamento antes de importar."];
+    const row: CsvRow = {
       line: index + 1,
       raw: {
         descricao: description,
         valor: String(Math.abs(amountNumber)),
         vencimento: date,
         tipo: type === "income" ? "entrada" : "saida",
-        nome: tag(block, "NAME").slice(0, 120),
+        nome: counterparty,
       },
-      errors: [],
-      value: {
-        type,
-        description,
-        amount_cents: amountCents,
-        due_date: date,
-        counterparty_name: tag(block, "NAME").slice(0, 120),
-        counterparty_email: "",
-        counterparty_whatsapp: "",
-      },
-    });
+      errors,
+    };
+    if (counterparty) row.value = {
+      type,
+      description,
+      amount_cents: amountCents,
+      due_date: date,
+      counterparty_name: counterparty,
+      counterparty_email: "",
+      counterparty_whatsapp: "",
+    };
+    rows.push(row);
   }
   return { rows, ignored };
 }
@@ -320,6 +334,7 @@ export function parseBankTable(text: string): { rows: CsvRow[]; headerError?: st
         ? (recipient || (counterpartyIndex >= 0 ? cells[counterpartyIndex] ?? "" : ""))
         : (counterpartyIndex >= 0 ? cells[counterpartyIndex] ?? "" : "");
     const counterparty = explicitCounterparty.trim().slice(0, 120);
+    if (type && !counterparty) errors.push(type === "income" ? "Informe quem pagou à empresa antes de importar." : "Informe quem recebeu o pagamento antes de importar.");
     const row: CsvRow = {
       line: index + 2,
       raw: {
@@ -333,7 +348,7 @@ export function parseBankTable(text: string): { rows: CsvRow[]; headerError?: st
       },
       errors,
     };
-    if (type) row.value = {
+    if (type && counterparty && !errors.length) row.value = {
       type, description, amount_cents: chosenAmount, due_date: date,
       counterparty_name: counterparty, counterparty_email: "", counterparty_whatsapp: "",
     };
