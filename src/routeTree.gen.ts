@@ -57,11 +57,6 @@ const ContadorRoute = ContadorRouteImport.update({
   path: '/contador',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SolicitarAcessoContadorRoute = SolicitarAcessoContadorRouteImport.update({
-  id: '/solicitar-acesso-contador',
-  path: '/solicitar-acesso-contador',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const EsqueciSenhaRoute = EsqueciSenhaRouteImport.update({
   id: '/esqueci-senha',
   path: '/esqueci-senha',
@@ -80,6 +75,11 @@ const PrivacidadeRoute = PrivacidadeRouteImport.update({
 const RedefinirSenhaRoute = RedefinirSenhaRouteImport.update({
   id: '/redefinir-senha',
   path: '/redefinir-senha',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SolicitarAcessoContadorRoute = SolicitarAcessoContadorRouteImport.update({
+  id: '/solicitar-acesso-contador',
+  path: '/solicitar-acesso-contador',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TermosRoute = TermosRouteImport.update({

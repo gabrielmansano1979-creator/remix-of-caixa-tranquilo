@@ -447,7 +447,6 @@ export type Database = {
         Row: {
           balance_date: string
           business_name: string | null
-          business_size: string | null
           created_at: string
           cushion_cents: number
           email: string | null
@@ -467,7 +466,6 @@ export type Database = {
         Insert: {
           balance_date?: string
           business_name?: string | null
-          business_size?: string | null
           created_at?: string
           cushion_cents?: number
           email?: string | null
@@ -487,7 +485,6 @@ export type Database = {
         Update: {
           balance_date?: string
           business_name?: string | null
-          business_size?: string | null
           created_at?: string
           cushion_cents?: number
           email?: string | null
@@ -749,48 +746,6 @@ export type Database = {
         }
         Relationships: []
       }
-      partner_application_documents: {
-        Row: {
-          address_document_path: string
-          city: string
-          crc_document_path: string
-          created_at: string
-          identity_document_path: string
-          office_name: string | null
-          phone: string
-          state: string
-          submitted_at: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          address_document_path: string
-          city: string
-          crc_document_path: string
-          created_at?: string
-          identity_document_path: string
-          office_name?: string | null
-          phone: string
-          state: string
-          submitted_at?: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          address_document_path?: string
-          city?: string
-          crc_document_path?: string
-          created_at?: string
-          identity_document_path?: string
-          office_name?: string | null
-          phone?: string
-          state?: string
-          submitted_at?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       whatsapp_webhook_events: {
         Row: {
           delivery_id: string
@@ -856,12 +811,6 @@ export type Database = {
       import_entries: { Args: { _rows: Json }; Returns: number }
       my_access: { Args: never; Returns: Json }
       my_accountant_access: { Args: never; Returns: Json }
-      my_accountant_client_invite: { Args: never; Returns: Json }
-      my_accountant_financial_audit: { Args: never; Returns: Json }
-      my_accountant_portal_invites: { Args: never; Returns: Json }
-      request_accountant_access: { Args: { _token: string }; Returns: undefined }
-      decide_accountant_access: { Args: { _request_id: string; _approve: boolean }; Returns: undefined }
-      accept_accountant_business_invite: { Args: { _token: string }; Returns: undefined }
       my_partner_status: { Args: never; Returns: Json }
       my_usage: { Args: never; Returns: Json }
       partner_dashboard: { Args: never; Returns: Json }
@@ -874,16 +823,12 @@ export type Database = {
         Args: {
           _crc_number: string
           _full_name: string
-          _pix_key?: string | null
-          _pix_type?: string | null
+          _pix_key: string
+          _pix_type: string
           _tax_id: string
         }
         Returns: undefined
-      },
-      update_partner_payout: {
-        Args: { _pix_key: string; _pix_type: string }
-        Returns: undefined
-      },
+      }
       top_risks: {
         Args: { _limit?: number }
         Returns: {
