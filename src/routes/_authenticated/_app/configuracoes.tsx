@@ -295,28 +295,112 @@ function DataSection() {
   const [busy, setBusy] = useState(false);
   useEffect(() => { if (!step) setTyped(""); }, [step]);
 
-  const exportData = async (fmt: ReportFormat) => {
+  const exportData = async () => {
     const [p, e, r, l] = await Promise.all([
       supabase.from("profiles").select("*").maybeSingle(),
-      supabase.from("entries").select("*"),
-      supabase.from("reminder_rules").select("*"),
-      supabase.from("reminder_logs").select("*"),
+      supabase.from("entries").select("*").order("due_date", { ascending: true }),
+      supabase.from("reminder_rules").select("*").order("offset_days", { ascending: true }),
+      supabase.from("reminder_logs").select("*").order("created_at", { ascending: false }),
     ]);
     if (p.error || e.error || r.error || l.error) return toast.error("Não foi possível carregar todos os dados para exportação.");
+
+    const money = (cents: unknown) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(cents ?? 0) / 100);
+    const date = (value: unknown) => {
+      if (!value) return "Não informado";
+      const parsed = new Date(String(value));
+      return Number.isNaN(parsed.getTime()) ? String(value) : parsed.toLocaleDateString("pt-BR");
+    };
+    const dateTime = (value: unknown) => {
+      if (!value) return "Não informado";
+      const parsed = new Date(String(value));
+      return Number.isNaN(parsed.getTime()) ? String(value) : parsed.toLocaleString("pt-BR");
+    };
+    const readableValue = (value: unknown) => {
+      if (value === null || value === undefined || value === "") return "Não informado";
+      if (typeof value === "boolean") return value ? "Sim" : "Não";
+      if (typeof value === "object") return "Detalhe estruturado";
+      return String(value);
+    };
+    const detailRows: Array<{ categoria: string; registro: string; campo: string; informacao: string }> = [];
+    const add = (categoria: string, registro: string, values: Array<[string, unknown]>) => {
+      values.forEach(([campo, informacao]) => detailRows.push({
+        categoria, registro, campo, informacao: readableValue(informacao),
+      }));
+    };
+
+    (e.data ?? []).forEach((row, index) => {
+      const kind = row.type === "income" ? "Entrada" : row.type === "expense" ? "Saída" : readableValue(row.type);
+      const status = row.status === "paid" ? "Pago" : row.status === "pending" ? "Pendente" : readableValue(row.status);
+      add("Lançamento", row.description?.trim() || `${kind} ${index + 1}`, [
+        ["Tipo", kind], ["Descrição", row.description || "Sem descrição"],
+        ["Valor", money(row.amount_cents)], ["Vencimento", date(row.due_date)],
+        ["Situação", status], ["Data do pagamento", dateTime(row.paid_at)],
+        [row.type === "income" ? "Quem pagou à empresa" : "Quem recebeu o pagamento", row.counterparty_name],
+        ["E-mail da contraparte", row.counterparty_email], ["WhatsApp da contraparte", row.counterparty_whatsapp],
+        ["Link de pagamento PIX", row.pix_url], ["Lembretes desativados", row.reminders_muted ? "Sim" : "Não"],
+        ["Criado em", dateTime(row.created_at)], ["Identificador do registro", row.id],
+      ]);
+    });
+    (r.data ?? []).forEach((row, index) => {
+      add("Regra de lembrete", row.label || `Regra ${index + 1}`, [
+        ["Nome da regra", row.label], ["Antecedência (dias; negativo = antes do vencimento)", row.offset_days],
+        ["Canal", row.channel === "email" ? "E-mail" : readableValue(row.channel)],
+        ["Assunto do lembrete", row.subject_tpl], ["Mensagem do lembrete", row.body_tpl],
+        ["Regra ativa", row.active ? "Sim" : "Não"], ["Criado em", dateTime(row.created_at)],
+        ["Identificador do registro", row.id],
+      ]);
+    });
+    (l.data ?? []).forEach((row, index) => {
+      const log = row as Record<string, unknown>;
+      const eventName = String(log.event ?? log.status ?? log.channel ?? `Registro ${index + 1}`);
+      const values = Object.entries(log).map(([key, value]): [string, unknown] => {
+        const labels: Record<string, string> = {
+          created_at: "Data e hora", sent_at: "Enviado em", recipient: "Destinatário",
+          recipient_email: "E-mail do destinatário", channel: "Canal", status: "Situação",
+          event: "Evento", error: "Detalhe do erro", message: "Mensagem", entry_id: "Identificador do lançamento",
+          rule_id: "Identificador da regra", id: "Identificador do registro",
+        };
+        return [labels[key] ?? key.replace(/_/g, " ").replace(/^./, (s) => s.toUpperCase()), key.endsWith("_at") ? dateTime(value) : value];
+      });
+      add("Histórico de envio", eventName, values);
+    });
+
+    const profile = p.data as Record<string, unknown> | null;
+    const profileFields: Array<[string, unknown]> = [
+      ["Nome da empresa", profile?.business_name], ["Nome do titular", profile?.full_name],
+      ["E-mail", profile?.email], ["Telefone", profile?.phone], ["CPF/CNPJ", profile?.document],
+      ["Endereço", profile?.address], ["Cidade", profile?.city], ["Estado", profile?.state],
+      ["Saldo inicial cadastrado", profile?.initial_balance_cents == null ? "Não informado" : money(profile.initial_balance_cents)],
+      ["Data de referência do saldo inicial", date(profile?.balance_date)],
+      ["Criado em", dateTime(profile?.created_at)],
+    ];
+    profileFields.forEach(([campo, informacao]) => detailRows.unshift({
+      categoria: "Perfil da conta", registro: String(profile?.business_name ?? profile?.full_name ?? "Conta"),
+      campo, informacao: readableValue(informacao),
+    }));
+
     try {
       await exportReport({
         title: "Exportação dos dados pessoais — Critical Cash",
-        fileName: "critical-cash-dados",
-        format: fmt,
-        columns: [{ key: "categoria", label: "Categoria" }, { key: "detalhes", label: "Detalhes" }],
-        rows: [
-          ...(e.data ?? []).map((row) => ({ categoria: "Lançamento", detalhes: JSON.stringify(row) })),
-          ...(r.data ?? []).map((row) => ({ categoria: "Regra de lembrete", detalhes: JSON.stringify(row) })),
-          ...(l.data ?? []).map((row) => ({ categoria: "Histórico de envio", detalhes: JSON.stringify(row) })),
+        fileName: "critical-cash-dados-pessoais",
+        format: "pdf",
+        columns: [
+          { key: "categoria", label: "Categoria" },
+          { key: "registro", label: "Registro" },
+          { key: "campo", label: "Campo" },
+          { key: "informacao", label: "Informação" },
         ],
-        summary: [["Perfil", p.data?.business_name ?? p.data?.full_name ?? "Conta"], ["Lançamentos", e.data?.length ?? 0], ["Regras de lembrete", r.data?.length ?? 0], ["Registros de envio", l.data?.length ?? 0]],
+        rows: detailRows,
+        summary: [
+          ["Perfil", String(profile?.business_name ?? profile?.full_name ?? "Conta")],
+          ["Lançamentos incluídos", e.data?.length ?? 0],
+          ["Regras de lembrete incluídas", r.data?.length ?? 0],
+          ["Registros de envio incluídos", l.data?.length ?? 0],
+          ["Formato", "PDF"],
+          ["Observação", "Os dados são apresentados por campo para facilitar leitura; campos vazios aparecem como “Não informado”."],
+        ],
       });
-      toast.success("Exportação pronta.");
+      toast.success("PDF dos dados pessoais gerado.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível exportar.");
     }
@@ -337,7 +421,7 @@ function DataSection() {
     <section className={`${card} space-y-4`}>
       <h2 className="font-semibold">Meus dados (LGPD)</h2>
       <div className="flex flex-wrap gap-2">
-        {(["pdf", "excel", "csv"] as const).map((format) => <Button key={format} variant="outline" className="h-11 rounded-xl" onClick={() => void exportData(format)}><Download className="mr-2 h-4 w-4" />Exportar tudo ({format.toUpperCase()})</Button>)}
+        <Button variant="outline" className="h-11 rounded-xl" onClick={() => void exportData()}><Download className="mr-2 h-4 w-4" />Exportar todos os dados (PDF)</Button>
       </div>
       <div className="border-t pt-4">
         <Button variant="ghost" className="h-11 rounded-xl text-danger" onClick={() => setStep(1)}><Trash2 className="mr-2 h-4 w-4" />Excluir minha conta</Button>
