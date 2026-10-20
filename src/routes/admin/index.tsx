@@ -155,6 +155,20 @@ type PlatformOverview = {
 
 type AuthStatus = "checking" | "authorized" | "error";
 
+// Evita que a página administrativa fique carregando indefinidamente se a sessão
+// ou o RPC de autorização não responderem.
+function withTimeout<T>(promise: PromiseLike<T>, timeoutMs: number, operation: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timeoutId = window.setTimeout(() => {
+      reject(new Error(operation + " não respondeu em " + Math.round(timeoutMs / 1000) + " segundos."));
+    }, timeoutMs);
+
+    Promise.resolve(promise).then(resolve, reject).finally(() => {
+      window.clearTimeout(timeoutId);
+    });
+  });
+}
+
 const emptyOverview: AdminOverview = {
   partners: [],
   commissions: [],
@@ -231,7 +245,11 @@ function AdminPage() {
         const {
           data: { user },
           error,
-        } = await supabase.auth.getUser();
+        } = await withTimeout(
+          supabase.auth.getUser(),
+          12_000,
+          "A verificação da sessão",
+        );
 
         if (!active) return;
 
@@ -243,9 +261,13 @@ function AdminPage() {
 
         // Verificar somente o papel aqui. O RPC de dados é executado pela query
         // após a autorização, e um erro transitório não deve expulsar o admin.
-        const { data: isAdmin, error: adminCheckError } = await supabase.rpc(
-          "has_role",
-          { _user_id: user.id, _role: "admin" },
+        const { data: isAdmin, error: adminCheckError } = await withTimeout(
+          supabase.rpc("has_role", {
+            _user_id: user.id,
+            _role: "admin",
+          }),
+          12_000,
+          "A confirmação do acesso administrativo",
         );
         if (!active) return;
         if (adminCheckError) {
@@ -267,7 +289,9 @@ function AdminPage() {
           error,
         );
 
-        window.location.replace("/login");
+        // Falhas transitórias não devem provocar redirecionamentos em ciclo.
+        // O painel continua bloqueado até uma nova verificação confirmar o acesso.
+        setAuthStatus("error");
       }
     };
 
@@ -508,7 +532,7 @@ function AdminPage() {
   if (authStatus === "error") {
     return (
       <div className="p-8 text-muted-foreground">
-        <p>Não foi possível confirmar a autorização administrativa por uma falha temporária.</p>
+        <p>Não foi possível confirmar a autorização administrativa. A verificação pode ter expirado por demora na rede ou no Supabase. O painel continua bloqueado até a permissão ser confirmada.</p>
         <Button className="mt-4" onClick={() => window.location.reload()}>
           Tentar novamente
         </Button>
