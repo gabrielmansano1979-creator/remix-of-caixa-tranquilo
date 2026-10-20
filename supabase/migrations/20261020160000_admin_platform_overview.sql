@@ -27,8 +27,6 @@ BEGIN
       'subscribers_past_due', (SELECT count(*) FROM public.subscriptions WHERE status = 'past_due'),
       'subscribers_canceled', (SELECT count(*) FROM public.subscriptions WHERE status = 'canceled'),
       'subscribers_expired', (SELECT count(*) FROM public.subscriptions WHERE status = 'expired'),
-      'subscribers_incomplete', (SELECT count(*) FROM public.subscriptions WHERE status = 'incomplete'),
-      'subscribers_unpaid', (SELECT count(*) FROM public.subscriptions WHERE status = 'unpaid'),
       'subscribers_pending_pix', (SELECT count(*) FROM public.subscriptions WHERE status = 'pending_pix'),
       'subscriptions_total', (SELECT count(*) FROM public.subscriptions),
       'checkout_pending', (SELECT count(*) FROM public.pending_billing_changes WHERE status = 'pending'),
