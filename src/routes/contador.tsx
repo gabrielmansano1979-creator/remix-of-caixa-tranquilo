@@ -1,4 +1,4 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { ArrowLeft, BadgeCheck, Building2, Clipboard, Download, FileText, LoaderCircle, Mail, MapPin, Phone, ShieldCheck, UserRound } from "lucide-react";
@@ -528,6 +528,23 @@ function AccountantPage() {
           Acompanhe indicações, comissões e os clientes que autorizaram acesso aos seus relatórios.
         </p>
       </header>
+      <Card className="border-primary/20 bg-primary/5">
+        <CardHeader>
+          <CardTitle>Fluxo de caixa da sua empresa</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Gerencie as finanças do seu próprio escritório em uma área separada dos dados dos clientes.
+            Seus lançamentos, saldos e previsões pertencem somente à sua conta.
+          </p>
+        </CardHeader>
+        <CardContent className="flex flex-wrap gap-3">
+          <Button asChild className="min-h-11 rounded-xl">
+            <Link to="/caixa">Abrir meu fluxo de caixa</Link>
+          </Button>
+          <Button asChild variant="outline" className="min-h-11 rounded-xl">
+            <Link to="/contas">Gerenciar entradas e saídas</Link>
+          </Button>
+        </CardContent>
+      </Card>
       <AccountantClientManagement />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Metric
