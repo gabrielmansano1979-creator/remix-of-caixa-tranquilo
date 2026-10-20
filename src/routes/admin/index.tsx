@@ -621,6 +621,9 @@ function AdminPage() {
               <Metric icon={<Users className="h-4 w-4" />} label="Pedidos de acesso contábil pendentes" value={String(count("accountant_requests_pending"))} />
               <Metric icon={<CreditCard className="h-4 w-4" />} label="Assinaturas canceladas" value={String(count("subscribers_canceled"))} />
               <Metric icon={<CreditCard className="h-4 w-4" />} label="Assinaturas expiradas" value={String(count("subscribers_expired"))} />
+              <Metric icon={<AlertTriangle className="h-4 w-4" />} label="Assinaturas incompletas" value={String(count("subscribers_incomplete"))} />
+              <Metric icon={<CreditCard className="h-4 w-4" />} label="Assinaturas não pagas" value={String(count("subscribers_unpaid"))} />
+              <Metric icon={<Clock3 className="h-4 w-4" />} label="Pix aguardando confirmação" value={String(count("subscribers_pending_pix"))} />
             </div>
 
             <div className="grid gap-4 lg:grid-cols-2">
@@ -638,6 +641,13 @@ function AdminPage() {
                   <MiniStat label="Lançamentos pagos" value={count("entries_paid")} />
                   <MiniStat label="Solicitações contábeis totais" value={count("accountant_requests_total")} />
                   <MiniStat label="Eventos de auditoria (30 dias)" value={count("audit_events_30d")} />
+                  <MiniStat label="Checkouts aguardando" value={count("checkout_pending")} />
+                  <MiniStat label="Checkouts processados" value={count("checkout_processed")} />
+                  <MiniStat label="Checkouts com falha" value={count("checkout_failed")} />
+                  <MiniStat label="Eventos de pagamento com falha" value={count("payment_events_failed")} />
+                  <MiniStat label="Notificações enviadas/registradas" value={count("reminder_logs_total")} />
+                  <MiniStat label="Notificações com falha" value={count("reminder_logs_failed")} />
+                  <MiniStat label="Regras de lembrete ativas" value={count("reminder_rules_active")} />
                 </CardContent>
               </Card>
               <Card className="border-white/10 bg-zinc-900/60 text-zinc-100">
