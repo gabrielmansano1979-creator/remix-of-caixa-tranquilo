@@ -33,6 +33,7 @@ const auditMoney = (value?: string | number | null) => value !== null && value !
 export function AccountantClientManagement() {
   const [periodStart, setPeriodStart] = useState(() => `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}-01`);
   const [periodEnd, setPeriodEnd] = useState(() => new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" }));
+  const [selectedAuditClient, setSelectedAuditClient] = useState("all");
 
   const query = useQuery({
     queryKey: ["accountant-client-management", periodStart, periodEnd],
@@ -95,6 +96,31 @@ export function AccountantClientManagement() {
 
   if (query.isLoading) return <Card><CardContent className="p-6 text-sm text-muted-foreground">Carregando clientes e convites...</CardContent></Card>;
   if (query.isError || !data) return <Card><CardContent className="space-y-3 p-6"><p className="text-sm text-danger">Não foi possível carregar os clientes e convites contábeis.</p><Button variant="outline" onClick={() => query.refetch()}>Tentar novamente</Button></CardContent></Card>;
+  const filteredAuditLogs = data.audit_logs.filter((item) => selectedAuditClient === "all" || item.client_user_id === selectedAuditClient);
+  const auditSummaries = data.authorized_clients
+    .filter((client) => selectedAuditClient === "all" || client.client_user_id === selectedAuditClient)
+    .map((client) => {
+      const entries = client.entries.slice();
+      const net = (entry: typeof entries[number]) => (entry.type === "income" ? 1 : -1) * entry.amount_cents;
+      const effectiveDate = (entry: typeof entries[number]) => (entry.paid_at ?? entry.due_date).slice(0, 10);
+      const effectiveTime = (entry: typeof entries[number]) => entry.paid_at ? new Date(entry.paid_at).getTime() : new Date(`${entry.due_date}T12:00:00-03:00`).getTime();
+      const snapshotDate = client.balance_date ?? periodStart;
+      const startTime = new Date(`${periodStart}T00:00:00-03:00`).getTime();
+      const snapshotTime = client.balance_updated_at ? new Date(client.balance_updated_at).getTime() : new Date(`${snapshotDate}T23:59:59-03:00`).getTime();
+      const paid = entries.filter((entry) => entry.status === "paid");
+      let opening = client.initial_balance_cents ?? 0;
+      if (snapshotTime >= startTime) {
+        opening -= paid.filter((entry) => effectiveTime(entry) >= startTime && effectiveTime(entry) <= snapshotTime).reduce((sum, entry) => sum + net(entry), 0);
+      } else {
+        opening += paid.filter((entry) => effectiveTime(entry) > snapshotTime && effectiveTime(entry) < startTime).reduce((sum, entry) => sum + net(entry), 0);
+      }
+      let actual = opening;
+      let projected = opening;
+      entries.filter((entry) => effectiveDate(entry) >= periodStart && effectiveDate(entry) <= periodEnd)
+        .sort((a, b) => effectiveTime(a) - effectiveTime(b) || a.created_at.localeCompare(b.created_at))
+        .forEach((entry) => { if (entry.status === "paid") actual += net(entry); projected += net(entry); });
+      return { client_user_id: client.client_user_id, client_name: client.client_name, opening, closing: actual, projectedClosing: projected };
+    });
 
   return (
     <section className="space-y-5">
@@ -177,10 +203,15 @@ export function AccountantClientManagement() {
       <Card>
         <CardHeader><CardTitle className="flex items-center gap-2"><History className="h-5 w-5" />Auditoria financeira privada</CardTitle></CardHeader>
         <CardContent>
-          <p className="mb-4 text-sm text-muted-foreground">Trilha de inclusão, alteração e exclusão das movimentações realizadas no período selecionado, limitada às empresas que autorizaram seu acesso. Registra valores, pagador/beneficiário e saldo antes e depois da operação. O histórico fica restrito ao contador autorizado por cada empresa.</p>
-          {data.audit_logs.length ? <div className="overflow-x-auto"><table className="w-full min-w-[1750px] text-left text-sm"><thead><tr className="border-b text-xs text-muted-foreground">
+          <div className="mb-4 grid gap-3 sm:grid-cols-2">
+            <label className="space-y-1 text-sm"><span className="font-medium">Empresa do relatório de auditoria</span><select value={selectedAuditClient} onChange={(e) => setSelectedAuditClient(e.target.value)} className="h-11 w-full rounded-xl border bg-background px-3 text-sm"><option value="all">Todas as empresas autorizadas</option>{data.authorized_clients.map((client) => <option key={client.client_user_id} value={client.client_user_id}>{client.client_name}</option>)}</select></label>
+            <div className="flex items-end text-sm text-muted-foreground">Período: {date(periodStart)} a {date(periodEnd)}</div>
+          </div>
+          {auditSummaries.length > 0 && <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{auditSummaries.map((summary) => <div key={summary.client_user_id} className="rounded-xl border p-4"><p className="font-medium">{summary.client_name}</p><p className="mt-2 text-xs text-muted-foreground">Saldo antes do período</p><p className="font-semibold">{money(summary.opening)}</p><p className="mt-2 text-xs text-muted-foreground">Saldo final efetivo</p><p className="font-semibold">{money(summary.closing)}</p><p className="mt-2 text-xs text-muted-foreground">Saldo final previsto</p><p className="font-semibold">{money(summary.projectedClosing)}</p></div>)}</div>}
+          <p className="mb-4 text-sm text-muted-foreground">Trilha de inclusão, alteração e exclusão das movimentações realizadas no período selecionado. Escolha uma empresa para consultar seu relatório individual; cada registro inclui pagador/beneficiário, valores e saldo antes/depois. O histórico só é retornado para empresas com autorização ativa deste contador.</p>
+          {filteredAuditLogs.length ? <div className="overflow-x-auto"><table className="w-full min-w-[1750px] text-left text-sm"><thead><tr className="border-b text-xs text-muted-foreground">
             <th className="px-3 py-3">Data e hora</th><th className="px-3 py-3">Empresa do SaaS</th><th className="px-3 py-3">ID do responsável</th><th className="px-3 py-3">Ação</th><th className="px-3 py-3">Tipo</th><th className="px-3 py-3">Descrição</th><th className="px-3 py-3">Pagador</th><th className="px-3 py-3">Beneficiário</th><th className="px-3 py-3">Valor anterior</th><th className="px-3 py-3">Valor posterior</th><th className="px-3 py-3">Saldo antes da operação</th><th className="px-3 py-3">Saldo depois da operação</th><th className="px-3 py-3">Situação anterior</th><th className="px-3 py-3">Situação posterior</th><th className="px-3 py-3">ID do lançamento</th>
-          </tr></thead><tbody>{data.audit_logs.map((item) => {
+          </tr></thead><tbody>{filteredAuditLogs.map((item) => {
             const before = item.details.before ?? null;
             const after = item.details.after ?? null;
             const current = after ?? before ?? {};
@@ -205,7 +236,7 @@ export function AccountantClientManagement() {
               <td className="px-3 py-3">{after?.status === "paid" ? "Pago" : after?.status === "pending" ? "Pendente" : "—"}</td>
               <td className="px-3 py-3 font-mono text-xs">{item.entity_id || "—"}</td>
             </tr>;
-          })}</tbody></table></div> : <p className="text-sm text-muted-foreground">Nenhum evento de auditoria encontrado no período escolhido para as empresas que autorizaram este contador. Eventos novos serão registrados automaticamente após a migração ser aplicada.</p>}
+          })}</tbody></table></div> : <p className="text-sm text-muted-foreground">Nenhum evento de auditoria encontrado para a empresa e o período selecionados. Eventos novos serão registrados automaticamente após a migração ser aplicada.</p>}
         </CardContent>
       </Card>
     </section>
