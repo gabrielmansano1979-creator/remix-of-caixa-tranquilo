@@ -282,7 +282,7 @@ export function parseBankTable(text: string): { rows: CsvRow[]; headerError?: st
   const candidates = [",", ";", "\t", "|"];
   const separator = candidates.sort((a, b) => splitLine(lines[0], b).length - splitLine(lines[0], a).length)[0];
   const header = splitLine(first, separator).map((cell) =>
-    cell.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[()/:]+/g, " ").replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim()
+    cell.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[()/:]+/g, " ").replace(/r\$/g, "").replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim()
   );
   const dateIndex = header.findIndex((h) => /^(data|date|data lancamento|data movimento|dt lancamento|dt movimento|posting date|transaction date|data transacao|data da transacao|data efetiva|data operacao|data valor|data contabil|data de lancamento|data hora)$/.test(h));
   const descriptionIndex = header.findIndex((h) => /^(descricao|historico|historico descricao|descricao historico|lancamento|detalhe|memo|description|payee|beneficiario|estabelecimento|transacao|transaction|nome|operacao|identificacao|complemento|documento|tipo lancamento|historico do lancamento|descricao do lancamento)$/.test(h));
@@ -367,7 +367,7 @@ export function parsePdfStatementText(text: string): { rows: CsvRow[]; ignored: 
   const lines = text.replace(/\u00a0/g, " ").split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
   const normalizeHeader = (line: string) => line.split("\t").map((cell) =>
     cell.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-      .replace(/[()/:]+/g, " ").replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim()
+      .replace(/[()/:]+/g, " ").replace(/r\$/g, "").replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim()
   );
   const maxHeaderSearch = Math.min(lines.length, 80);
   for (let i = 0; i < maxHeaderSearch; i++) {
