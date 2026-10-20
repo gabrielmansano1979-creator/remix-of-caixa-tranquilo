@@ -89,13 +89,12 @@ describe("parseOfxText", () => {
 <STMTTRN>
 <DTPOSTED>20261013120000
 <TRNAMT>1250.00
-<NAME>PIX RECEBIDO
+<NAME>PIX RECEBIDO DE CLIENTE CENTRAL
 </STMTTRN>
 </OFX>`);
     expect(parsed.rows).toHaveLength(2);
     expect(parsed.rows[0].value).toMatchObject({ type: "expense", amount_cents: 4250, due_date: "2026-10-12", counterparty_name: "PADARIA CENTRAL" });
-    expect(parsed.rows[1].value).toBeUndefined();
-    expect(parsed.rows[1].errors[0]).toContain("Pagador não identificado no OFX");
+    expect(parsed.rows[1].value).toMatchObject({ type: "income", amount_cents: 125000, due_date: "2026-10-13", counterparty_name: "CLIENTE CENTRAL" });
   });
 });
 
