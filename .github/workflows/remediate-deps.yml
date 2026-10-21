@@ -1,0 +1,41 @@
+name: Remediate pre-beta dependencies
+
+on:
+  push:
+    branches: [fix/pre-beta-dependencies]
+    paths:
+      - ".github/workflows/remediate-deps.yml"
+      - "package.json"
+      - "package-lock.json"
+
+permissions:
+  contents: write
+
+jobs:
+  remediate:
+    if: "!contains(github.event.head_commit.message, '[deps-bot]')"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/pre-beta-dependencies
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Upgrade vulnerable Vite patch/minor line and compatible dependencies
+        run: |
+          npm install --save-dev vite@8.3.5
+          npm audit fix
+      - name: Save lockfile and manifest changes
+        run: |
+          if git diff --quiet -- package.json package-lock.json; then
+            echo "No dependency changes produced."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json
+          git commit -m "chore(deps): remediate pre-beta vulnerabilities [deps-bot]"
+          git push origin HEAD:fix/pre-beta-dependencies
