@@ -300,7 +300,7 @@ export function parseBankTable(text: string): { rows: CsvRow[]; headerError?: st
   const amountIndex = header.findIndex((h) => /^(valor|amount|quantia|montante|valor r\$|amount brl|total|valor lancamento|valor movimento|valor da transacao|valor transacao|valor da movimentacao|valor movimentacao|valor do lancamento|valor lancamento|vl lancamento|vl movimento|transaction amount|amount of transaction|movement amount|valor da operacao|valor operacao|importe)$/.test(h));
   const debitIndex = header.findIndex((h) => /^(debito|debitos|debit|debits|saidas|saida|withdrawal|withdrawals|debit amount|valor debito|vl debito|debito r\$|saidas r\$|valor saida|valor de saida|valor de debito|valor dos debitos|retirada|retiradas|pagamento)$/.test(h));
   const creditIndex = header.findIndex((h) => /^(credito|creditos|credit|credits|entradas|entrada|deposit|deposits|deposito|credit amount|valor credito|vl credito|credito r\$|entradas r\$|valor entrada|valor de entrada|valor de credito|valor dos creditos|recebimento|depositos)$/.test(h));
-  const typeIndex = header.findIndex((h) => /^(tipo|type|natureza|operacao|operation|direcao)$/.test(h));
+  const typeIndex = header.findIndex((h) => /^(tipo|type|natureza|operacao|operation|direcao|tipo de transacao|tipo transacao|tipo de lancamento)$/.test(h));
   const senderIndex = header.findIndex((h) => /^(remetente|pagador|nome pagador|nome do pagador|ordenante|origem|sender|payer|from|sender name|payer name)$/.test(h));
   const recipientIndex = header.findIndex((h) => /^(destinatario|nome destinatario|nome do destinatario|favorecido|nome favorecido|beneficiario|nome beneficiario|recebedor|payee|recipient|recipient name|beneficiary|to)$/.test(h));
   const counterpartyIndex = header.findIndex((h) => /^(nome|razao social|contraparte|counterparty|nome contraparte|nome favorecido|nome remetente|nome cliente|nome contraparte financeira|nome da contraparte|counterparty name|counterparty)$/.test(h));
@@ -350,9 +350,14 @@ export function parseBankTable(text: string): { rows: CsvRow[]; headerError?: st
       : type === "expense"
         ? (recipient || (counterpartyIndex >= 0 ? cells[counterpartyIndex] ?? "" : ""))
         : (counterpartyIndex >= 0 ? cells[counterpartyIndex] ?? "" : "");
+    const isPixMovement = /\bpix\s+(enviado|enviada|recebido|recebida)\b/i.test(rawType);
+    const pixDescriptionParty = isPixMovement && !/^(pix\s+(enviado|enviada|recebido|recebida)|disponivel\s+(debito|credito)\s+\w+)$/i.test(description.trim())
+      ? description.replace(/^pix\s+(?:enviado|enviada|recebido|recebida)\s+(?:de|do|da|para|pro|pra)?\s*/i, "").trim()
+      : "";
     const counterparty = (explicitCounterparty.trim() || (isInvestmentMovement
       ? (/resgate/i.test(description) ? "Resgate próprio de CDB" : "Aplicação própria em CDB")
-      : isCardSales ? "Liquidação de vendas por cartão" : "")).slice(0, 120);
+      : isCardSales ? "Liquidação de vendas por cartão"
+      : pixDescriptionParty)).slice(0, 120);
     const counterpartyDocument = documentIndex >= 0 ? (cells[documentIndex] ?? "").trim().slice(0, 32) : "";
     const paymentMethod = isInvestmentMovement ? (/resgate/i.test(description) ? "Resgate de CDB" : "Aplicação em CDB")
       : /pix/i.test(directionText) ? "PIX"
