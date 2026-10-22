@@ -144,6 +144,18 @@ function IndexComponent() {
                   Conhecer recursos
                 </Button>
               </div>
+              <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                <button type="button" onClick={() => handleNavigate('/login?cadastro=1&perfil=empresario')} className="group rounded-2xl border border-emerald-300/25 bg-emerald-300/[0.07] p-4 text-left transition hover:border-emerald-300/50 hover:bg-emerald-300/[0.12]">
+                  <span className="flex items-center justify-between gap-3 text-base font-semibold text-white">Sou Empresário <Wallet className="h-5 w-5 text-emerald-300" /></span>
+                  <span className="mt-2 block text-sm leading-6 text-zinc-400">Quero controlar o caixa e as finanças da minha empresa.</span>
+                  <span className="mt-3 inline-flex items-center text-sm font-semibold text-emerald-200">Criar conta <ArrowRight className="ml-2 h-4 w-4 transition group-hover:translate-x-1" /></span>
+                </button>
+                <button type="button" onClick={() => handleNavigate('/login?cadastro=1&perfil=contador')} className="group rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-left transition hover:border-emerald-300/35 hover:bg-white/[0.06]">
+                  <span className="flex items-center justify-between gap-3 text-base font-semibold text-white">Sou Contador <ClipboardCheck className="h-5 w-5 text-emerald-300" /></span>
+                  <span className="mt-2 block text-sm leading-6 text-zinc-400">Quero acessar a área contábil e acompanhar clientes autorizados.</span>
+                  <span className="mt-3 inline-flex items-center text-sm font-semibold text-emerald-200">Criar conta <ArrowRight className="ml-2 h-4 w-4 transition group-hover:translate-x-1" /></span>
+                </button>
+              </div>
               <div className="mt-8 flex flex-wrap items-center justify-center gap-x-5 gap-y-3 text-xs text-zinc-500 sm:text-sm lg:justify-start">
                 <span className="inline-flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-emerald-300" /> Acesso autenticado</span>
                 <span className="hidden h-1 w-1 rounded-full bg-zinc-700 sm:block" />
