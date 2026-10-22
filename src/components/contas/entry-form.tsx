@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { toE164 } from "@/lib/phone";
+import { evaluateReceiptText, extractReceiptText } from "@/lib/receipt-audit";
 
 const schema = z
   .object({
@@ -64,19 +65,84 @@ export function EntryFormDialog({ open, onOpenChange, entry, onLimit }: {
 
   const save = useMutation({
     mutationFn: async (v: FormV) => {
-      const payload = { ...v, pix_url: v.pix_url || null, counterparty_name: v.counterparty_name || null, counterparty_whatsapp: toE164(v.counterparty_whatsapp) };
-      const { error } = entry
-        ? await supabase.from("entries").update(payload).eq("id", entry.id)
-        : await supabase.from("entries").insert(payload);
-      if (error) throw error;
+      setReceiptLoading(true);
+      try {
+        const payload = { ...v, pix_url: v.pix_url || null, counterparty_name: v.counterparty_name.trim() || null, counterparty_whatsapp: toE164(v.counterparty_whatsapp) };
+        let entryId = entry?.id ?? null;
+        if (entryId) {
+          const { error } = await supabase.from("entries").update(payload).eq("id", entryId);
+          if (error) throw error;
+        } else {
+          const { data, error } = await supabase.from("entries").insert(payload).select("id").single();
+          if (error) throw error;
+          entryId = data.id;
+        }
+
+        if (!receiptFile || !entryId) return { receiptWarning: null as string | null, receiptStatus: null as "pending" | "mismatch" | null };
+        const { data: authData, error: authError } = await supabase.auth.getUser();
+        if (authError || !authData.user) {
+          return { receiptWarning: "Movimentação salva, mas não foi possível confirmar a sessão para anexar o comprovante. Edite o lançamento e tente anexar novamente.", receiptStatus: null };
+        }
+
+        const extension = receiptFile.type === "application/pdf" ? "pdf"
+          : receiptFile.type === "image/jpeg" ? "jpg"
+          : receiptFile.type === "image/png" ? "png" : "webp";
+        const newPath = `${authData.user.id}/${entryId}/${crypto.randomUUID()}.${extension}`;
+        const { error: uploadError } = await supabase.storage.from("critical-cash-receipts").upload(newPath, receiptFile, {
+          contentType: receiptFile.type,
+          upsert: false,
+        });
+        if (uploadError) {
+          return { receiptWarning: "Movimentação salva, mas o comprovante não foi anexado. Confira sua conexão e tente anexá-lo novamente.", receiptStatus: null };
+        }
+
+        const { error: pathError } = await supabase.from("entries").update({ receipt_path: newPath }).eq("id", entryId);
+        if (pathError) {
+          await supabase.storage.from("critical-cash-receipts").remove([newPath]);
+          return { receiptWarning: "Movimentação salva, mas o vínculo do comprovante falhou. Tente anexá-lo novamente.", receiptStatus: null };
+        }
+
+        let suggestion: ReturnType<typeof evaluateReceiptText>;
+        try {
+          const text = await extractReceiptText(receiptFile);
+          suggestion = evaluateReceiptText(text, v.amount_cents);
+        } catch {
+          suggestion = {
+            status: "pending",
+            amountCents: null,
+            note: "O arquivo foi anexado, mas a leitura automática falhou. Confira manualmente o valor, a data e o pagador/beneficiário.",
+          };
+        }
+
+        const { error: auditError } = await supabase.from("entries").update({
+          receipt_status: suggestion.status,
+          receipt_amount_cents: suggestion.amountCents,
+          receipt_review_note: suggestion.note,
+        }).eq("id", entryId);
+        if (auditError) {
+          return { receiptWarning: "Comprovante anexado, mas a análise não pôde ser salva. O lançamento permanece pendente de conferência.", receiptStatus: "pending" as const };
+        }
+
+        const previousPath = (entry as (Entry & { receipt_path?: string | null }) | null | undefined)?.receipt_path;
+        if (previousPath && previousPath !== newPath) {
+          await supabase.storage.from("critical-cash-receipts").remove([previousPath]);
+        }
+        return { receiptWarning: null as string | null, receiptStatus: suggestion.status };
+      } finally {
+        setReceiptLoading(false);
+      }
     },
-    onSuccess: (_d, v) => {
+    onSuccess: (result, v) => {
       localStorage.setItem(LAST_TYPE, v.type);
-      qc.invalidateQueries({ queryKey: ["entries"] });
-      qc.invalidateQueries({ queryKey: ["projection"] });
+      void qc.invalidateQueries({ queryKey: ["entries"] });
+      void qc.invalidateQueries({ queryKey: ["projection"] });
       setReceiptFile(null);
+      if (receiptPreviewUrl) URL.revokeObjectURL(receiptPreviewUrl);
       setReceiptPreviewUrl(null);
-      toast.success(entry ? "Conta atualizada." : "Conta salva.");
+      if (result.receiptWarning) toast.warning(result.receiptWarning);
+      else if (result.receiptStatus === "mismatch") toast.error("Movimentação salva. O comprovante apresenta possível divergência de valor; confira a auditoria.");
+      else if (result.receiptStatus === "pending") toast.warning("Movimentação salva. O comprovante ficou amarelo e precisa de conferência.");
+      else toast.success(entry ? "Conta atualizada." : "Conta salva.");
       if (addAnother.current && !entry) {
         reset({ ...blank(), type: v.type });
         setTimeout(() => setFocus("description"), 0);
@@ -156,7 +222,7 @@ export function EntryFormDialog({ open, onOpenChange, entry, onLimit }: {
                 Salvar e adicionar outra
               </Button>
             )}
-            <Button type="submit" className="h-11 flex-1 rounded-xl" disabled={save.isPending}>Salvar</Button>
+            <Button type="submit" className="h-11 flex-1 rounded-xl" disabled={save.isPending || receiptLoading}>{receiptLoading ? "Conferindo comprovante..." : save.isPending ? "Salvando..." : "Salvar"}</Button>
           </div>
         </form>
       </DialogContent>
