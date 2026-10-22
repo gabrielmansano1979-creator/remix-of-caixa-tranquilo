@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseMoney, parseDate, parseStatementText, parseCoraStatementText, parsePdfStatementText, parseOfxText, parseBankTable } from "./csv";
+import { parseMoney, parseDate, parseCsv, parseStatementText, parseCoraStatementText, parsePdfStatementText, parseOfxText, parseBankTable } from "./csv";
 
 describe("parseMoney", () => {
   it("parses Brazilian decimal and thousands separators", () => {
@@ -440,6 +440,22 @@ describe("Cora statement metadata persistence contract", () => {
     expect(parsed.rows).toHaveLength(1);
     expect(parsed.rows[0].value).toBeUndefined();
     expect(parsed.rows[0].errors.join(" ")).toContain("Pagador não identificado");
+  });
+});
+
+describe("statement import completion status metadata", () => {
+  it("marks bank-statement rows as completed but leaves template CSV rows pending", () => {
+    const statement = parseBankTable([
+      "Data;Descrição;Valor",
+      "01/10/2026;Pix recebido de CLIENTE ALFA;+100,00",
+    ].join("\n"));
+    const template = parseCsv([
+      "descricao,valor,vencimento,tipo,nome",
+      "Consultoria,100,01/11/2026,entrada,CLIENTE ALFA",
+    ].join("\n"));
+
+    expect(statement.rows[0].value?.is_statement_transaction).toBe(true);
+    expect(template.rows[0].value?.is_statement_transaction).toBeUndefined();
   });
 });
 
