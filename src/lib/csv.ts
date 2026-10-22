@@ -150,7 +150,7 @@ export function parseStatementText(text: string): { rows: CsvRow[]; ignored: num
     .split(/\r?\n/)
     .map((line) => line.replace(/\s+/g, " ").trim())
     .filter(Boolean);
-  const datePattern = /(?:^|\s)(\d{2}[/. -]\d{2}[/. -]\d{4}|\d{4}-\d{2}-\d{2})(?=\s|$)/;
+  const datePattern = /(?:^|\s)(\d{2}[/. -]\d{2}[/. -]\d{4}|\d{4}-\d{2}-\d{2}|\d{1,2}\s+[A-Za-zÀ-ÿ]{3,},?\s+\d{4})(?=\s|$)/i;
   const rows: CsvRow[] = [];
   let ignored = 0;
 
@@ -446,7 +446,7 @@ export function parsePdfStatementText(text: string): { rows: CsvRow[]; ignored: 
 
   // Strategy 3: multi-line transactions, where date, operation, counterparty and
   // signed amount may each be on a separate line.
-  const dateToken = /(?:^|\s)(\d{2}[/. -]\d{2}[/. -]\d{4}|\d{4}[-/.]\d{1,2}[-/.]\d{1,2})(?=\s|$)/;
+  const dateToken = /(?:^|\s)(\d{2}[/. -]\d{2}[/. -]\d{4}|\d{4}[-/.]\d{1,2}[-/.]\d{1,2}|\d{1,2}\s+[A-Za-zÀ-ÿ]{3,},?\s+\d{4})(?=\s|$)/i;
   const signedAmountLine = /^\s*([+-])\s*(?:R\$\s*)?((?:\d{1,3}(?:\.\d{3})+|\d+),\d{2}|(?:\d{1,3}(?:,\d{3})+|\d+)\.\d{2})\s*(?:CR|DB|C|D)?\s*$/i;
   const amountAtEnd = /(?:R\$\s*)?([+-]?(?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d{2})?|[+-]?\d{1,3}(?:,\d{3})+\.\d{2})\s*(CR|C|DB|D)?\s*$/i;
   const noise = /^(?:extrato(?: bancario| de conta| da conta)?|saldo (?:inicial|final|anterior|disponivel|do dia)|total de (?:entradas|saidas|creditos|debitos)|periodo:|pagina \d|pag\.?\s*\d|ouvidoria|agencia|conta:|cnpj:|cpf:)/i;
