@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseMoney, parseStatementText, parseCoraStatementText, parsePdfStatementText, parseOfxText, parseBankTable } from "./csv";
+import { parseMoney, parseDate, parseStatementText, parseCoraStatementText, parsePdfStatementText, parseOfxText, parseBankTable } from "./csv";
 
 describe("parseMoney", () => {
   it("parses Brazilian decimal and thousands separators", () => {
@@ -442,3 +442,92 @@ describe("Cora statement metadata persistence contract", () => {
     expect(parsed.rows[0].errors.join(" ")).toContain("Pagador não identificado");
   });
 });
+
+describe("additional bank statement profile regression cases", () => {
+  it("parses Portuguese month-name dates used by InfinitePay PDFs", () => {
+    expect(parseDate("02 Set, 2026")).toBe("2026-09-02");
+    expect(parseDate("01 SET 2026")).toBe("2026-09-01");
+  });
+
+  it("parses InfinitePay CSV with semicolon delimiter, signed amounts and card sales", () => {
+    const parsed = parseBankTable([
+      "CODIGO DA TRANSACAO;DATA;TIPO;DESCRICAO;VALOR",
+      "uuid-1;01/06/2026;Pix enviado;Pix enviado para FORNECEDOR ALFA;-640,37",
+      "uuid-2;02/06/2026;Pix recebido;Pix recebido de CLIENTE BETA;574,00",
+      "uuid-3;03/06/2026;Vendas;Disponivel DEBITO VISA;66,37",
+    ].join("\n"));
+
+    expect(parsed.rows).toHaveLength(3);
+    expect(parsed.rows[0].value).toMatchObject({
+      type: "expense", amount_cents: 64037, due_date: "2026-06-01",
+      counterparty_name: "FORNECEDOR ALFA", payment_method: "PIX",
+    });
+    expect(parsed.rows[1].value).toMatchObject({
+      type: "income", amount_cents: 57400, due_date: "2026-06-02",
+      counterparty_name: "CLIENTE BETA", payment_method: "PIX",
+    });
+    expect(parsed.rows[2].value).toMatchObject({
+      type: "income", amount_cents: 6637,
+      counterparty_name: "Liquidação de vendas por cartão",
+      payment_method: "Venda / liquidação de cartão",
+    });
+  });
+
+  it("parses InfinitePay PDF columns with time, transaction type, name, detail and signed amount", () => {
+    const parsed = parsePdfStatementText([
+      "InfinitePay — Extrato",
+      "Data\tHora\tTipo de transação\tNome\tDetalhe\tValor (R$)",
+      "02 Set, 2026\t10:30\tDepósito de vendas\tCLIENTE GAMA\tLiquidação cartão\t+342,49",
+      "03 Set, 2026\t11:15\tEmpréstimo Inteligente\tInfinitePay\tAmortização\t-90,50",
+    ].join("\n"));
+
+    expect(parsed.rows).toHaveLength(2);
+    expect(parsed.rows[0].value).toMatchObject({
+      type: "income", amount_cents: 34249, due_date: "2026-09-02",
+      counterparty_name: "CLIENTE GAMA",
+    });
+    expect(parsed.rows[1].value).toMatchObject({
+      type: "expense", amount_cents: 9050, due_date: "2026-09-03",
+      counterparty_name: "InfinitePay",
+    });
+  });
+
+  it("marks PagBank CDB application and rescue as internal investment movements", () => {
+    const parsed = parseBankTable([
+      "Data;Descrição;Valor;Saldo",
+      "10/09/2026;Renda Fixa - Aplicação em CDB;-545,99;1.000,00",
+      "11/09/2026;Renda Fixa - Resgate total de CDB;+600,00;1.054,01",
+      "11/09/2026;Saldo do dia;1.054,01;1.054,01",
+    ].join("\n"));
+
+    expect(parsed.rows).toHaveLength(2);
+    expect(parsed.rows[0].value).toMatchObject({
+      type: "expense", amount_cents: 54599, is_own_transfer: true,
+      payment_method: "Aplicação em CDB",
+    });
+    expect(parsed.rows[1].value).toMatchObject({
+      type: "income", amount_cents: 60000, is_own_transfer: true,
+      payment_method: "Resgate de CDB",
+    });
+  });
+
+  it("reads Itaú counterparty and CNPJ/CPF without treating balance as transaction value", () => {
+    const parsed = parsePdfStatementText([
+      "Extrato Itaú",
+      "Data\tLançamentos\tRazão Social\tCNPJ/CPF\tValor (R$)\tSaldo (R$)",
+      "05/01/2026\tDEB AUTOR METROPOLISEG\tMETROPOLISEG\t12.345.678/0001-99\t-347,65\t-133.763,84",
+      "05/01/2026\tEST DB AUTMETROPOLI SEG\tMETROPOLISEG\t12.345.678/0001-99\t+347,65\t-133.763,84",
+      "05/01/2026\tSALDO ANTERIOR\t\t\t-113.319,29\t-113.319,29",
+    ].join("\n"));
+
+    expect(parsed.rows).toHaveLength(2);
+    expect(parsed.rows[0].value).toMatchObject({
+      type: "expense", amount_cents: 34765, counterparty_name: "METROPOLISEG",
+      counterparty_document: "12.345.678/0001-99",
+    });
+    expect(parsed.rows[1].value).toMatchObject({
+      type: "income", amount_cents: 34765, counterparty_name: "METROPOLISEG",
+    });
+  });
+});
+
