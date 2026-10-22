@@ -324,6 +324,7 @@ export function parseBankTable(text: string): { rows: CsvRow[]; headerError?: st
     const debit = parseMoney(debitRaw.replace(/^[+-]/, ""));
     const credit = parseMoney(creditRaw.replace(/^[+-]/, ""));
     const signedNegative = /^\s*-/.test(amountRaw) || /^\s*\(.*\)\s*$/.test(amountRaw);
+    const signedPositive = /^\s*\+/.test(amountRaw);
     const amount = amountIndex >= 0 ? parseMoney(amountRaw.replace(/^[+-]/, "").replace(/[()]/g, "")) : null;
     const chosenAmount = debit !== null ? debit : credit !== null ? credit : amount;
     if (!date || !description || chosenAmount === null) {
