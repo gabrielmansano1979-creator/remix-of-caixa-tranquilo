@@ -335,13 +335,23 @@ export function parseBankTable(text: string): { rows: CsvRow[]; headerError?: st
     }
     const rawType = typeIndex >= 0 ? (cells[typeIndex] ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() : "";
     const directionText = (rawType + " " + description).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-    const type = debit !== null ? "expense"
+    const directionConflict = debit !== null && credit !== null;
+    const explicitDirectionText = (rawType || description).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    const explicitExpenseLabel = /\b(debito|saida|despesa|pagamento|pagto|compra|withdrawal|withdrawals|expense|saque|retirada|tarifa|boleto pago|pix enviado|transferencia enviada|paid|payment|purchase|outgoing|sent|transfer out|bill payment|amortizacao|amortizacao de emprestimo|emprestimo inteligente)\b/.test(explicitDirectionText);
+    const explicitIncomeLabel = /\b(credito|entrada|receita|deposito|recebimento|income|pix recebido|transferencia recebida|estorno|salario|received|credited|incoming|refund|transfer in|credit transfer|vendas|venda|sales|sale|liquidacao de vendas|resgate(?: total| parcial)? de? cdb)\b/.test(explicitDirectionText);
+    const signTypeConflict = (signedNegative && explicitIncomeLabel) || (signedPositive && explicitExpenseLabel);
+    const type = directionConflict || signTypeConflict ? null
+      : debit !== null ? "expense"
       : credit !== null ? "income"
       : /\b(vendas|venda|sales|sale)\b/.test(rawType) && !signedNegative ? "income"
       : signedNegative || /\b(debito|saida|despesa|pagamento|pagto|compra|withdrawal|withdrawals|expense|saque|retirada|tarifa|boleto pago|pix enviado|transferencia enviada|paid|payment|purchase|outgoing|sent|transfer out|debit card|bill payment|amortizacao|amortizacao de emprestimo)\b/.test(directionText) ? "expense"
       : signedPositive || /\b(credito|entrada|receita|deposito|recebimento|income|pix recebido|transferencia recebida|estorno|salario|received|credited|incoming|refund|transfer in|credit transfer|vendas|venda|sales|sale|liquidacao de vendas|resgate(?: total| parcial)? de? cdb)\b/.test(directionText) ? "income"
       : null;
-    const errors = type ? [] : ["A linha foi lida, mas o arquivo não informa se o valor é entrada ou saída; classifique manualmente."];
+    const errors = directionConflict
+      ? ["A linha contém valores simultâneos em débito e crédito; confira manualmente."]
+      : signTypeConflict
+        ? ["O sinal do valor contradiz o tipo de operação indicado no extrato; confira manualmente."]
+        : type ? [] : ["A linha foi lida, mas o arquivo não informa se o valor é entrada ou saída; classifique manualmente."];
     const explicitSender = senderIndex >= 0 ? (cells[senderIndex] ?? "").trim().slice(0, 120) : "";
     const explicitRecipient = recipientIndex >= 0 ? (cells[recipientIndex] ?? "").trim().slice(0, 120) : "";
     const namedCounterparty = counterpartyIndex >= 0 ? (cells[counterpartyIndex] ?? "").trim().slice(0, 120) : "";
