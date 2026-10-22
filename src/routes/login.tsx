@@ -145,7 +145,7 @@ try {
 const { error } = await supabase.auth.signInWithOAuth({
   provider: 'google',
   options: {
-    redirectTo: `${window.location.origin}/login?cadastro=1&perfil=${accountType === 'accountant' ? 'contador' : 'empresario'}`,
+    redirectTo: `${window.location.origin}/login${isRegistering ? `?cadastro=1&perfil=${accountType === 'accountant' ? 'contador' : 'empresario'}` : ''}`,
     queryParams: {
       prompt: 'select_account',
     },
@@ -314,9 +314,9 @@ return (
         <div className="flex items-center justify-between">
           <Label htmlFor="password" className="text-slate-300">Senha</Label>
           {!isRegistering && (
-            <Link to="/esqueci-senha" className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors">
+            <a href={`/esqueci-senha?perfil=${accountType === 'accountant' ? 'contador' : 'empresario'}`} className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors">
               Esqueci a senha
-            </Link>
+            </a>
           )}
         </div>
         <div className="relative">
