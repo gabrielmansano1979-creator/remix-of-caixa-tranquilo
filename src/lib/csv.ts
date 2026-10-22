@@ -374,6 +374,7 @@ export function parseBankTable(text: string): { rows: CsvRow[]; headerError?: st
     const sender = explicitSender || (type === "income" ? namedCounterparty : "") || parties.sender || (type === "income" ? extractCounterparty(description, type) : "");
     const recipient = explicitRecipient || (type === "expense" ? namedCounterparty : "") || parties.recipient || (type === "expense" ? extractCounterparty(description, type) : "");
     const isInvestmentMovement = /\b(renda fixa|aplicacao(?: em)? cdb|resgate(?: total| parcial)? de? cdb|cdb.*(?:aplicacao|resgate)|(?:aplicacao|resgate).*cdb)\b/.test(normalizedDescription);
+    // Financing principal and bank interest are cash movements, not operating expenses.
     const isNonOperatingMovement = /\b(emprestimo inteligente|loan repayment|loan amortization|principal repayment|amortizacao de emprestimo|juros|encargos financeiros|finance charge|interest charge)\b/.test(directionText) && !isInvestmentMovement;
     const isCardSales = /\b(vendas|venda|sales|sale)\b/.test(rawType) && !namedCounterparty;
     const explicitCounterparty = type === "income"
