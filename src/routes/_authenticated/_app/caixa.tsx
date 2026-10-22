@@ -103,8 +103,9 @@ function CaixaPage() {
       effective_balance: formatBRL(entry.actual_balance),
       projected_balance: formatBRL(entry.projected_balance),
       amount: formatBRL(entry.amount_cents),
-      type: entry.is_own_transfer ? "Movimentação interna / investimento" : entry.type === "income" ? "Entrada / a receber" : "Saída / a pagar",
+      type: entry.is_own_transfer ? "Movimentação interna / investimento" : entry.is_non_operating ? "Saída de financiamento (não operacional)" : entry.type === "income" ? "Entrada / a receber" : "Saída / a pagar",
       is_own_transfer: Boolean(entry.is_own_transfer),
+      is_non_operating: Boolean(entry.is_non_operating),
     }));
     const expenses = ledger.rows.filter((entry) => entry.type === "expense" && !entry.is_own_transfer && !entry.is_non_operating);
     const expenseTotals = new Map<string, number>();
