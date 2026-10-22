@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { AlertCircle, CheckCircle2, Download, LoaderCircle, Upload } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { accessQuery, parseDbError, type LimitKind } from "@/lib/app-data";
-import { CSV_TEMPLATE, parseCsv, parseBankTable, parseStatementText, parseCoraStatementText, parsePdfStatementText, parseOfxText, type CsvRow } from "@/lib/csv";
+import { CSV_TEMPLATE, isBankStatementTable, parseCsv, parseBankTable, parseStatementText, parseCoraStatementText, parsePdfStatementText, parseOfxText, type CsvRow } from "@/lib/csv";
 import { formatBRL, formatDate } from "@/lib/format";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -58,6 +58,14 @@ export function CsvImportDialog({ open, onOpenChange, onLimit }: { open: boolean
       const extension = f.name.split(".").pop()?.toLowerCase();
       if (extension === "csv") {
         const text = await f.text();
+        if (isBankStatementTable(text)) {
+          const bankParsed = parseBankTable(text);
+          if (bankParsed.headerError) throw new Error(bankParsed.headerError);
+          if (!bankParsed.rows.length) throw new Error("O extrato CSV foi lido, mas não contém lançamentos bancários reconhecíveis.");
+          setRows(applyCompanyRoles(bankParsed.rows));
+          if (bankParsed.ignored) setFileWarning(`${bankParsed.ignored} linha(s) foram ignoradas por não conterem data, descrição e valor válidos.`);
+          return;
+        }
         const parsed = parseCsv(text);
         if (!parsed.headerError) {
           if (!parsed.rows.length) throw new Error("O CSV foi aberto, mas não contém lançamentos reconhecíveis. Confira se a primeira linha contém os cabeçalhos e se o arquivo não está vazio.");
@@ -85,6 +93,7 @@ export function CsvImportDialog({ open, onOpenChange, onLimit }: { open: boolean
             rows.push(values.map((value) => `"${value.replace(/"/g, '""')}"`).join(","));
           });
           const csvText = rows.join("\n");
+          if (isBankStatementTable(csvText)) return parseBankTable(csvText);
           const parsed = parseCsv(csvText);
           return parsed.headerError ? parseBankTable(csvText) : parsed;
         });
