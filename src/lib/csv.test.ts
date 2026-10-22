@@ -599,16 +599,21 @@ describe("additional bank statement profile regression cases", () => {
       "Data\tLançamentos\tRazão Social\tCNPJ/CPF\tValor (R$)\tSaldo (R$)",
       "05/01/2026\tDEB AUTOR METROPOLISEG\tMETROPOLISEG\t12.345.678/0001-99\t-347,65\t-133.763,84",
       "05/01/2026\tEST DB AUTMETROPOLI SEG\tMETROPOLISEG\t12.345.678/0001-99\t+347,65\t-133.763,84",
+      "05/01/2026\tJUROS EXCESSO LIM CONTA\tBANCO ITAU\t\t-3508,16\t-137.272,00",
       "05/01/2026\tSALDO ANTERIOR\t\t\t-113.319,29\t-113.319,29",
     ].join("\n"));
 
-    expect(parsed.rows).toHaveLength(2);
+    expect(parsed.rows).toHaveLength(3);
     expect(parsed.rows[0].value).toMatchObject({
       type: "expense", amount_cents: 34765, counterparty_name: "METROPOLISEG",
       counterparty_document: "12.345.678/0001-99",
     });
     expect(parsed.rows[1].value).toMatchObject({
       type: "income", amount_cents: 34765, counterparty_name: "METROPOLISEG",
+    });
+    expect(parsed.rows[2].value).toMatchObject({
+      type: "expense", amount_cents: 350816, counterparty_name: "BANCO ITAU",
+      is_non_operating: true,
     });
   });
 });
