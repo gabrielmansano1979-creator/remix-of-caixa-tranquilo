@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseMoney, parseDate, parseCsv, parseStatementText, parseCoraStatementText, parsePdfStatementText, parseOfxText, parseBankTable } from "./csv";
+import { parseMoney, parseDate, isBankStatementTable, parseCsv, parseStatementText, parseCoraStatementText, parsePdfStatementText, parseOfxText, parseBankTable } from "./csv";
 
 describe("parseMoney", () => {
   it("parses Brazilian decimal and thousands separators", () => {
@@ -454,6 +454,9 @@ describe("statement import completion status metadata", () => {
       "Consultoria,100,01/11/2026,entrada,CLIENTE ALFA",
     ].join("\n"));
 
+    expect(isBankStatementTable("CODIGO DA TRANSACAO;DATA;TIPO;DESCRICAO;VALOR")).toBe(true);
+    expect(isBankStatementTable("Data;Descrição;Valor;Saldo")).toBe(true);
+    expect(isBankStatementTable("descricao,valor,vencimento,tipo,nome")).toBe(false);
     expect(statement.rows[0].value?.is_statement_transaction).toBe(true);
     expect(template.rows[0].value?.is_statement_transaction).toBeUndefined();
   });
