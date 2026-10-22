@@ -7,7 +7,7 @@ export interface PlanConfig {
   popular?: boolean;
   priceMonthCents: number;
   priceYearCents: number;
-  couponDiscountPercent: 20;
+  couponDiscountPercent: number;
   limits: {
     pendingEntries: number;
     csvRows: number;
