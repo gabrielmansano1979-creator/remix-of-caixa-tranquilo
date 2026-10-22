@@ -311,10 +311,14 @@ function IndexComponent() {
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-300">Planos e preços</p>
               <h2 className="mt-4 text-3xl font-semibold tracking-tight text-white sm:text-4xl">Planos para empresários e contadores</h2>
               <p className="mt-4 leading-7 text-zinc-400">Compare os valores e benefícios antes de criar sua conta. Os preços e as listas de recursos abaixo usam a configuração comercial da plataforma.</p>
+              <div className="mt-6 flex flex-wrap justify-center gap-3">
+                <a href="#planos-empresario" className="inline-flex items-center gap-2 rounded-xl border border-emerald-300/25 bg-emerald-300/[0.07] px-4 py-3 text-sm font-semibold text-emerald-100 transition hover:bg-emerald-300/[0.13]">3 planos para empresários <ArrowRight className="h-4 w-4" /></a>
+                <a href="#planos-contador" className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-semibold text-zinc-100 transition hover:bg-white/[0.08]">4 opções para contadores <ArrowRight className="h-4 w-4" /></a>
+              </div>
             </div>
 
             <div className="mt-14">
-              <div className="max-w-3xl">
+              <div id="planos-empresario" className="max-w-3xl scroll-mt-28">
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-300">Para empresários</p>
                 <h3 className="mt-2 text-2xl font-semibold text-white sm:text-3xl">Controle financeiro da sua empresa</h3>
                 <p className="mt-3 leading-7 text-zinc-400">Organize receitas e despesas, importe movimentações e acompanhe os sinais de atenção do caixa. Os planos pagos incluem teste inicial de 14 dias, sujeito às condições da plataforma.</p>
@@ -340,7 +344,7 @@ function IndexComponent() {
             </div>
 
             <div className="mt-16 border-t border-white/[0.08] pt-14">
-              <div className="max-w-3xl">
+              <div id="planos-contador" className="max-w-3xl scroll-mt-28">
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-300">Para contadores e escritórios contábeis</p>
                 <h3 className="mt-2 text-2xl font-semibold text-white sm:text-3xl">Audite clientes e, se precisar, gerencie o caixa do escritório</h3>
                 <p className="mt-3 leading-7 text-zinc-400">A auditoria de clientes tem uma opção gratuita. Os planos pagos acrescentam recursos para a gestão financeira da própria empresa contábil; o acesso aos dados de cada cliente depende de autorização.</p>
