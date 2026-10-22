@@ -68,6 +68,11 @@ export type Entry = {
   paid_at: string | null;
   reminders_muted: boolean;
   created_at: string;
+  receipt_path?: string | null;
+  receipt_status?: "missing" | "pending" | "matched" | "mismatch";
+  receipt_amount_cents?: number | null;
+  receipt_review_note?: string | null;
+  receipt_reviewed_at?: string | null;
 };
 
 export const entriesQuery = queryOptions({
