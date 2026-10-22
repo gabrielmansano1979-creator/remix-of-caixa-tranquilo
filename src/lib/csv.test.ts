@@ -453,7 +453,7 @@ describe("additional bank statement profile regression cases", () => {
     const parsed = parseBankTable([
       "CODIGO DA TRANSACAO;DATA;TIPO;DESCRICAO;VALOR",
       "uuid-conflict;02/06/2026;Pix recebido;Pix recebido de CLIENTE BETA;-574,00",
-      "uuid-both;03/06/2026;Pix enviado;Pix enviado para FORNECEDOR;50,00",
+      "uuid-both;03/06/2026;Pix enviado;Pix enviado para FORNECEDOR;+50,00",
     ].join("\n"));
 
     expect(parsed.rows).toHaveLength(2);
