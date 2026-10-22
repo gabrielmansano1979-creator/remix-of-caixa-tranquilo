@@ -1,10 +1,10 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, FileText, Eye, Upload, X, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { addDays, parseDbError, profileQuery, todaySP, type Entry, type LimitKind } from "@/lib/app-data";
 import { MoneyInput } from "@/components/money-input";
@@ -36,7 +36,7 @@ export function EntryFormDialog({ open, onOpenChange, entry, onLimit }: {
 }) {
   const qc = useQueryClient();
   const { data: profile } = useQuery(profileQuery);
-  const addAnother = useRef(false);
+  const addAnother = useRef(false);\n  const [receiptFile, setReceiptFile] = useState<File | null>(null);\n  const [existingReceiptPath, setExistingReceiptPath] = useState<string | null>(null);\n  const [receiptPreviewUrl, setReceiptPreviewUrl] = useState<string | null>(null);\n  const [receiptPreviewType, setReceiptPreviewType] = useState<string | null>(null);\n  const [receiptLoading, setReceiptLoading] = useState(false);
   const blank = (): FormV => ({
     type: (typeof window !== "undefined" && (localStorage.getItem(LAST_TYPE) as "income" | "expense")) || "income",
     description: "", amount_cents: 0, due_date: todaySP(), counterparty_name: "", counterparty_whatsapp: "", pix_url: "",
@@ -46,7 +46,7 @@ export function EntryFormDialog({ open, onOpenChange, entry, onLimit }: {
 
   useEffect(() => {
     if (!open) return;
-    reset(entry ? {
+    setReceiptFile(null);\n    setReceiptPreviewUrl(null);\n    setExistingReceiptPath((entry as (Entry & { receipt_path?: string | null }) | null | undefined)?.receipt_path ?? null);\n    reset(entry ? {
       type: entry.type, description: entry.description, amount_cents: entry.amount_cents, due_date: entry.due_date,
       counterparty_name: entry.counterparty_name ?? "", counterparty_whatsapp: entry.counterparty_whatsapp ?? "",
       pix_url: entry.pix_url ?? "",
@@ -66,7 +66,7 @@ export function EntryFormDialog({ open, onOpenChange, entry, onLimit }: {
       localStorage.setItem(LAST_TYPE, v.type);
       qc.invalidateQueries({ queryKey: ["entries"] });
       qc.invalidateQueries({ queryKey: ["projection"] });
-      toast.success(entry ? "Conta atualizada." : "Conta salva.");
+      setReceiptFile(null);\n      setReceiptPreviewUrl(null);\n      toast.success(entry ? "Conta atualizada." : "Conta salva.");
       if (addAnother.current && !entry) {
         reset({ ...blank(), type: v.type });
         setTimeout(() => setFocus("description"), 0);
@@ -132,9 +132,9 @@ export function EntryFormDialog({ open, onOpenChange, entry, onLimit }: {
             <FieldError msg={formState.errors.counterparty_whatsapp?.message} />
           </div>
           <div><Label htmlFor="pix_url">Link Pix do cliente (opcional)</Label><Input id="pix_url" type="url" maxLength={2000} className="mt-1.5 h-11" {...register("pix_url")} /><FieldError msg={formState.errors.pix_url?.message} /></div>
-          <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row">
+          <div className="space-y-2 rounded-xl border border-dashed p-3">\n            <div className="flex items-start gap-2"><FileText className="mt-0.5 h-5 w-5 shrink-0 text-primary" /><div><Label htmlFor="receipt-file" className="cursor-pointer">Comprovante da movimentação</Label><p className="mt-1 text-xs text-muted-foreground">Anexe o comprovante de pagamento ou recebimento para a conferência automática. PDF, JPG, PNG ou WEBP; até 10 MB.</p></div></div>\n            <label htmlFor="receipt-file" className="flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-lg border bg-muted/30 px-3 py-2 text-sm font-medium hover:bg-accent"><Upload className="h-4 w-4" />{receiptFile ? "Trocar comprovante" : existingReceiptPath ? "Substituir comprovante" : "Escolher comprovante"}<input id="receipt-file" type="file" accept="application/pdf,image/jpeg,image/png,image/webp" className="sr-only" onChange={(event) => { const file = event.target.files?.[0]; if (!file) return; if (file.size > 10 * 1024 * 1024) { toast.error("O comprovante deve ter no máximo 10 MB."); event.currentTarget.value = ""; return; } if (!["application/pdf","image/jpeg","image/png","image/webp"].includes(file.type)) { toast.error("Formato não permitido. Use PDF, JPG, PNG ou WEBP."); event.currentTarget.value = ""; return; } setReceiptFile(file); setReceiptPreviewType(file.type); setReceiptPreviewUrl(URL.createObjectURL(file)); }} /></label>\n            {receiptFile && <div className="flex items-center justify-between gap-2 rounded-lg bg-muted/40 p-2 text-xs"><span className="flex min-w-0 items-center gap-2"><FileText className="h-4 w-4 shrink-0" /><span className="truncate">{receiptFile.name}</span></span><button type="button" className="rounded p-1 text-muted-foreground hover:text-foreground" aria-label="Remover comprovante selecionado" onClick={() => { setReceiptFile(null); if (receiptPreviewUrl) URL.revokeObjectURL(receiptPreviewUrl); setReceiptPreviewUrl(null); }}><X className="h-4 w-4" /></button></div>}\n            {existingReceiptPath && !receiptFile && <p className="text-xs text-emerald-700">Já existe um comprovante anexado. Selecione outro arquivo para substituí-lo.</p>}\n            {receiptPreviewUrl && <div className="overflow-hidden rounded-lg border"><div className="flex items-center justify-between border-b px-3 py-2 text-xs font-medium"><span>Pré-visualização do comprovante</span><a href={receiptPreviewUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-primary"><Eye className="h-3.5 w-3.5" />Abrir</a></div>{receiptPreviewType === "application/pdf" ? <iframe title="Pré-visualização do comprovante PDF" src={receiptPreviewUrl} className="h-64 w-full" /> : <img src={receiptPreviewUrl} alt="Pré-visualização do comprovante" className="max-h-64 w-full object-contain" />}</div>}\n            <p role="status" className="flex items-start gap-1.5 text-xs text-amber-700"><AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />Após anexar, o sistema precisa conferir o documento e o valor. O arquivo sozinho não aprova a movimentação; enquanto a conferência não terminar, ela fica pendente.</p>\n          </div>\n          <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row">
             {!entry && (
-              <Button type="button" variant="outline" className="h-11 flex-1 rounded-xl" disabled={save.isPending} onClick={() => submit(true)}>
+              <Button type="button" variant="outline" className="h-11 flex-1 rounded-xl" disabled={save.isPending || receiptLoading} onClick={() => submit(true)}>
                 Salvar e adicionar outra
               </Button>
             )}
