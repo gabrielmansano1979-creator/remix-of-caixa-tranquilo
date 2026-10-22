@@ -149,3 +149,52 @@ BEGIN
 END;
 $function$;
 REVOKE ALL ON FUNCTION public.capture_financial_entry_audit() FROM PUBLIC, anon, authenticated;
+
+CREATE OR REPLACE FUNCTION public.my_accountant_portal_invites()
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $function$
+DECLARE uid uuid := auth.uid(); partner_record_id uuid; business_token uuid; result jsonb;
+BEGIN
+  IF uid IS NULL THEN RAISE EXCEPTION 'not authenticated'; END IF;
+  SELECT id INTO partner_record_id FROM public.partner_requests WHERE user_id = uid AND status = 'approved';
+  IF partner_record_id IS NULL THEN RAISE EXCEPTION 'approved accountant registration required'; END IF;
+  INSERT INTO public.accountant_business_invites(partner_id) VALUES (partner_record_id) ON CONFLICT (partner_id) DO NOTHING;
+  SELECT token INTO business_token FROM public.accountant_business_invites WHERE partner_id = partner_record_id;
+  SELECT jsonb_build_object(
+    'business_invite_token', business_token,
+    'authorized_clients', COALESCE((
+      SELECT jsonb_agg(jsonb_build_object(
+        'client_user_id', aa.client_user_id,
+        'client_name', COALESCE(NULLIF(trim(p.business_name), ''), NULLIF(trim(p.full_name), ''), 'Empresa'),
+        'business_size', p.business_size, 'granted_at', aa.granted_at,
+        'initial_balance_cents', COALESCE(p.initial_balance_cents, 0), 'balance_date', p.balance_date, 'balance_updated_at', p.balance_updated_at,
+        'entries', COALESCE((
+          SELECT jsonb_agg(jsonb_build_object(
+            'id', e.id, 'description', e.description, 'type', e.type, 'amount_cents', e.amount_cents, 'due_date', e.due_date,
+            'status', e.status, 'paid_at', e.paid_at, 'counterparty_name', e.counterparty_name,
+            'sender_name', e.sender_name, 'recipient_name', e.recipient_name,
+            'counterparty_document', e.counterparty_document, 'counterparty_original_name', e.counterparty_original_name,
+            'payment_method', e.payment_method, 'is_own_transfer', e.is_own_transfer,
+            'is_non_operating', e.is_non_operating, 'created_at', e.created_at
+          ) ORDER BY e.due_date, e.created_at) FROM public.entries e WHERE e.user_id = aa.client_user_id
+        ), '[]'::jsonb)
+      ) ORDER BY p.business_name)
+      FROM public.accountant_access aa JOIN public.profiles p ON p.user_id = aa.client_user_id WHERE aa.partner_id = partner_record_id
+    ), '[]'::jsonb),
+    'pending_requests', COALESCE((
+      SELECT jsonb_agg(jsonb_build_object('id', r.id, 'client_name', COALESCE(NULLIF(trim(p.business_name), ''), NULLIF(trim(p.full_name), ''), 'Empresa'), 'requested_at', r.requested_at) ORDER BY r.requested_at DESC)
+      FROM public.accountant_access_requests r JOIN public.profiles p ON p.user_id = r.client_user_id WHERE r.partner_id = partner_record_id AND r.status = 'pending'
+    ), '[]'::jsonb),
+    'invited_companies', COALESCE((
+      SELECT jsonb_agg(jsonb_build_object(
+        'client_name', COALESCE(NULLIF(trim(p.business_name), ''), NULLIF(trim(p.full_name), ''), 'Empresa'),
+        'accepted_at', a.accepted_at,
+        'access_granted', EXISTS (SELECT 1 FROM public.accountant_access aa WHERE aa.client_user_id = a.client_user_id AND aa.partner_id = partner_record_id)
+      ) ORDER BY a.accepted_at DESC)
+      FROM public.accountant_business_invite_acceptances a JOIN public.profiles p ON p.user_id = a.client_user_id WHERE a.partner_id = partner_record_id
+    ), '[]'::jsonb)
+  ) INTO result;
+  RETURN result;
+END;
+$function$;
+REVOKE ALL ON FUNCTION public.my_accountant_portal_invites() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.my_accountant_portal_invites() TO authenticated;
