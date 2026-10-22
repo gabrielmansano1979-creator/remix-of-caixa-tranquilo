@@ -102,7 +102,8 @@ export function PlanPicker({ referralCode }: { referralCode?: string }) {
               {isCurrent ? <span className="absolute -top-3 left-6 rounded-full bg-primary px-3 py-1 text-xs font-medium text-primary-foreground">Seu plano</span>
                 : p.popular && <span className="absolute -top-3 left-6 rounded-full bg-accent px-3 py-1 text-xs font-medium text-accent-foreground">Mais popular</span>}
               <h3 className="text-lg font-semibold">{p.name}</h3>
-              <p className="mt-2"><span className="num text-3xl font-bold">{formatBRL(Math.round((yearly ? p.priceYearCents : p.priceMonthCents) * (referralCode ? 1 - PARTNER_COUPON_DISCOUNT : 1)), true)}</span><span className="text-muted-foreground">/{yearly ? "ano" : "mês"}</span></p>{referralCode && <p className="text-sm text-muted-foreground"><span className="line-through">{formatBRL(yearly ? p.priceYearCents : p.priceMonthCents, true)}</span> · cupom de 20%</p>
+              <p className="mt-2"><span className="num text-3xl font-bold">{formatBRL(Math.round((yearly ? p.priceYearCents : p.priceMonthCents) * (referralCode ? 1 - PARTNER_COUPON_DISCOUNT : 1)), true)}</span><span className="text-muted-foreground">/{yearly ? "ano" : "mês"}</span></p>
+              {referralCode && <p className="text-sm text-muted-foreground"><span className="line-through">{formatBRL(yearly ? p.priceYearCents : p.priceMonthCents, true)}</span> · cupom de 20%</p>}
               <ul className="mt-5 space-y-2 text-sm">{p.features.map((f) => <li key={f} className="flex gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />{f}</li>)}</ul>
               <Button className="mt-6 h-11 w-full rounded-xl" variant={isCurrent ? "outline" : "default"} disabled={isCurrent || busy !== null} onClick={() => go(p.id)}>
                 {busy === p.id && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{label}
