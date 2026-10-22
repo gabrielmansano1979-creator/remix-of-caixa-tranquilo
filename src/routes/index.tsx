@@ -4,6 +4,23 @@ import { supabase } from '@/integrations/supabase/client';
 import { Logo } from '@/components/brand';
 import { Button } from '@/components/ui/button';
 import { ACCOUNTANT_PLANS, PLANS, formatPlanPrice } from '@/config/plans';
+
+function entrepreneurPlanBenefits(planId: string): string[] {
+  const planIndex = PLANS.findIndex((plan) => plan.id === planId);
+  return PLANS.slice(0, planIndex + 1)
+    .flatMap((plan) => plan.features.filter((feature) => !feature.startsWith("Tudo do ")))
+    .filter((feature, index, all) => all.indexOf(feature) === index);
+}
+
+function accountantPlanBenefits(planId: string): string[] {
+  const planIndex = ACCOUNTANT_PLANS.findIndex((plan) => plan.id === planId);
+  return ACCOUNTANT_PLANS.slice(0, planIndex + 1)
+    .flatMap((plan) => plan.features.filter((feature) =>
+      !feature.startsWith("Tudo do Meu Caixa") &&
+      !feature.startsWith("Todos os recursos gratuitos de Meus Clientes")
+    ))
+    .filter((feature, index, all) => all.indexOf(feature) === index);
+}
 import {
   ArrowRight,
   BarChart3,
@@ -311,7 +328,7 @@ function IndexComponent() {
                     <p className="mt-1 text-sm text-zinc-400">ou <span className="font-semibold text-emerald-200">{formatPlanPrice(plan.priceYearCents)}/ano</span> <span className="text-zinc-500">(equivale a 10 mensalidades)</span></p>
                     <div className="my-6 h-px bg-white/[0.08]" />
                     <ul className="flex-1 space-y-3 text-sm leading-6 text-zinc-300">
-                      {plan.features.map((feature) => <li key={feature} className="flex gap-2"><CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-emerald-300" /><span>{feature}</span></li>)}
+                      {entrepreneurPlanBenefits(plan.id).map((feature) => <li key={feature} className="flex gap-2"><CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-emerald-300" /><span>{feature}</span></li>)}
                     </ul>
                     <Button onClick={() => handleNavigate('/login?cadastro=1&perfil=empresario')} className={'mt-7 h-11 w-full rounded-xl font-semibold ' + (plan.popular ? 'bg-emerald-400 text-zinc-950 hover:bg-emerald-300' : 'bg-white/[0.08] text-white hover:bg-white/[0.13]')}>
                       Escolher {plan.name}<ArrowRight className="ml-2 h-4 w-4" />
@@ -337,7 +354,7 @@ function IndexComponent() {
                     {plan.priceYearCents !== null ? <p className="mt-1 text-sm text-zinc-400">ou <span className="font-semibold text-emerald-200">{formatPlanPrice(plan.priceYearCents)}/ano</span> <span className="text-zinc-500">(10 mensalidades)</span></p> : <p className="mt-1 text-sm text-zinc-400">Sem mensalidade para auditoria de clientes</p>}
                     <div className="my-5 h-px bg-white/[0.08]" />
                     <ul className="flex-1 space-y-3 text-sm leading-6 text-zinc-300">
-                      {plan.features.map((feature) => <li key={feature} className="flex gap-2"><CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-emerald-300" /><span>{feature}</span></li>)}
+                      {accountantPlanBenefits(plan.id).map((feature) => <li key={feature} className="flex gap-2"><CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-emerald-300" /><span>{feature}</span></li>)}
                     </ul>
                     <Button onClick={() => handleNavigate('/login?cadastro=1&perfil=contador')} className="mt-7 h-11 w-full rounded-xl bg-white/[0.08] font-semibold text-white hover:bg-white/[0.13]">
                       {plan.priceMonthCents === 0 ? 'Começar grátis' : 'Escolher ' + plan.name}<ArrowRight className="ml-2 h-4 w-4" />
