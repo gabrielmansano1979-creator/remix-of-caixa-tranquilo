@@ -473,6 +473,27 @@ describe("additional bank statement profile regression cases", () => {
     });
   });
 
+  it("preserves the InfinitePay PDF transaction type, detail, named counterparty and financing classification", () => {
+    const parsed = parsePdfStatementText([
+      "InfinitePay — Extrato",
+      "Data\tHora\tTipo de transação\tNome\tDetalhe\tValor (R$)",
+      "03 Set, 2026\t11:15\tEmpréstimo Inteligente\tInfinitePay\tAmortização\t-90,50",
+    ].join("\n"));
+
+    expect(parsed.rows).toHaveLength(1);
+    expect(parsed.rows[0].value).toMatchObject({
+      type: "expense",
+      amount_cents: 9050,
+      due_date: "2026-09-03",
+      counterparty_name: "InfinitePay",
+      recipient_name: "InfinitePay",
+      is_non_operating: true,
+    });
+    expect(parsed.rows[0].value?.description).toContain("Empréstimo Inteligente");
+    expect(parsed.rows[0].value?.description).toContain("Amortização");
+    expect(parsed.rows[0].raw.metodo).toBe("");
+  });
+
   it("parses InfinitePay PDF columns with time, transaction type, name, detail and signed amount", () => {
     const parsed = parsePdfStatementText([
       "InfinitePay — Extrato",
