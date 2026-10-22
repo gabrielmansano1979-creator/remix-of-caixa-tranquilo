@@ -40,7 +40,8 @@ function ResetPage() {
     const { error } = await supabase.auth.updateUser({ password });
     if (error) return setError(translateAuthError(error.message) + " O link pode ter expirado.");
     toast.success("Senha atualizada.");
-    navigate({ to: "/caixa", replace: true });
+    const profile = new URLSearchParams(window.location.search).get("perfil");
+    navigate({ to: "/login", replace: true, search: { perfil: profile === "contador" ? "contador" : "empresario" } as never });
   });
 
   return (
