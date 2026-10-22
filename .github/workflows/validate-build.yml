@@ -83,9 +83,19 @@ jobs:
         run: npm run build
       - name: Audit dependency vulnerabilities
         run: npm audit --audit-level=high
+      - name: Checkout PR branch for lockfile update
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          path: lockfile-branch
+          token: ${{ github.token }}
+          fetch-depth: 1
       - name: Commit refreshed lockfile after successful validation
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
         run: |
+          cp package-lock.json lockfile-branch/package-lock.json
+          cd lockfile-branch
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add package-lock.json
