@@ -63,7 +63,7 @@ jobs:
           node-version: 22
           cache: npm
       - name: Refresh lockfile for pinned security fixes
-        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+        run: npm install --ignore-scripts --no-audit --no-fund
       - name: Upload refreshed lockfile for review
         uses: actions/upload-artifact@v4
         with:
