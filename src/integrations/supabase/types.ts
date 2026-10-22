@@ -400,6 +400,12 @@ export type Database = {
           pix_url: string | null
           recipient_name: string | null
           reminders_muted: boolean
+          receipt_amount_cents: number | null
+          receipt_path: string | null
+          receipt_review_note: string | null
+          receipt_reviewed_at: string | null
+          receipt_reviewed_by: string | null
+          receipt_status: string
           sender_name: string | null
           status: Database["public"]["Enums"]["entry_status"]
           type: Database["public"]["Enums"]["entry_type"]
@@ -422,6 +428,12 @@ export type Database = {
           pix_url?: string | null
           recipient_name?: string | null
           reminders_muted?: boolean
+          receipt_amount_cents?: number | null
+          receipt_path?: string | null
+          receipt_review_note?: string | null
+          receipt_reviewed_at?: string | null
+          receipt_reviewed_by?: string | null
+          receipt_status?: string
           sender_name?: string | null
           status?: Database["public"]["Enums"]["entry_status"]
           type: Database["public"]["Enums"]["entry_type"]
@@ -444,6 +456,12 @@ export type Database = {
           pix_url?: string | null
           recipient_name?: string | null
           reminders_muted?: boolean
+          receipt_amount_cents?: number | null
+          receipt_path?: string | null
+          receipt_review_note?: string | null
+          receipt_reviewed_at?: string | null
+          receipt_reviewed_by?: string | null
+          receipt_status?: string
           sender_name?: string | null
           status?: Database["public"]["Enums"]["entry_status"]
           type?: Database["public"]["Enums"]["entry_type"]
@@ -1083,6 +1101,15 @@ export type Database = {
       }
       request_accountant_access: {
         Args: { _token: string }
+        Returns: undefined
+      }
+      review_financial_receipt: {
+        Args: {
+          _entry_id: string
+          _status: string
+          _receipt_amount_cents: number | null
+          _note?: string | null
+        }
         Returns: undefined
       }
       revoke_accountant_access: { Args: never; Returns: undefined }
