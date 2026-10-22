@@ -296,7 +296,7 @@ export function parseBankTable(text: string): { rows: CsvRow[]; headerError?: st
     cell.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[.,()/:#]+/g, " ").replace(/r\$/g, "").replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim()
   );
   const dateIndex = header.findIndex((h) => /^(data|date|data lancamento|data movimento|dt lancamento|dt movimento|posting date|transaction date|data transacao|data da transacao|data efetiva|data operacao|data valor|data contabil|data contabilizacao|data de lancamento|data do lancamento|data do movimento|data hora|transaction posting date|value date|booking date|effective date)$/.test(h));
-  const descriptionIndex = header.findIndex((h) => /^(descricao|historico|historico descricao|descricao historico|lancamento|lancamentos|detalhe|detalhes|memo|description|transaction description|transaction details|details|narrative|particulars|payee|beneficiario|estabelecimento|transacao|transaction|nome|operacao|identificacao|complemento|documento|tipo lancamento|historico do lancamento|descricao do lancamento|historico da transacao|descricao da transacao|historico movimento|descricao movimento|historico da movimentacao|descricao da movimentacao|detalhes da transacao)$/.test(h));
+  const descriptionIndex = header.findIndex((h) => /^(descricao|historico|historico descricao|descricao historico|lancamento|lancamentos|detalhe|detalhes|memo|description|transaction description|transaction details|details|narrative|particulars|payee|beneficiario|estabelecimento|transacao|transaction|operacao|identificacao|complemento|documento|tipo lancamento|historico do lancamento|descricao do lancamento|historico da transacao|descricao da transacao|historico movimento|descricao movimento|historico da movimentacao|descricao da movimentacao|detalhes da transacao)$/.test(h));
   const amountIndex = header.findIndex((h) => /^(valor|amount|quantia|montante|valor r\$|amount brl|total|valor lancamento|valor movimento|valor da transacao|valor transacao|valor da movimentacao|valor movimentacao|valor do lancamento|valor lancamento|vl lancamento|vl movimento|transaction amount|amount of transaction|movement amount|valor da operacao|valor operacao|importe)$/.test(h));
   const debitIndex = header.findIndex((h) => /^(debito|debitos|debit|debits|saidas|saida|withdrawal|withdrawals|debit amount|valor debito|vl debito|debito r\$|saidas r\$|valor saida|valor de saida|valor de debito|valor dos debitos|retirada|retiradas|pagamento)$/.test(h));
   const creditIndex = header.findIndex((h) => /^(credito|creditos|credit|credits|entradas|entrada|deposit|deposits|deposito|credit amount|valor credito|vl credito|credito r\$|entradas r\$|valor entrada|valor de entrada|valor de credito|valor dos creditos|recebimento|depositos)$/.test(h));
@@ -342,10 +342,12 @@ export function parseBankTable(text: string): { rows: CsvRow[]; headerError?: st
     const errors = type ? [] : ["A linha foi lida, mas o arquivo não informa se o valor é entrada ou saída; classifique manualmente."];
     const explicitSender = senderIndex >= 0 ? (cells[senderIndex] ?? "").trim().slice(0, 120) : "";
     const explicitRecipient = recipientIndex >= 0 ? (cells[recipientIndex] ?? "").trim().slice(0, 120) : "";
+    const namedCounterparty = counterpartyIndex >= 0 ? (cells[counterpartyIndex] ?? "").trim().slice(0, 120) : "";
     const parties = extractTransferParties(description);
-    const sender = explicitSender || parties.sender || (type === "income" ? extractCounterparty(description, type) : "");
-    const recipient = explicitRecipient || parties.recipient || (type === "expense" ? extractCounterparty(description, type) : "");
+    const sender = explicitSender || (type === "income" ? namedCounterparty : "") || parties.sender || (type === "income" ? extractCounterparty(description, type) : "");
+    const recipient = explicitRecipient || (type === "expense" ? namedCounterparty : "") || parties.recipient || (type === "expense" ? extractCounterparty(description, type) : "");
     const isInvestmentMovement = /\b(renda fixa|aplicacao(?: em)? cdb|resgate(?: total| parcial)? de? cdb|cdb.*(?:aplicacao|resgate)|(?:aplicacao|resgate).*cdb)\b/.test(normalizedDescription);
+    const isNonOperatingMovement = /\b(emprestimo inteligente|loan repayment|loan amortization|principal repayment|amortizacao de emprestimo)\b/.test(directionText) && !isInvestmentMovement;
     const isCardSales = /\b(vendas|venda|sales|sale)\b/.test(rawType);
     const explicitCounterparty = type === "income"
       ? (sender || (counterpartyIndex >= 0 ? cells[counterpartyIndex] ?? "" : ""))
@@ -376,6 +378,10 @@ export function parseBankTable(text: string): { rows: CsvRow[]; headerError?: st
         nome: counterparty,
         remetente: sender,
         destinatario: recipient,
+        metodo: paymentMethod,
+        documento_contraparte: counterpartyDocument,
+        transferencia_propria: String(isInvestmentMovement),
+        nao_operacional: String(isNonOperatingMovement),
       },
       errors,
     };
@@ -387,6 +393,7 @@ export function parseBankTable(text: string): { rows: CsvRow[]; headerError?: st
       recipient_name: type === "expense" ? counterparty : undefined,
       payment_method: paymentMethod || undefined,
       is_own_transfer: isInvestmentMovement,
+      is_non_operating: isNonOperatingMovement,
     };
     rows.push(row);
   }
