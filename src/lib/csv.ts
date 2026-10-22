@@ -304,7 +304,7 @@ export function parseBankTable(text: string): { rows: CsvRow[]; headerError?: st
   const senderIndex = header.findIndex((h) => /^(remetente|pagador|nome pagador|nome do pagador|ordenante|origem|sender|payer|from|sender name|payer name)$/.test(h));
   const recipientIndex = header.findIndex((h) => /^(destinatario|nome destinatario|nome do destinatario|favorecido|nome favorecido|beneficiario|nome beneficiario|recebedor|payee|recipient|recipient name|beneficiary|to)$/.test(h));
   const counterpartyIndex = header.findIndex((h) => /^(nome|razao social|contraparte|counterparty|nome contraparte|nome favorecido|nome remetente|nome cliente|nome contraparte financeira|nome da contraparte|counterparty name|counterparty)$/.test(h));
-  const documentIndex = header.findIndex((h) => /^(cpf|cnpj|cpf cnpj|documento contraparte|documento do favorecido|documento beneficiario|documento remetente|tax id|counterparty document)$/.test(h));
+  const documentIndex = header.findIndex((h) => /^(cpf|cnpj|cpf cnpj|cnpj cpf|documento contraparte|documento do favorecido|documento beneficiario|documento remetente|tax id|counterparty document)$/.test(h));
   if (dateIndex < 0 || descriptionIndex < 0 || (amountIndex < 0 && debitIndex < 0 && creditIndex < 0)) {
     return { rows: [], headerError: "Não reconheci as colunas. Preciso identificar data, descrição e valor (ou débito/crédito).", ignored: 0 };
   }
