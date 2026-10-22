@@ -28,7 +28,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
@@ -62,17 +62,6 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - name: Update npm for lockfile resolution
-        run: npm install --global npm@11
-      - name: Resolve fresh lockfile for pinned security fixes
-        run: rm -f package-lock.json && npm install --package-lock-only --ignore-scripts --no-audit --no-fund --legacy-peer-deps
-      - name: Upload refreshed lockfile for review
-        uses: actions/upload-artifact@v4
-        with:
-          name: refreshed-package-lock
-          path: package-lock.json
-          if-no-files-found: error
-          retention-days: 1
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
       - name: Run unit tests
@@ -83,23 +72,3 @@ jobs:
         run: npm run build
       - name: Audit dependency vulnerabilities
         run: npm audit --audit-level=high
-      - name: Checkout PR branch for lockfile update
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref }}
-          path: lockfile-branch
-          token: ${{ github.token }}
-          fetch-depth: 1
-      - name: Commit refreshed lockfile after successful validation
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-        run: |
-          cp package-lock.json lockfile-branch/package-lock.json
-          cd lockfile-branch
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package-lock.json
-          if ! git diff --cached --quiet; then
-            git commit -m "Update dependency lockfile for patched toolchain"
-            git push origin "HEAD:${{ github.head_ref }}"
-          fi
