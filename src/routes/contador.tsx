@@ -359,7 +359,7 @@ function AccountantPage() {
           </p>
           <h1 className="text-3xl font-bold tracking-tight md:text-4xl">Contador Afiliado</h1>
           <p className="max-w-2xl text-base leading-relaxed text-muted-foreground">
-            Área exclusiva para contadores com registro profissional válido no CRC. Não é destinada a outros perfis profissionais. A aprovação depende da conferência dos dados e documentos comprobatórios.
+            Área exclusiva para contadores com registro profissional válido no CRC. Meus Clientes e todos os recursos de auditoria são gratuitos; os planos pagos de escritório liberam Meu Caixa, o fluxo financeiro da própria empresa contábil. A aprovação depende da conferência dos dados e documentos comprobatórios.
           </p>
         </header>
         {state?.status === "pending_approval" && (
@@ -386,7 +386,7 @@ function AccountantPage() {
             <section className="space-y-4">
               <div>
                 <h2 className="text-2xl font-bold tracking-tight">Planos para contadores e escritórios</h2>
-                <p className="mt-1 text-sm text-muted-foreground">Comece gratuitamente como auditor ou escolha uma estrutura para a gestão financeira do escritório.</p>
+                <p className="mt-1 text-sm text-muted-foreground">Auditor Free mantém Meus Clientes e toda a auditoria gratuitos, sem limite comercial. Os planos pagos liberam Meu Caixa para gerir as finanças da própria empresa contábil; não cobram pelos recursos de auditoria.</p>
               </div>
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 {ACCOUNTANT_PLANS.map((plan) => (
