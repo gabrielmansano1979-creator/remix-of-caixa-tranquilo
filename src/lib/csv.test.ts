@@ -449,6 +449,20 @@ describe("additional bank statement profile regression cases", () => {
     expect(parseDate("01 SET 2026")).toBe("2026-09-01");
   });
 
+  it("flags a signed amount that contradicts the explicit InfinitePay transaction type", () => {
+    const parsed = parseBankTable([
+      "CODIGO DA TRANSACAO;DATA;TIPO;DESCRICAO;VALOR",
+      "uuid-conflict;02/06/2026;Pix recebido;Pix recebido de CLIENTE BETA;-574,00",
+      "uuid-both;03/06/2026;Pix enviado;Pix enviado para FORNECEDOR;50,00",
+    ].join("\n"));
+
+    expect(parsed.rows).toHaveLength(2);
+    expect(parsed.rows[0].value).toBeUndefined();
+    expect(parsed.rows[0].errors.join(" ")).toContain("contradiz");
+    expect(parsed.rows[1].value).toBeUndefined();
+    expect(parsed.rows[1].errors.join(" ")).toContain("contradiz");
+  });
+
   it("parses InfinitePay CSV with semicolon delimiter, signed amounts and card sales", () => {
     const parsed = parseBankTable([
       "CODIGO DA TRANSACAO;DATA;TIPO;DESCRICAO;VALOR",
