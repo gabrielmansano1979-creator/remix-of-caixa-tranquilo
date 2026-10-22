@@ -360,10 +360,10 @@ export function parseBankTable(text: string): { rows: CsvRow[]; headerError?: st
     const pixDescriptionParty = isPixMovement && !/^(pix\s+(enviado|enviada|recebido|recebida)|disponivel\s+(debito|credito)\s+\w+)$/i.test(description.trim())
       ? description.replace(/^pix\s+(?:enviado|enviada|recebido|recebida)\s+(?:de|do|da|para|pro|pra)?\s*/i, "").trim()
       : "";
-    const counterparty = (explicitCounterparty.trim() || (isInvestmentMovement
+    const counterparty = (isInvestmentMovement
       ? (/resgate/i.test(description) ? "Resgate próprio de CDB" : "Aplicação própria em CDB")
       : isCardSales ? "Liquidação de vendas por cartão"
-      : pixDescriptionParty)).slice(0, 120);
+      : (explicitCounterparty.trim() || pixDescriptionParty)).slice(0, 120);
     const counterpartyDocument = documentIndex >= 0 ? (cells[documentIndex] ?? "").trim().slice(0, 32) : "";
     const paymentMethod = isInvestmentMovement ? (/resgate/i.test(description) ? "Resgate de CDB" : "Aplicação em CDB")
       : /pix/i.test(directionText) ? "PIX"
