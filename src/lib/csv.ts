@@ -336,7 +336,7 @@ export function parseBankTable(text: string): { rows: CsvRow[]; headerError?: st
     const type = debit !== null ? "expense"
       : credit !== null ? "income"
       : signedNegative || /\b(debito|saida|despesa|pagamento|pagto|compra|withdrawal|withdrawals|expense|saque|retirada|tarifa|boleto pago|pix enviado|transferencia enviada|paid|payment|purchase|outgoing|sent|transfer out|debit card|bill payment|amortizacao|amortizacao de emprestimo)\b/.test(directionText) ? "expense"
-      : /\b(credito|entrada|receita|deposito|recebimento|income|pix recebido|transferencia recebida|estorno|salario|received|credited|incoming|refund|transfer in|credit transfer|vendas|venda|sales|sale|liquidacao de vendas|resgate de cdb)\b/.test(directionText) ? "income"
+      : signedPositive || /\b(credito|entrada|receita|deposito|recebimento|income|pix recebido|transferencia recebida|estorno|salario|received|credited|incoming|refund|transfer in|credit transfer|vendas|venda|sales|sale|liquidacao de vendas|resgate(?: total| parcial)? de? cdb)\b/.test(directionText) ? "income"
       : null;
     const errors = type ? [] : ["A linha foi lida, mas o arquivo não informa se o valor é entrada ou saída; classifique manualmente."];
     const explicitSender = senderIndex >= 0 ? (cells[senderIndex] ?? "").trim().slice(0, 120) : "";
