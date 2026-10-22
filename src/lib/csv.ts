@@ -360,7 +360,7 @@ export function parseBankTable(text: string): { rows: CsvRow[]; headerError?: st
     const recipient = explicitRecipient || (type === "expense" ? namedCounterparty : "") || parties.recipient || (type === "expense" ? extractCounterparty(description, type) : "");
     const isInvestmentMovement = /\b(renda fixa|aplicacao(?: em)? cdb|resgate(?: total| parcial)? de? cdb|cdb.*(?:aplicacao|resgate)|(?:aplicacao|resgate).*cdb)\b/.test(normalizedDescription);
     const isNonOperatingMovement = /\b(emprestimo inteligente|loan repayment|loan amortization|principal repayment|amortizacao de emprestimo)\b/.test(directionText) && !isInvestmentMovement;
-    const isCardSales = /\b(vendas|venda|sales|sale)\b/.test(rawType);
+    const isCardSales = /\b(vendas|venda|sales|sale)\b/.test(rawType) && !namedCounterparty;
     const explicitCounterparty = type === "income"
       ? (sender || (counterpartyIndex >= 0 ? cells[counterpartyIndex] ?? "" : ""))
       : type === "expense"
