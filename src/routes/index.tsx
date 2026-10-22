@@ -50,7 +50,7 @@ function IndexComponent() {
         }
 
         setSessionActive(true);
-        setUserRolePath('/caixa');
+        setUserRolePath(session.user.user_metadata?.account_type === 'accountant' ? '/contador' : '/caixa');
       }
 
       if (isMounted) setLoadingAuth(false);
