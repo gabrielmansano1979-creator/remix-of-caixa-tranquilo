@@ -166,11 +166,9 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
           if (!linkedPartner || linkedPartner.status !== "approved") {
             return { error: "O cupom de indicação não está disponível." };
           }
-          const buyerEmail = customerEmail.trim().toLowerCase();
-          const partnerEmail = (linkedPartner.email ?? "").trim().toLowerCase();
           const buyerDoc = normalizeCpfCnpj(data.cpfCnpj);
           const partnerDoc = normalizeCpfCnpj(linkedPartner.tax_id ?? "");
-          if (linkedPartner.user_id === userId || (partnerEmail && partnerEmail === buyerEmail) || (partnerDoc && partnerDoc === buyerDoc)) {
+          if (partnerDoc && partnerDoc === buyerDoc) {
             return { error: "Você não pode utilizar seu próprio cupom de indicação para assinar um plano." };
           }
           const { data: currentCoupon, error: currentCouponError } = await supabaseAdmin
@@ -209,11 +207,9 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
           if (partnerError) throw partnerError;
           if (!partner || partner.status !== "approved") return { error: "O cupom de indicação não está disponível." };
 
-          const buyerEmail = customerEmail.trim().toLowerCase();
-          const partnerEmail = (partner.email ?? "").trim().toLowerCase();
           const buyerDoc = normalizeCpfCnpj(data.cpfCnpj);
           const partnerDoc = normalizeCpfCnpj(partner.tax_id ?? "");
-          if (partner.user_id === userId || (partnerEmail && partnerEmail === buyerEmail) || (partnerDoc && partnerDoc === buyerDoc)) {
+          if (partnerDoc && partnerDoc === buyerDoc) {
             return { error: "Você não pode utilizar seu próprio cupom de indicação para assinar um plano." };
           }
           affiliate = {
