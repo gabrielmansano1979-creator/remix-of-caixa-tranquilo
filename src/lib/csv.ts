@@ -2,7 +2,7 @@ export interface CsvRow {
   line: number;
   raw: Record<string, string>;
   errors: string[];
-  value?: { type: "income" | "expense"; description: string; amount_cents: number; due_date: string; counterparty_name: string; counterparty_email: string; counterparty_whatsapp: string; sender_name?: string; recipient_name?: string; counterparty_document?: string; counterparty_original_name?: string; payment_method?: string; is_own_transfer?: boolean; is_non_operating?: boolean };
+  value?: { type: "income" | "expense"; description: string; amount_cents: number; due_date: string; counterparty_name: string; counterparty_email: string; counterparty_whatsapp: string; sender_name?: string; recipient_name?: string; counterparty_document?: string; counterparty_original_name?: string; payment_method?: string; is_own_transfer?: boolean; is_non_operating?: boolean; is_statement_transaction?: boolean };
 }
 
 export const CSV_TEMPLATE =
@@ -215,6 +215,7 @@ export function parseStatementText(text: string): { rows: CsvRow[]; ignored: num
         counterparty_name: counterparty,
         counterparty_email: "",
         counterparty_whatsapp: "",
+        is_statement_transaction: true,
       };
     }
     rows.push(row);
@@ -279,6 +280,7 @@ export function parseOfxText(text: string): { rows: CsvRow[]; ignored: number } 
       counterparty_name: counterparty,
       counterparty_email: "",
       counterparty_whatsapp: "",
+      is_statement_transaction: true,
     };
     rows.push(row);
   }
@@ -406,6 +408,7 @@ export function parseBankTable(text: string): { rows: CsvRow[]; headerError?: st
       payment_method: paymentMethod || undefined,
       is_own_transfer: isInvestmentMovement,
       is_non_operating: isNonOperatingMovement,
+      is_statement_transaction: true,
     };
     rows.push(row);
   }
@@ -606,6 +609,7 @@ export function parsePdfStatementText(text: string): { rows: CsvRow[]; ignored: 
       row.value = {
         type, description, amount_cents: cents, due_date: block.date,
         counterparty_name: counterparty, counterparty_email: "", counterparty_whatsapp: "",
+        is_statement_transaction: true,
       };
     }
     rows.push(row);
@@ -716,6 +720,7 @@ export function parseCoraStatementText(text: string): { rows: CsvRow[]; ignored:
       counterparty_original_name: originalCounterparty.slice(0, 120),
       payment_method: method.slice(0, 60),
       is_own_transfer: isOwnTransfer,
+      is_statement_transaction: true,
     };
     rows.push(row);
     pendingState.current = null;
