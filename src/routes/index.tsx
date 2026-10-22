@@ -8,16 +8,16 @@ import { ArrowRight, BarChart3, Check, CheckCircle2, ChevronDown, ClipboardCheck
 export const Route = createFileRoute('/')({ component: IndexComponent });
 
 const plans = [
-  { name: 'Básico', monthly: 79.9, annual: 799, limit: 'Até 100 contas pendentes', imports: 'CSV, Excel e PDF — até 100 linhas por importação', risk: 'Top 3 maiores riscos', rule: 'Régua padrão de cobrança com 4 etapas', support: 'Suporte padrão', popular: false },
-  { name: 'Intermediário', monthly: 159.9, annual: 1599, limit: 'Até 500 contas pendentes', imports: 'CSV, Excel e PDF — até 500 linhas por importação', risk: 'Top 5 maiores riscos', rule: 'Personalize os dias e ative/desative etapas', support: 'Suporte prioritário', popular: true },
-  { name: 'Avançado', monthly: 229.9, annual: 2299, limit: 'Até 2.000 contas pendentes', imports: 'CSV, Excel e PDF — até 2.000 linhas por importação', risk: 'Top 10 maiores riscos', rule: 'Personalize os dias, as mensagens e as etapas', support: 'Suporte prioritário', popular: false },
+  { name: 'Essencial', monthly: 79.9, annual: 799, limit: 'Até 100 contas pendentes', imports: 'CSV, Excel e PDF — até 100 linhas por importação', risk: 'Top 3 maiores riscos', rule: 'Régua padrão de cobrança com 4 etapas', support: 'Suporte padrão', popular: false },
+  { name: 'Profissional', monthly: 159.9, annual: 1599, limit: 'Até 500 contas pendentes', imports: 'CSV, Excel e PDF — até 500 linhas por importação', risk: 'Top 5 maiores riscos', rule: 'Personalize os dias e ative/desative etapas', support: 'Suporte prioritário', popular: true },
+  { name: 'Performance', monthly: 229.9, annual: 2299, limit: 'Até 2.000 contas pendentes', imports: 'CSV, Excel e PDF — até 2.000 linhas por importação', risk: 'Top 10 maiores riscos', rule: 'Personalize os dias, as mensagens e as etapas', support: 'Suporte prioritário', popular: false },
 ];
 
 const accountantPlans = [
-  { name: 'Grátis — Auditoria', monthly: 0, annual: 0, summary: 'Conheça a auditoria financeira antes de contratar.', features: ['1 empresa atendida', '1 auditoria financeira por mês', 'Resumo básico de inconsistências', 'Conferência inicial dos lançamentos'], popular: false, free: true },
-  { name: 'Básico', monthly: 149.9, annual: 1499, summary: 'Para contadores que estão começando a atender empresas pela plataforma.', features: ['Até 5 empresas atendidas', 'Até 5 auditorias por mês', 'Relatórios básicos de auditoria', 'Histórico recente de auditorias', 'Suporte padrão'], popular: false, free: false },
-  { name: 'Intermediário', monthly: 299, annual: 2990, summary: 'Para escritórios que precisam acompanhar uma carteira maior de clientes.', features: ['Até 15 empresas atendidas', 'Até 15 auditorias por mês', 'Relatórios detalhados de auditoria', 'Histórico ampliado de auditorias', 'Importação e conferência de arquivos compatíveis', 'Suporte prioritário'], popular: true, free: false },
-  { name: 'Avançado', monthly: 399, annual: 3990, summary: 'Para operações contábeis que precisam de mais capacidade e acompanhamento.', features: ['Até 30 empresas atendidas', 'Até 30 auditorias por mês', 'Relatórios detalhados e visão consolidada', 'Histórico completo enquanto a assinatura estiver ativa', 'Todos os formatos de importação compatíveis', 'Suporte prioritário'], popular: false, free: false },
+  { name: 'Auditoria Livre', monthly: 0, annual: 0, summary: 'Conheça a auditoria financeira antes de contratar.', features: ['1 empresa atendida', '1 auditoria financeira por mês', 'Resumo básico de inconsistências', 'Conferência inicial dos lançamentos'], popular: false, free: true },
+  { name: 'Contábil Essencial', monthly: 149.9, annual: 1499, summary: 'Para contadores que estão começando a atender empresas pela plataforma.', features: ['Até 5 empresas atendidas', 'Até 5 auditorias por mês', 'Relatórios básicos de auditoria', 'Histórico recente de auditorias', 'Suporte padrão'], popular: false, free: false },
+  { name: 'Escritório Pro', monthly: 299, annual: 2990, summary: 'Para escritórios que precisam acompanhar uma carteira maior de clientes.', features: ['Até 15 empresas atendidas', 'Até 15 auditorias por mês', 'Relatórios detalhados de auditoria', 'Histórico ampliado de auditorias', 'Importação e conferência de arquivos compatíveis', 'Suporte prioritário'], popular: true, free: false },
+  { name: 'Contábil Prime', monthly: 399, annual: 3990, summary: 'Para operações contábeis que precisam de mais capacidade e acompanhamento.', features: ['Até 30 empresas atendidas', 'Até 30 auditorias por mês', 'Relatórios detalhados e visão consolidada', 'Histórico completo enquanto a assinatura estiver ativa', 'Todos os formatos de importação compatíveis', 'Suporte prioritário'], popular: false, free: false },
 ];
 
 function IndexComponent() {
