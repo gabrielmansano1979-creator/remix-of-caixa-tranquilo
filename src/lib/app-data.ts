@@ -64,6 +64,7 @@ export type Entry = {
   counterparty_email: string | null;
   counterparty_whatsapp: string | null;
   is_own_transfer?: boolean;
+  is_non_operating?: boolean;
   payment_method?: string | null;
   sender_name?: string | null;
   recipient_name?: string | null;
