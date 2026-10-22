@@ -411,36 +411,8 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
             });
             if (auditError) throw auditError;
 
-            // The acquisition payment and the first monthly renewal are discounted.
-            // Once the second paid invoice is confirmed, update both the recurrence and
-            // any already-created pending invoice so the third monthly charge is full price.
-            if (
-              interval === "month"
-              && sub.affiliate_partner_id
-              && Number(sub.affiliate_discount_percent ?? 0) > 0
-              && asaasSubscriptionId
-            ) {
-              const { data: cycleLogs, error: cycleLogsError } = await db.from("audit_logs")
-                .select("action, details")
-                .eq("user_id", renewedSub.user_id)
-                .in("action", ["subscription_start", "subscription_renewal"]);
-              if (cycleLogsError) throw cycleLogsError;
-              const paidPaymentIds = new Set((cycleLogs ?? []).flatMap((log) => {
-                const meta = log.details;
-                if (!meta || typeof meta !== "object" || Array.isArray(meta)) return [];
-                const values = meta as Record<string, unknown>;
-                if (values.asaas_subscription_id !== asaasSubscriptionId || typeof values.payment_id !== "string") return [];
-                return [values.payment_id];
-              }));
-              const plan = getPlan(sub.plan as PlanId);
-              if (paidPaymentIds.size >= 2 && Number(sub.affiliate_payment_amount_cents ?? 0) !== plan.priceMonthCents) {
-                await asaas.updateAsaasSubscriptionAmount(asaasSubscriptionId, plan.priceMonthCents);
-                const { error: amountError } = await db.from("subscriptions")
-                  .update({ affiliate_payment_amount_cents: plan.priceMonthCents, updated_at: paidAt })
-                  .eq("id", sub.id);
-                if (amountError) throw amountError;
-              }
-            }
+            // Partner coupon pricing remains discounted for the subscription's recurring invoices.
+            // Do not reset the Asaas recurring amount after a fixed number of payments.
           } else {
             // Compatibility for a Pix issued by the previous version before pending checkouts
             // were stored separately. We still activate it and install the new recurring cycle.
