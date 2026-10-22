@@ -40,11 +40,19 @@ async function recordAffiliateCommission(
   if (!input.partnerId || input.actualPaidAmountCents <= 0) return;
 
   const { data: partner, error: partnerError } = await db.from("partner_requests")
-    .select("id, user_id, status, pix_type, pix_key")
+    .select("id, user_id, email, status, pix_type, pix_key")
     .eq("id", input.partnerId)
     .maybeSingle();
   if (partnerError) throw partnerError;
   if (partner?.status !== "approved" || !partner.pix_type || !partner.pix_key) return;
+  // Defense in depth: never pay a commission for the partner's own account,
+  // including legacy subscriptions that predate checkout self-referral validation.
+  if (partner.user_id === input.userId) return;
+  const { data: referredAuth, error: referredAuthError } = await db.auth.admin.getUserById(input.userId);
+  if (referredAuthError) throw referredAuthError;
+  const referredEmail = (referredAuth.user?.email ?? "").trim().toLowerCase();
+  const partnerEmail = (partner.email ?? "").trim().toLowerCase();
+  if (referredEmail && partnerEmail && referredEmail === partnerEmail) return;
 
   let commissionRate = Number(input.commissionPercentAtAcquisition ?? 0);
   if (![20, 25, 30].includes(commissionRate)) {
