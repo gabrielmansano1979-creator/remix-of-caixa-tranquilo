@@ -216,6 +216,7 @@ export function AccountantClientManagement() {
   };
 
   return (
+    <>
     <section className="space-y-5">
       <div>
         <h2 className="text-2xl font-semibold">Carteira contábil</h2>
@@ -333,5 +334,12 @@ export function AccountantClientManagement() {
         </CardContent>
       </Card>
     </section>
+    <Dialog open={!!receiptViewer} onOpenChange={(open) => !open && setReceiptViewer(null)}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
+        <DialogHeader><DialogTitle className="flex items-center gap-2"><Paperclip className="h-5 w-5" />Comprovante — {receiptViewer?.title}</DialogTitle></DialogHeader>
+        {receiptViewer && (receiptViewer.isPdf ? <iframe title={receiptViewer.title} src={receiptViewer.url} className="h-[70vh] w-full rounded-lg border" /> : <img src={receiptViewer.url} alt={receiptViewer.title} className="mx-auto max-h-[70vh] w-full rounded-lg object-contain" />)}
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
