@@ -316,6 +316,8 @@ export function parseBankTable(text: string): { rows: CsvRow[]; headerError?: st
     const rawDate = cells[dateIndex] ?? "";
     const date = normalizeStatementDate(rawDate);
     const description = (cells[descriptionIndex] ?? "").slice(0, 200);
+    const normalizedDescription = description.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+    if (/^(saldo (do dia|anterior|inicial|final|disponivel)|total de (entradas|saidas|creditos|debitos))\b/.test(normalizedDescription)) continue;
     const debitRaw = debitIndex >= 0 ? cells[debitIndex] ?? "" : "";
     const creditRaw = creditIndex >= 0 ? cells[creditIndex] ?? "" : "";
     const amountRaw = amountIndex >= 0 ? cells[amountIndex] ?? "" : "";
