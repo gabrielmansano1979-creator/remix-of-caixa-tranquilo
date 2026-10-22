@@ -103,9 +103,10 @@ function CaixaPage() {
       effective_balance: formatBRL(entry.actual_balance),
       projected_balance: formatBRL(entry.projected_balance),
       amount: formatBRL(entry.amount_cents),
-      type: entry.type === "income" ? "Entrada / a receber" : "Saída / a pagar",
+      type: entry.is_own_transfer ? "Movimentação interna / investimento" : entry.type === "income" ? "Entrada / a receber" : "Saída / a pagar",
+      is_own_transfer: Boolean(entry.is_own_transfer),
     }));
-    const expenses = ledger.rows.filter((entry) => entry.type === "expense");
+    const expenses = ledger.rows.filter((entry) => entry.type === "expense" && !entry.is_own_transfer);
     const expenseTotals = new Map<string, number>();
     expenses.forEach((entry) => expenseTotals.set(entry.description, (expenseTotals.get(entry.description) ?? 0) + entry.amount_cents));
     const largestExpense = [...expenseTotals.entries()].sort((a, b) => b[1] - a[1])[0];
