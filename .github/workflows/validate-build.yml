@@ -65,7 +65,7 @@ jobs:
       - name: Update npm for lockfile resolution
         run: npm install --global npm@11
       - name: Resolve fresh lockfile for pinned security fixes
-        run: rm -f package-lock.json && npm install --ignore-scripts --no-audit --no-fund --legacy-peer-deps
+        run: rm -f package-lock.json && npm install --package-lock-only --ignore-scripts --no-audit --no-fund --legacy-peer-deps
       - name: Upload refreshed lockfile for review
         uses: actions/upload-artifact@v4
         with:
