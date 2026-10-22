@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Logo } from '@/components/brand';
 import { Button } from '@/components/ui/button';
+import { ACCOUNTANT_PLANS, PLANS, formatPlanPrice } from '@/config/plans';
 import {
   ArrowRight,
   BarChart3,
@@ -291,33 +292,61 @@ function IndexComponent() {
           <div className="mx-auto max-w-7xl">
             <div className="mx-auto max-w-3xl text-center">
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-300">Planos e preços</p>
-              <h2 className="mt-4 text-3xl font-semibold tracking-tight text-white sm:text-4xl">Escolha o nível de controle ideal para o seu negócio</h2>
-              <p className="mt-4 leading-7 text-zinc-400">Todos os planos incluem organização de contas a receber, cobranças manuais pelo WhatsApp, importação de lançamentos por CSV, Excel e extratos PDF, além de projeções financeiras. Os limites de linhas importadas e as opções de personalização variam por plano.</p>
+              <h2 className="mt-4 text-3xl font-semibold tracking-tight text-white sm:text-4xl">Planos para empresários e contadores</h2>
+              <p className="mt-4 leading-7 text-zinc-400">Compare os valores e benefícios antes de criar sua conta. Os preços e as listas de recursos abaixo usam a configuração comercial da plataforma.</p>
             </div>
-            <div className="mt-12 grid gap-5 lg:grid-cols-3">
-              {[
-                { name: 'Starter', price: 'R$ 29', annual: 'R$ 290', limit: 'Até 100 contas pendentes', rows: 'CSV, Excel e PDF — até 100 linhas importadas', risks: 'Top 3 maiores riscos', detail: 'Régua padrão com 4 etapas e projeções de 15 e 30 dias.', popular: false },
-                { name: 'Pro', price: 'R$ 59', annual: 'R$ 590', limit: 'Até 500 contas pendentes', rows: 'CSV, Excel e PDF — até 500 linhas importadas', risks: 'Top 5 maiores riscos', detail: 'Personalize os dias e ative ou desative etapas da régua de cobrança.', popular: true },
-                { name: 'Business', price: 'R$ 119', annual: 'R$ 1.190', limit: 'Até 2.000 contas pendentes', rows: 'CSV, Excel e PDF — até 2.000 linhas importadas', risks: 'Top 10 maiores riscos', detail: 'Personalize os dias, as mensagens e as etapas da régua de cobrança.', popular: false },
-              ].map((plan) => (
-                <article key={plan.name} className={'relative flex flex-col rounded-2xl border bg-[#0c100e] p-6 shadow-xl shadow-black/10 ' + (plan.popular ? 'border-emerald-300/40 ring-1 ring-emerald-300/20' : 'border-white/[0.09]')}>
-                  {plan.popular && <span className="absolute -top-3 left-6 rounded-full bg-emerald-300 px-3 py-1 text-xs font-semibold text-zinc-950">Mais escolhido</span>}
-                  <h3 className="text-xl font-semibold text-white">{plan.name}</h3>
-                  <p className="mt-4"><span className="text-4xl font-semibold tracking-tight text-white">{plan.price}</span><span className="text-sm text-zinc-400">/mês</span></p>
-                  <p className="mt-1 text-sm text-zinc-400">ou <span className="font-semibold text-emerald-200">{plan.annual}/ano</span> <span className="text-zinc-500">(2 meses grátis)</span></p>
-                  <div className="my-6 h-px bg-white/[0.08]" />
-                  <ul className="space-y-3 text-sm leading-6 text-zinc-300">
-                    {[plan.limit, 'Cobranças manuais pelo WhatsApp', plan.rows, plan.detail, 'Projeções de 15 e 30 dias', plan.risks, plan.name === 'Starter' ? 'Suporte padrão' : 'Suporte prioritário'].map((feature) => (
-                      <li key={feature} className="flex gap-2"><CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-emerald-300" /><span>{feature}</span></li>
-                    ))}
-                  </ul>
-                  <Button onClick={() => handleNavigate(primaryPath)} className={'mt-7 h-11 w-full rounded-xl font-semibold ' + (plan.popular ? 'bg-emerald-400 text-zinc-950 hover:bg-emerald-300' : 'bg-white/[0.08] text-white hover:bg-white/[0.13]')}>
-                    Começar com {plan.name}<ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </article>
-              ))}
+
+            <div className="mt-14">
+              <div className="max-w-3xl">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-300">Para empresários</p>
+                <h3 className="mt-2 text-2xl font-semibold text-white sm:text-3xl">Controle financeiro da sua empresa</h3>
+                <p className="mt-3 leading-7 text-zinc-400">Organize receitas e despesas, importe movimentações e acompanhe os sinais de atenção do caixa. Os planos pagos incluem teste inicial de 14 dias, sujeito às condições da plataforma.</p>
+              </div>
+              <div className="mt-7 grid gap-5 lg:grid-cols-3">
+                {PLANS.map((plan) => (
+                  <article key={plan.id} className={'relative flex flex-col rounded-2xl border bg-[#0c100e] p-6 shadow-xl shadow-black/10 ' + (plan.popular ? 'border-emerald-300/40 ring-1 ring-emerald-300/20' : 'border-white/[0.09]')}>
+                    {plan.popular && <span className="absolute -top-3 left-6 rounded-full bg-emerald-300 px-3 py-1 text-xs font-semibold text-zinc-950">Mais escolhido</span>}
+                    <h4 className="text-xl font-semibold text-white">{plan.name}</h4>
+                    <p className="mt-4"><span className="text-4xl font-semibold tracking-tight text-white">{formatPlanPrice(plan.priceMonthCents)}</span><span className="text-sm text-zinc-400">/mês</span></p>
+                    <p className="mt-1 text-sm text-zinc-400">ou <span className="font-semibold text-emerald-200">{formatPlanPrice(plan.priceYearCents)}/ano</span> <span className="text-zinc-500">(equivale a 10 mensalidades)</span></p>
+                    <div className="my-6 h-px bg-white/[0.08]" />
+                    <ul className="flex-1 space-y-3 text-sm leading-6 text-zinc-300">
+                      {plan.features.map((feature) => <li key={feature} className="flex gap-2"><CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-emerald-300" /><span>{feature}</span></li>)}
+                    </ul>
+                    <Button onClick={() => handleNavigate('/login?cadastro=1&perfil=empresario')} className={'mt-7 h-11 w-full rounded-xl font-semibold ' + (plan.popular ? 'bg-emerald-400 text-zinc-950 hover:bg-emerald-300' : 'bg-white/[0.08] text-white hover:bg-white/[0.13]')}>
+                      Escolher {plan.name}<ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </article>
+                ))}
+              </div>
+              <p className="mt-4 text-xs leading-6 text-zinc-500">O desconto de 20% do cupom de contador afiliado não é cumulativo com outras ofertas. O primeiro pagamento via Pix pode ter desconto próprio conforme as condições mostradas no checkout.</p>
             </div>
-            <p className="mx-auto mt-6 max-w-3xl text-center text-xs leading-6 text-zinc-500">Valores em reais. No plano anual, o total equivale a 10 mensalidades. O primeiro pagamento via Pix pode ter 10% de desconto; cupons de contador afiliado oferecem 20% de desconto e não são cumulativos com outras ofertas. As condições exibidas no checkout prevalecem.</p>
+
+            <div className="mt-16 border-t border-white/[0.08] pt-14">
+              <div className="max-w-3xl">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-300">Para contadores e escritórios contábeis</p>
+                <h3 className="mt-2 text-2xl font-semibold text-white sm:text-3xl">Audite clientes e, se precisar, gerencie o caixa do escritório</h3>
+                <p className="mt-3 leading-7 text-zinc-400">A auditoria de clientes tem uma opção gratuita. Os planos pagos acrescentam recursos para a gestão financeira da própria empresa contábil; o acesso aos dados de cada cliente depende de autorização.</p>
+              </div>
+              <div className="mt-7 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+                {ACCOUNTANT_PLANS.map((plan) => (
+                  <article key={plan.id} className={'relative flex flex-col rounded-2xl border bg-[#0c100e] p-6 ' + (plan.popular ? 'border-emerald-300/40 ring-1 ring-emerald-300/20' : 'border-white/[0.09]')}>
+                    {plan.popular && <span className="absolute -top-3 left-6 rounded-full bg-emerald-300 px-3 py-1 text-xs font-semibold text-zinc-950">Recomendado</span>}
+                    <h4 className="text-lg font-semibold text-white">{plan.name}</h4>
+                    <p className="mt-4"><span className="text-3xl font-semibold tracking-tight text-white">{plan.priceMonthCents === 0 ? 'Grátis' : formatPlanPrice(plan.priceMonthCents)}</span>{plan.priceMonthCents > 0 && <span className="text-sm text-zinc-400">/mês</span>}</p>
+                    {plan.priceYearCents !== null ? <p className="mt-1 text-sm text-zinc-400">ou <span className="font-semibold text-emerald-200">{formatPlanPrice(plan.priceYearCents)}/ano</span> <span className="text-zinc-500">(10 mensalidades)</span></p> : <p className="mt-1 text-sm text-zinc-400">Sem mensalidade para auditoria de clientes</p>}
+                    <div className="my-5 h-px bg-white/[0.08]" />
+                    <ul className="flex-1 space-y-3 text-sm leading-6 text-zinc-300">
+                      {plan.features.map((feature) => <li key={feature} className="flex gap-2"><CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-emerald-300" /><span>{feature}</span></li>)}
+                    </ul>
+                    <Button onClick={() => handleNavigate('/login?cadastro=1&perfil=contador')} className="mt-7 h-11 w-full rounded-xl bg-white/[0.08] font-semibold text-white hover:bg-white/[0.13]">
+                      {plan.priceMonthCents === 0 ? 'Começar grátis' : 'Escolher ' + plan.name}<ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </article>
+                ))}
+              </div>
+              <p className="mt-4 text-xs leading-6 text-zinc-500">A contratação dos planos pagos de escritório está sujeita à disponibilidade do checkout contábil. A página apresenta os preços e benefícios definidos, mas não substitui a confirmação de cobrança no checkout.</p>
+            </div>
           </div>
         </section>
 
@@ -394,7 +423,7 @@ function IndexComponent() {
                 { q: 'O que faço se ainda não tenho cadastro?', a: 'Abra a tela de acesso e selecione “Criar Conta”. Preencha os campos solicitados e siga as instruções apresentadas pelo sistema.' },
                 { q: 'Quais formatos posso importar?', a: 'Você pode importar lançamentos a partir de arquivos CSV, planilhas Excel e extratos em PDF. O sistema apresenta uma prévia para conferência antes da importação; os limites variam conforme o plano.' },
                 { q: 'A página mostra dados financeiros reais?', a: 'Não. A ilustração desta página é apenas demonstrativa. Os dados do seu ambiente ficam disponíveis após o acesso à plataforma.' },
-                { q: 'Quais são os preços dos planos?', a: 'O Starter custa R$ 29 por mês ou R$ 290 por ano; o Pro custa R$ 59 por mês ou R$ 590 por ano; e o Business custa R$ 119 por mês ou R$ 1.190 por ano. O plano anual equivale a 10 mensalidades. Confira as condições finais no checkout.' },
+                { q: 'Quais são os preços e benefícios dos planos?', a: 'A seção Planos e preços mostra as opções para empresários e contadores, incluindo os valores mensais e anuais e a lista de benefícios de cada plano. As condições finais de contratação e cobrança são confirmadas no checkout.' },
                 { q: 'Como funciona o programa para contadores afiliados?', a: 'Após criar uma conta, acesse a área Contador e envie sua solicitação com os dados e documentos exigidos. Depois da aprovação, você poderá divulgar seu cupom: os clientes recebem 20% de desconto e a comissão do contador varia de 20% a 30%, de acordo com a quantidade de clientes únicos com pagamento confirmado.' },
               ].map((item) => (
                 <details key={item.q} className="group py-5">
