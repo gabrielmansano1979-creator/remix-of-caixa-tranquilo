@@ -156,20 +156,39 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
 
       if (referralCode) {
         if (prev?.affiliate_partner_id && prev.affiliate_coupon_code === referralCode && prev.affiliate_commission_percent && prev.affiliate_discount_percent) {
+          // Revalidate self-referral even for an already-linked subscription; never trust an old snapshot.
+          const { data: linkedPartner, error: linkedPartnerError } = await supabaseAdmin
+            .from("partner_requests")
+            .select("user_id, email, tax_id, status")
+            .eq("id", prev.affiliate_partner_id)
+            .maybeSingle();
+          if (linkedPartnerError) throw linkedPartnerError;
+          if (!linkedPartner || linkedPartner.status !== "approved") {
+            return { error: "O cupom de indicação não está disponível." };
+          }
+          const buyerEmail = customerEmail.trim().toLowerCase();
+          const partnerEmail = (linkedPartner.email ?? "").trim().toLowerCase();
+          const buyerDoc = normalizeCpfCnpj(data.cpfCnpj);
+          const partnerDoc = normalizeCpfCnpj(linkedPartner.tax_id ?? "");
+          if (linkedPartner.user_id === userId || (partnerEmail && partnerEmail === buyerEmail) || (partnerDoc && partnerDoc === buyerDoc)) {
+            return { error: "Você não pode utilizar seu próprio cupom de indicação para assinar um plano." };
+          }
           const { data: currentCoupon, error: currentCouponError } = await supabaseAdmin
             .from("coupons")
             .select("commission_percent, discount_percent")
             .eq("code", referralCode)
+            .eq("partner_id", prev.affiliate_partner_id)
             .eq("is_active", true)
             .maybeSingle();
           if (currentCouponError) throw currentCouponError;
+          if (!currentCoupon) return { error: "O cupom de indicação não está disponível." };
           affiliate = {
             partnerId: prev.affiliate_partner_id,
             code: referralCode,
             // A referred customer's commission tier and discount are fixed at acquisition.
             // A later change in the accountant's tier must only affect newly acquired clients.
-            commissionPercent: prev.affiliate_commission_percent ?? currentCoupon?.commission_percent ?? 20,
-            discountPercent: prev.affiliate_discount_percent ?? currentCoupon?.discount_percent ?? 20,
+            commissionPercent: prev.affiliate_commission_percent ?? currentCoupon.commission_percent ?? 20,
+            discountPercent: prev.affiliate_discount_percent ?? currentCoupon.discount_percent ?? 20,
           };
         } else {
           const { data: coupon, error: couponError } = await supabaseAdmin
