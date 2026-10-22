@@ -72,7 +72,7 @@ export function AccountantClientManagement() {
       const initial = amountCents == null ? "" : (amountCents / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       const entered = window.prompt("Digite o valor que você conferiu visualmente no comprovante (ex.: 1.200,00). O sistema só marcará verde se for igual ao lançamento.", initial);
       if (entered === null) return;
-      const normalized = entered.trim().replace(/^R\\$\\s*/i, "").replace(/\\./g, "").replace(",", ".");
+      const normalized = entered.trim().replace(/^R\$\s*/i, "").replace(/\./g, "").replace(",", ".");
       const value = Number(normalized);
       if (!normalized || !Number.isFinite(value) || value <= 0 || !Number.isSafeInteger(Math.round(value * 100))) {
         toast.error("Informe um valor válido para concluir a conferência.");
@@ -87,7 +87,7 @@ export function AccountantClientManagement() {
       const entered = window.prompt("Valor identificado no comprovante (opcional). Deixe em branco se não for possível identificar.");
       if (entered === null) return;
       if (entered.trim()) {
-        const normalized = entered.trim().replace(/^R\\$\\s*/i, "").replace(/\\./g, "").replace(",", ".");
+        const normalized = entered.trim().replace(/^R\$\s*/i, "").replace(/\./g, "").replace(",", ".");
         const value = Number(normalized);
         if (!Number.isFinite(value) || value <= 0 || !Number.isSafeInteger(Math.round(value * 100))) {
           toast.error("O valor informado não é válido.");
