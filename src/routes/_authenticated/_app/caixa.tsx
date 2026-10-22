@@ -150,7 +150,7 @@ function CaixaPage() {
           ],
           rows: baseRows.filter((row) => row.type === "Saída / a pagar" && !row.is_non_operating),
           summary: [
-            ["Total de despesas registradas", formatBRL(expenses.reduce((sum, entry) => sum + entry.amount_cents, 0))],
+            ["Total de despesas operacionais", formatBRL(expenses.reduce((sum, entry) => sum + entry.amount_cents, 0))],
             ["Maior destino identificado pela descrição", largestExpense ? `${largestExpense[0]} — ${formatBRL(largestExpense[1])}` : "Nenhuma despesa no período"],
             ["Meta de faturamento", "Consulte a meta cadastrada na área de metas; este relatório não inventa um valor ausente."],
             ...commonSummary,
