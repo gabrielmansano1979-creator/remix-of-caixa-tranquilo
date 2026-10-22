@@ -3,420 +3,146 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Logo } from '@/components/brand';
 import { Button } from '@/components/ui/button';
-import {
-  ArrowRight,
-  BarChart3,
-  CheckCircle2,
-  ChevronDown,
-  ClipboardCheck,
-  LockKeyhole,
-  Menu,
-  ShieldCheck,
-  TrendingUp,
-  Wallet,
-  X,
-} from 'lucide-react';
+import { ArrowRight, BarChart3, Check, CheckCircle2, ChevronDown, ClipboardCheck, FileSpreadsheet, FileText, LockKeyhole, Menu, MessageCircle, ShieldCheck, TrendingUp, Wallet, X, Zap } from 'lucide-react';
 
-export const Route = createFileRoute('/')({
-  component: IndexComponent,
-});
+export const Route = createFileRoute('/')({ component: IndexComponent });
+
+const plans = [
+  { name: 'Essencial', monthly: 79.9, annual: 799, limit: 'Até 100 contas pendentes', imports: 'CSV, Excel e PDF — até 100 linhas por importação', risk: 'Top 3 maiores riscos', rule: 'Régua padrão de cobrança com 4 etapas', support: 'Suporte padrão', popular: false },
+  { name: 'Profissional', monthly: 159.9, annual: 1599, limit: 'Até 500 contas pendentes', imports: 'CSV, Excel e PDF — até 500 linhas por importação', risk: 'Top 5 maiores riscos', rule: 'Personalize os dias e ative/desative etapas', support: 'Suporte prioritário', popular: true },
+  { name: 'Performance', monthly: 229.9, annual: 2299, limit: 'Até 2.000 contas pendentes', imports: 'CSV, Excel e PDF — até 2.000 linhas por importação', risk: 'Top 10 maiores riscos', rule: 'Personalize os dias, as mensagens e as etapas', support: 'Suporte prioritário', popular: false },
+];
+
+const accountantPlans = [
+  { name: 'Auditoria Livre', monthly: 0, annual: 0, summary: 'Experimente a auditoria financeira com uma empresa antes de contratar.', features: ['1 empresa atendida', '1 auditoria financeira por mês', 'Resumo inicial de inconsistências', 'Conferência dos lançamentos autorizados'], popular: false, free: true },
+  { name: 'Básico', monthly: 149.9, annual: 1499, summary: 'Para profissionais que estão começando a atender empresas pela plataforma.', features: ['Até 5 empresas atendidas', 'Até 5 auditorias financeiras por mês', 'Relatório básico de auditoria em PDF', 'Consulta ao histórico recente', 'Acompanhamento financeiro com autorização do cliente', 'Suporte padrão'], popular: false, free: false },
+  { name: 'Intermediário', monthly: 299, annual: 2990, summary: 'Para escritórios que precisam acompanhar uma carteira maior de clientes.', features: ['Até 20 empresas atendidas', 'Até 20 auditorias financeiras por mês', 'Relatórios detalhados em PDF', 'Histórico de auditoria ampliado', 'Conferência de arquivos compatíveis: CSV, Excel, PDF e OFX', 'Suporte prioritário'], popular: true, free: false },
+  { name: 'Avançado', monthly: 399, annual: 3990, summary: 'Para escritórios que precisam de maior capacidade e visão consolidada.', features: ['Até 50 empresas atendidas', 'Até 50 auditorias financeiras por mês', 'Relatórios detalhados e visão consolidada da carteira', 'Histórico completo durante a assinatura', 'Conferência de arquivos compatíveis: CSV, Excel, PDF e OFX', 'Suporte prioritário'], popular: false, free: false },
+];
 
 function IndexComponent() {
   const [sessionActive, setSessionActive] = useState(false);
-  const [userRolePath, setUserRolePath] = useState('/login');
   const [loadingAuth, setLoadingAuth] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
 
   useEffect(() => {
     let isMounted = true;
-
     const processAuthAndLanding = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user && isMounted) {
-        const { data: isAdmin, error: roleError } = await supabase.rpc('has_role', {
-          _user_id: session.user.id,
-          _role: 'admin',
-        });
-
+        const { data: isAdmin, error: roleError } = await supabase.rpc('has_role', { _user_id: session.user.id, _role: 'admin' });
         if (!isMounted) return;
-
-        if (roleError) {
-          console.error('[HOME] Não foi possível verificar a função administrativa:', roleError);
-        }
-
-        if (!roleError && isAdmin === true) {
-          window.location.replace('/admin');
-          return;
-        }
-
+        if (roleError) console.error('[HOME] Não foi possível verificar a função administrativa:', roleError);
+        if (!roleError && isAdmin === true) { window.location.replace('/admin'); return; }
         setSessionActive(true);
-        setUserRolePath('/caixa');
       }
-
       if (isMounted) setLoadingAuth(false);
     };
-
     void processAuthAndLanding();
-
-    return () => {
-      isMounted = false;
-    };
+    return () => { isMounted = false; };
   }, []);
 
-  const handleNavigate = (path: string) => {
-    window.location.href = path;
-  };
-
-  const primaryPath = sessionActive ? userRolePath : '/login';
+  const go = (path: string) => { window.location.href = path; };
+  const primaryPath = sessionActive ? '/caixa' : '/login';
+  const navItems = [['Recursos', '#recursos'], ['Serviços', '#servicos'], ['Planos', '#planos'], ['Planos para contadores', '#planos-contadores'], ['Dúvidas', '#duvidas']];
 
   return (
     <div className="min-h-screen overflow-hidden bg-[#080b0a] font-sans text-zinc-100 antialiased">
       <header className="sticky top-0 z-50 border-b border-white/[0.08] bg-[#080b0a]/90 backdrop-blur-xl">
-        <div className="mx-auto flex h-[76px] max-w-7xl items-center justify-between px-5 sm:px-8">
+        <div className="mx-auto flex h-[72px] max-w-7xl items-center justify-between px-5 sm:px-8">
           <Logo to="/" />
-
-          <nav className="hidden items-center gap-8 md:flex" aria-label="Navegação principal">
-            <a href="#recursos" className="text-sm text-zinc-400 transition hover:text-white">Recursos</a>
-            <a href="#planos" className="text-sm text-zinc-400 transition hover:text-white">Planos</a>
-            <a href="#contadores" className="text-sm text-zinc-400 transition hover:text-white">Contadores afiliados</a>
-            <a href="#como-funciona" className="text-sm text-zinc-400 transition hover:text-white">Como funciona</a>
-            <a href="#duvidas" className="text-sm text-zinc-400 transition hover:text-white">Dúvidas</a>
+          <nav className="hidden items-center gap-7 lg:flex" aria-label="Navegação principal">
+            {navItems.map(([label, href]) => <a key={href} href={href} className="text-sm text-zinc-400 transition hover:text-white">{label}</a>)}
           </nav>
-
           <div className="hidden items-center gap-3 md:flex">
-            <Button variant="ghost" onClick={() => handleNavigate('/login')} className="text-zinc-300 hover:bg-white/5 hover:text-white">
-              Entrar
-            </Button>
-            <Button onClick={() => handleNavigate(primaryPath)} className="rounded-xl bg-emerald-400 px-5 font-semibold text-zinc-950 shadow-lg shadow-emerald-950/30 hover:bg-emerald-300">
-              {loadingAuth ? 'Acessar plataforma' : sessionActive ? 'Abrir meu painel' : 'Começar agora'}
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
+            <Button variant="ghost" onClick={() => go('/login')} className="text-zinc-300 hover:bg-white/5 hover:text-white">Entrar</Button>
+            <Button onClick={() => go(primaryPath)} className="rounded-xl bg-emerald-300 px-5 font-semibold text-zinc-950 shadow-lg shadow-emerald-950/30 hover:bg-emerald-200">{loadingAuth ? 'Acessar plataforma' : sessionActive ? 'Abrir meu painel' : 'Começar agora'} <ArrowRight className="ml-2 h-4 w-4" /></Button>
           </div>
-
-          <button type="button" className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-white/10 text-zinc-200 md:hidden" aria-label={mobileMenuOpen ? 'Fechar menu' : 'Abrir menu'} aria-expanded={mobileMenuOpen} onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
-            {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
+          <button type="button" className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-white/10 text-zinc-200 md:hidden" aria-label={mobileMenuOpen ? 'Fechar menu' : 'Abrir menu'} aria-expanded={mobileMenuOpen} onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>{mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}</button>
         </div>
-        {mobileMenuOpen && (
-          <nav className="border-t border-white/10 px-5 py-4 md:hidden" aria-label="Navegação móvel">
-            <div className="mx-auto flex max-w-7xl flex-col gap-4">
-              <a href="#recursos" onClick={() => setMobileMenuOpen(false)} className="py-1 text-sm text-zinc-300">Recursos</a>
-              <a href="#planos" onClick={() => setMobileMenuOpen(false)} className="py-1 text-sm text-zinc-300">Planos e preços</a>
-              <a href="#contadores" onClick={() => setMobileMenuOpen(false)} className="py-1 text-sm text-zinc-300">Contadores afiliados</a>
-              <a href="#como-funciona" onClick={() => setMobileMenuOpen(false)} className="py-1 text-sm text-zinc-300">Como funciona</a>
-              <a href="#duvidas" onClick={() => setMobileMenuOpen(false)} className="py-1 text-sm text-zinc-300">Dúvidas</a>
-              <Button onClick={() => handleNavigate(primaryPath)} className="w-full rounded-xl bg-emerald-400 font-semibold text-zinc-950 hover:bg-emerald-300">Acessar plataforma <ArrowRight className="ml-2 h-4 w-4" /></Button>
-            </div>
-          </nav>
-        )}
+        {mobileMenuOpen && <nav className="border-t border-white/10 px-5 py-4 md:hidden" aria-label="Navegação móvel"><div className="mx-auto flex max-w-7xl flex-col gap-3">{navItems.map(([label, href]) => <a key={href} href={href} onClick={() => setMobileMenuOpen(false)} className="py-1 text-sm text-zinc-300">{label}</a>)}<Button onClick={() => go(primaryPath)} className="mt-2 w-full rounded-xl bg-emerald-300 font-semibold text-zinc-950 hover:bg-emerald-200">Acessar plataforma <ArrowRight className="ml-2 h-4 w-4" /></Button></div></nav>}
       </header>
 
       <main>
-        <section className="relative isolate px-5 pb-20 pt-20 sm:px-8 sm:pb-28 sm:pt-28 lg:pt-32">
-          <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden" aria-hidden="true">
-            <div className="absolute left-1/2 top-0 h-[520px] w-[850px] -translate-x-1/2 rounded-full bg-emerald-500/[0.09] blur-[130px]" />
-            <div className="absolute right-[-10%] top-40 h-64 w-64 rounded-full bg-teal-500/[0.06] blur-[100px]" />
-            <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-          </div>
-
-          <div className="mx-auto grid max-w-7xl items-center gap-14 lg:grid-cols-[1.04fr_0.96fr] lg:gap-16">
+        <section className="relative isolate px-5 pb-20 pt-16 sm:px-8 sm:pb-28 sm:pt-24 lg:pt-28">
+          <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden" aria-hidden="true"><div className="absolute left-1/2 top-0 h-[520px] w-[850px] -translate-x-1/2 rounded-full bg-emerald-500/[0.10] blur-[130px]" /><div className="absolute right-[-10%] top-40 h-64 w-64 rounded-full bg-teal-500/[0.07] blur-[100px]" /><div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" /></div>
+          <div className="mx-auto grid max-w-7xl items-center gap-14 lg:grid-cols-[1.03fr_0.97fr] lg:gap-16">
             <div className="mx-auto max-w-2xl text-center lg:mx-0 lg:text-left">
-              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-emerald-300/30 bg-emerald-300/[0.12] px-4 py-2 text-sm font-semibold tracking-wide text-emerald-100 sm:text-base">
-                <CheckCircle2 className="h-4 w-4" />
-                14 dias grátis, sem cartão de crédito
-              </div>
-              <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-300/[0.07] px-3.5 py-2 text-xs font-medium tracking-wide text-emerald-200 sm:text-sm">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />
-                Gestão de caixa com visão executiva e apoio à auditoria
-              </div>
-              <h1 className="text-balance text-4xl font-semibold leading-[1.1] tracking-[-0.04em] text-white sm:text-5xl lg:text-[3.65rem]">
-                Mais clareza para decidir. <span className="text-emerald-300">Mais controle sobre o caixa.</span>
-              </h1>
-              <p className="mx-auto mt-6 max-w-xl text-base leading-8 text-zinc-400 sm:text-lg lg:mx-0">
-                Organize a rotina financeira, importe lançamentos de arquivos CSV, Excel e extratos PDF e mantenha as informações mais organizadas para conferência, rastreabilidade e apoio à auditoria financeira.
-              </p>
+              <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-emerald-300/25 bg-emerald-300/[0.09] px-4 py-2 text-sm font-medium text-emerald-100"><Zap className="h-4 w-4" /> 14 dias para experimentar, sem cartão de crédito</div>
+              <p className="mb-5 text-xs font-semibold uppercase tracking-[0.24em] text-emerald-300 sm:text-sm">Gestão financeira para quem empreende</p>
+              <h1 className="text-balance text-4xl font-semibold leading-[1.08] tracking-[-0.045em] text-white sm:text-5xl lg:text-[3.85rem]">Entenda seu caixa. <span className="text-emerald-300">Decida com mais segurança.</span></h1>
+              <p className="mx-auto mt-6 max-w-xl text-base leading-8 text-zinc-400 sm:text-lg lg:mx-0">Organize entradas e saídas, acompanhe contas a receber, projete os próximos dias e importe movimentações de CSV, Excel e extratos PDF — com prévia para conferir antes de importar.</p>
               <div className="mt-9 flex flex-col justify-center gap-3 sm:flex-row lg:justify-start">
-                <Button onClick={() => handleNavigate(primaryPath)} className="h-12 rounded-xl bg-emerald-400 px-6 text-base font-semibold text-zinc-950 shadow-xl shadow-emerald-950/30 hover:bg-emerald-300">
-                  {sessionActive ? 'Acessar meu painel' : 'Acessar / criar minha conta'}
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-                <Button variant="outline" onClick={() => document.getElementById('recursos')?.scrollIntoView({ behavior: 'smooth' })} className="h-12 rounded-xl border-white/15 bg-white/[0.03] px-6 text-base text-zinc-200 hover:bg-white/[0.07] hover:text-white">
-                  Conhecer recursos
-                </Button>
+                <Button onClick={() => go(primaryPath)} className="h-12 rounded-xl bg-emerald-300 px-6 text-base font-semibold text-zinc-950 shadow-xl shadow-emerald-950/30 hover:bg-emerald-200">{sessionActive ? 'Abrir meu painel' : 'Começar gratuitamente'} <ArrowRight className="ml-2 h-4 w-4" /></Button>
+                <Button variant="outline" onClick={() => document.getElementById('planos')?.scrollIntoView({ behavior: 'smooth' })} className="h-12 rounded-xl border-white/15 bg-white/[0.03] px-6 text-base text-zinc-200 hover:bg-white/[0.07] hover:text-white">Ver planos e preços</Button>
               </div>
-              <div className="mt-8 flex flex-wrap items-center justify-center gap-x-5 gap-y-3 text-xs text-zinc-500 sm:text-sm lg:justify-start">
-                <span className="inline-flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-emerald-300" /> Acesso autenticado</span>
-                <span className="hidden h-1 w-1 rounded-full bg-zinc-700 sm:block" />
-                <span className="inline-flex items-center gap-2"><LockKeyhole className="h-4 w-4 text-emerald-300" /> Acesso por conta</span>
-              </div>
+              <div className="mt-8 flex flex-wrap items-center justify-center gap-x-5 gap-y-3 text-xs text-zinc-500 sm:text-sm lg:justify-start"><span className="inline-flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-emerald-300" /> Acesso autenticado</span><span className="hidden h-1 w-1 rounded-full bg-zinc-700 sm:block" /><span className="inline-flex items-center gap-2"><FileSpreadsheet className="h-4 w-4 text-emerald-300" /> CSV, Excel e PDF</span><span className="hidden h-1 w-1 rounded-full bg-zinc-700 sm:block" /><span className="inline-flex items-center gap-2"><Wallet className="h-4 w-4 text-emerald-300" /> Projeções de 15 e 30 dias</span></div>
             </div>
-
             <div className="relative mx-auto w-full max-w-xl">
-              <div className="absolute -inset-5 rounded-[2rem] bg-emerald-400/[0.07] blur-2xl" />
-              <div className="relative mb-4 h-48 overflow-hidden rounded-2xl border border-white/10 bg-[#101512] shadow-2xl shadow-black/30 sm:h-56">
-                <img
-                  src="https://images.unsplash.com/photo-1556761175-b413da4baf72?auto=format&fit=crop&w=1200&q=85"
-                  alt="Empreendedores reunidos para planejar o crescimento do negócio"
-                  className="h-full w-full object-cover object-center"
-                  fetchPriority="high"
-                  decoding="async"
-                />
-                <div className="absolute inset-0 bg-gradient-to-r from-[#080b0a]/90 via-[#080b0a]/45 to-transparent" />
-                <div className="absolute inset-y-0 left-0 flex max-w-sm flex-col justify-center p-6 sm:p-8">
-                  <span className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-200">Para quem empreende</span>
-                  <p className="mt-3 text-2xl font-semibold leading-tight text-white sm:text-3xl">Seu negócio em foco. Seu caixa sob controle.</p>
-                  <p className="mt-2 text-sm leading-6 text-zinc-200">Mais organização para acompanhar os números e decidir os próximos passos.</p>
-                </div>
-              </div>
-              <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#101512] shadow-2xl shadow-black/50">
-                <div className="flex items-center justify-between border-b border-white/[0.08] px-5 py-4 sm:px-6">
-                  <div>
-                    <p className="text-xs font-medium text-zinc-500">VISÃO GERAL</p>
-                    <p className="mt-1 text-sm font-semibold text-white">Painel de gestão</p>
-                  </div>
-                  <span className="rounded-lg border border-emerald-300/15 bg-emerald-300/[0.08] px-3 py-1.5 text-xs text-emerald-200">Critical Cash</span>
-                </div>
+              <div className="absolute -inset-5 rounded-[2rem] bg-emerald-400/[0.08] blur-2xl" />
+              <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-[#101512] shadow-2xl shadow-black/40">
+                <div className="flex items-center justify-between border-b border-white/[0.08] px-5 py-4 sm:px-6"><div><p className="text-xs font-medium uppercase tracking-[0.18em] text-zinc-500">Painel financeiro</p><p className="mt-1 text-sm font-semibold text-white">Uma visão mais clara do negócio</p></div><span className="rounded-lg border border-emerald-300/15 bg-emerald-300/[0.08] px-3 py-1.5 text-xs text-emerald-200">Critical Cash</span></div>
                 <div className="grid grid-cols-2 gap-3 p-4 sm:gap-4 sm:p-6">
-                  <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] p-4">
-                    <div className="flex items-center justify-between text-zinc-500"><span className="text-xs">Rotina de caixa</span><Wallet className="h-4 w-4 text-emerald-300" /></div>
-                    <p className="mt-5 text-lg font-semibold text-white sm:text-xl">Organizada</p>
-                    <p className="mt-1 text-xs text-zinc-500">Movimentos em um só fluxo</p>
-                  </div>
-                  <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] p-4">
-                    <div className="flex items-center justify-between text-zinc-500"><span className="text-xs">Acompanhamento</span><BarChart3 className="h-4 w-4 text-emerald-300" /></div>
-                    <p className="mt-5 text-lg font-semibold text-white sm:text-xl">Visão clara</p>
-                    <p className="mt-1 text-xs text-zinc-500">Informações para analisar</p>
-                  </div>
-                  <div className="col-span-2 rounded-xl border border-emerald-300/15 bg-gradient-to-br from-emerald-300/[0.09] to-transparent p-5 sm:p-6">
-                    <div className="flex items-center gap-3">
-                      <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-300/10 text-emerald-200"><ClipboardCheck className="h-5 w-5" /></span>
-                      <div><p className="text-sm font-semibold text-white">Controle e conferência</p><p className="mt-1 text-xs text-zinc-400">Apoio à rotina de fechamento e revisão</p></div>
-                    </div>
-                    <div className="mt-5 space-y-3">
-                      <div className="flex items-center gap-3"><CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-300" /><div className="h-2 flex-1 rounded-full bg-white/10"><div className="h-2 w-[84%] rounded-full bg-emerald-300/70" /></div><span className="text-[10px] text-zinc-500">Organização</span></div>
-                      <div className="flex items-center gap-3"><CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-300" /><div className="h-2 flex-1 rounded-full bg-white/10"><div className="h-2 w-[68%] rounded-full bg-emerald-300/50" /></div><span className="text-[10px] text-zinc-500">Conferência</span></div>
-                      <p className="pt-1 text-[10px] leading-5 text-zinc-600">Ilustração conceitual da proposta do produto; não representa dados financeiros reais.</p>
-                    </div>
-                  </div>
+                  <div className="rounded-2xl border border-white/[0.08] bg-white/[0.025] p-4"><div className="flex items-center justify-between text-zinc-500"><span className="text-xs">Movimentações</span><Wallet className="h-4 w-4 text-emerald-300" /></div><p className="mt-5 text-lg font-semibold text-white sm:text-xl">Entradas e saídas</p><p className="mt-1 text-xs leading-5 text-zinc-500">Informações reunidas para conferir</p></div>
+                  <div className="rounded-2xl border border-white/[0.08] bg-white/[0.025] p-4"><div className="flex items-center justify-between text-zinc-500"><span className="text-xs">Planejamento</span><TrendingUp className="h-4 w-4 text-emerald-300" /></div><p className="mt-5 text-lg font-semibold text-white sm:text-xl">15 e 30 dias</p><p className="mt-1 text-xs leading-5 text-zinc-500">Visibilidade para se preparar</p></div>
+                  <div className="col-span-2 rounded-2xl border border-emerald-300/15 bg-gradient-to-br from-emerald-300/[0.09] to-transparent p-5 sm:p-6"><div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-300/10 text-emerald-200"><ClipboardCheck className="h-5 w-5" /></span><div><p className="text-sm font-semibold text-white">Importe, confira e organize</p><p className="mt-1 text-xs leading-5 text-zinc-400">Prévia de lançamentos antes de confirmar a importação</p></div></div><div className="mt-5 grid grid-cols-3 gap-2">{[{ icon: FileText, label: 'PDF' }, { icon: FileSpreadsheet, label: 'Excel' }, { icon: CheckCircle2, label: 'CSV' }].map(({ icon: Icon, label }) => <div key={label} className="flex items-center justify-center gap-2 rounded-xl border border-white/[0.08] bg-black/20 px-3 py-3 text-sm text-zinc-300"><Icon className="h-4 w-4 text-emerald-300" />{label}</div>)}</div><p className="mt-4 text-[10px] leading-5 text-zinc-600">Ilustração conceitual; não representa dados financeiros reais.</p></div>
                 </div>
-                <div className="flex items-center gap-2 border-t border-white/[0.08] px-5 py-3 text-xs text-zinc-500 sm:px-6">
-                  <LockKeyhole className="h-3.5 w-3.5 text-emerald-300" /> Entre com sua conta para acessar seu ambiente.
-                </div>
+                <div className="flex items-center gap-2 border-t border-white/[0.08] px-5 py-3 text-xs text-zinc-500 sm:px-6"><LockKeyhole className="h-3.5 w-3.5 text-emerald-300" /> Seu ambiente é acessado após autenticação.</div>
               </div>
             </div>
           </div>
         </section>
 
-        <section aria-labelledby="empreendedores-heading" className="border-y border-white/[0.07] bg-white/[0.02] px-5 py-16 sm:px-8 sm:py-20">
-          <div className="mx-auto max-w-7xl">
-            <div className="mx-auto max-w-2xl text-center">
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-300">Feito para a vida real</p>
-              <h2 id="empreendedores-heading" className="mt-4 text-3xl font-semibold tracking-tight text-white sm:text-4xl">Cada negócio tem sua rotina. O controle financeiro precisa acompanhar.</h2>
-              <p className="mt-4 leading-7 text-zinc-400">Do atendimento ao planejamento, tenha uma visão mais organizada da movimentação financeira do seu negócio.</p>
-            </div>
-            <div className="mt-10 grid gap-5 md:grid-cols-3">
-              <article className="group overflow-hidden rounded-2xl border border-white/[0.09] bg-[#0c100e] transition hover:-translate-y-1 hover:border-emerald-300/25">
-                <div className="relative h-52 overflow-hidden">
-                  <img src="https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&w=900&q=80" alt="Empreendedor atendendo um cliente no ponto de venda" loading="lazy" decoding="async" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#0c100e] via-transparent to-transparent" />
-                </div>
-                <div className="px-5 pb-6 pt-1">
-                  <h3 className="text-lg font-semibold text-white">Comércio e atendimento</h3>
-                  <p className="mt-2 text-sm leading-6 text-zinc-400">Organize entradas e saídas para entender melhor o movimento do dia a dia.</p>
-                </div>
-              </article>
-              <article className="group overflow-hidden rounded-2xl border border-white/[0.09] bg-[#0c100e] transition hover:-translate-y-1 hover:border-emerald-300/25">
-                <div className="relative h-52 overflow-hidden">
-                  <img src="https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=900&q=80" alt="Planejamento financeiro com documentos, calculadora e anotações" loading="lazy" decoding="async" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#0c100e] via-transparent to-transparent" />
-                </div>
-                <div className="px-5 pb-6 pt-1">
-                  <h3 className="text-lg font-semibold text-white">Planejamento financeiro</h3>
-                  <p className="mt-2 text-sm leading-6 text-zinc-400">Visualize os compromissos e acompanhe o caixa com mais clareza.</p>
-                </div>
-              </article>
-              <article className="group overflow-hidden rounded-2xl border border-white/[0.09] bg-[#0c100e] transition hover:-translate-y-1 hover:border-emerald-300/25">
-                <div className="relative h-52 overflow-hidden">
-                  <img src="https://images.unsplash.com/photo-1521737711867-e3b97375f902?auto=format&fit=crop&w=900&q=80" alt="Equipe de profissionais conversando e colaborando no trabalho" loading="lazy" decoding="async" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#0c100e] via-transparent to-transparent" />
-                </div>
-                <div className="px-5 pb-6 pt-1">
-                  <h3 className="text-lg font-semibold text-white">Gestão com apoio profissional</h3>
-                  <p className="mt-2 text-sm leading-6 text-zinc-400">Facilite a organização das informações para conversar com seu contador.</p>
-                </div>
-              </article>
-            </div>
+        <section className="border-y border-white/[0.07] bg-white/[0.02] px-5 py-8 sm:px-8"><div className="mx-auto grid max-w-7xl gap-5 sm:grid-cols-2 lg:grid-cols-4">{[{ icon: Wallet, title: 'Fluxo de caixa', desc: 'Acompanhe entradas e saídas.' }, { icon: MessageCircle, title: 'Cobranças', desc: 'Apoio aos recebimentos pelo WhatsApp.' }, { icon: BarChart3, title: 'Projeções', desc: 'Planeje com horizontes de 15 e 30 dias.' }, { icon: ClipboardCheck, title: 'Conferência', desc: 'Organize dados para revisar e acompanhar.' }].map(({ icon: Icon, title, desc }) => <div key={title} className="flex items-center gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-emerald-300/15 bg-emerald-300/[0.07] text-emerald-200"><Icon className="h-5 w-5" /></span><div><p className="text-sm font-semibold text-white">{title}</p><p className="mt-1 text-xs leading-5 text-zinc-500">{desc}</p></div></div>)}</div></section>
+
+        <section id="servicos" className="scroll-mt-24 px-5 py-20 sm:px-8 sm:py-24">
+          <div className="mx-auto max-w-7xl"><div className="mx-auto max-w-3xl text-center"><p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-300">Serviços e soluções</p><h2 className="mt-4 text-3xl font-semibold tracking-tight text-white sm:text-4xl">Tudo começa com uma rotina financeira mais organizada</h2><p className="mt-4 leading-7 text-zinc-400">Ferramentas para acompanhar o dinheiro que entra, o que sai e os compromissos que vêm pela frente — sem perder de vista a conferência dos dados.</p></div>
+            <div className="mt-12 grid gap-5 md:grid-cols-2 lg:grid-cols-3">{[{ icon: Wallet, title: 'Fluxo de caixa diário', desc: 'Organize movimentações e acompanhe a rotina financeira do negócio em um só ambiente.' }, { icon: MessageCircle, title: 'Contas a receber e cobranças', desc: 'Acompanhe valores pendentes e use o WhatsApp como apoio às cobranças manuais.' }, { icon: TrendingUp, title: 'Previsão de caixa', desc: 'Consulte projeções de 15 e 30 dias para antecipar compromissos e planejar decisões.' }, { icon: FileSpreadsheet, title: 'Importação de arquivos', desc: 'Importe dados de CSV, planilhas Excel e extratos PDF, com prévia para conferir antes de confirmar.' }, { icon: ClipboardCheck, title: 'Conferência e apoio à auditoria', desc: 'Mantenha os lançamentos organizados para facilitar revisão, rastreabilidade e fechamento.' }, { icon: BarChart3, title: 'Visão gerencial e riscos', desc: 'Consulte os principais riscos e informações que ajudam a priorizar a rotina de recebimentos.' }].map(({ icon: Icon, title, desc }) => <article key={title} className="group rounded-2xl border border-white/[0.08] bg-white/[0.025] p-6 transition duration-200 hover:-translate-y-1 hover:border-emerald-300/25 hover:bg-white/[0.04]"><span className="flex h-11 w-11 items-center justify-center rounded-xl border border-emerald-300/15 bg-emerald-300/[0.07] text-emerald-200"><Icon className="h-5 w-5" /></span><h3 className="mt-5 text-lg font-semibold text-white">{title}</h3><p className="mt-2 text-sm leading-6 text-zinc-400">{desc}</p></article>)}</div>
           </div>
         </section>
 
-        <section id="recursos" className="scroll-mt-24 px-5 py-20 sm:px-8 sm:py-24">
-          <div className="mx-auto max-w-7xl">
-            <div className="mx-auto max-w-2xl text-center">
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-300">Recursos para a rotina</p>
-              <h2 className="mt-4 text-3xl font-semibold tracking-tight text-white sm:text-4xl">O essencial para acompanhar seu caixa com mais confiança</h2>
-              <p className="mt-4 leading-7 text-zinc-400">Importe dados de arquivos CSV e Excel e extratos em PDF, confira a prévia dos lançamentos e organize as informações financeiras do negócio antes de importar.</p>
-            </div>
-            <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {[
-                { icon: Wallet, title: 'Rotina de caixa', description: 'Centralize a atenção nos movimentos e nas tarefas do dia a dia do caixa.' },
-                { icon: ClipboardCheck, title: 'Conferência e auditoria', description: 'Apoie os processos de verificação e fechamento com uma rotina mais organizada.' },
-                { icon: BarChart3, title: 'Visão gerencial', description: 'Consulte informações organizadas para apoiar análises e decisões do negócio.' },
-                { icon: ShieldCheck, title: 'Acesso por conta', description: 'Acesse o ambiente autenticado e mantenha as áreas de gestão separadas do site público.' },
-                { icon: TrendingUp, title: 'Acompanhamento da operação', description: 'Tenha um ponto central para acompanhar a operação financeira do estabelecimento.' },
-                { icon: LockKeyhole, title: 'Atenção ao controle de acesso', description: 'O sistema utiliza autenticação e verificação de permissões para direcionar o acesso aos ambientes.' },
-              ].map(({ icon: Icon, title, description }) => (
-                <article key={title} className="group rounded-2xl border border-white/[0.08] bg-white/[0.025] p-6 transition duration-200 hover:-translate-y-1 hover:border-emerald-300/20 hover:bg-white/[0.04]">
-                  <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-emerald-300/15 bg-emerald-300/[0.07] text-emerald-200 transition group-hover:bg-emerald-300/10"><Icon className="h-5 w-5" /></span>
-                  <h3 className="mt-5 text-lg font-semibold text-white">{title}</h3>
-                  <p className="mt-2 text-sm leading-6 text-zinc-400">{description}</p>
-                </article>
-              ))}
-            </div>
-          </div>
-        </section>
+        <section id="recursos" className="scroll-mt-24 border-y border-white/[0.07] bg-white/[0.02] px-5 py-20 sm:px-8 sm:py-24"><div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[0.9fr_1.1fr] lg:items-center"><div><p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-300">Feito para a vida real</p><h2 className="mt-4 text-3xl font-semibold tracking-tight text-white sm:text-4xl">Mais clareza para cada etapa da gestão</h2><p className="mt-5 leading-7 text-zinc-400">Do comércio ao trabalho com um contador, o Critical Cash ajuda a colocar as informações financeiras em ordem para que você gaste menos energia procurando números e mais tempo decidindo os próximos passos.</p><div className="mt-7 space-y-4">{['Prévia dos dados antes de importar', 'Limites de importação definidos por plano', 'Projeções financeiras de 15 e 30 dias', 'Acesso autenticado e áreas separadas por permissão'].map(item => <div key={item} className="flex gap-3 text-sm leading-6 text-zinc-300"><CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-300" />{item}</div>)}</div><Button onClick={() => go(primaryPath)} className="mt-8 h-12 rounded-xl bg-emerald-300 px-6 font-semibold text-zinc-950 hover:bg-emerald-200">{sessionActive ? 'Ir para meu painel' : 'Conhecer a plataforma'} <ArrowRight className="ml-2 h-4 w-4" /></Button></div>
+          <div className="grid gap-4 sm:grid-cols-2"><article className="overflow-hidden rounded-2xl border border-white/[0.09] bg-[#0c100e]"><img src="https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&w=900&q=80" alt="Empreendedor atendendo um cliente no ponto de venda" loading="lazy" decoding="async" className="h-44 w-full object-cover" /><div className="p-5"><h3 className="font-semibold text-white">Comércio e serviços</h3><p className="mt-2 text-sm leading-6 text-zinc-400">Organize os movimentos para entender melhor o dia a dia financeiro.</p></div></article><article className="overflow-hidden rounded-2xl border border-white/[0.09] bg-[#0c100e] sm:mt-10"><img src="https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=900&q=80" alt="Planejamento financeiro com documentos, calculadora e anotações" loading="lazy" decoding="async" className="h-44 w-full object-cover" /><div className="p-5"><h3 className="font-semibold text-white">Planejamento e conferência</h3><p className="mt-2 text-sm leading-6 text-zinc-400">Visualize compromissos e prepare informações para revisão.</p></div></article></div>
+        </div></section>
 
-        <section id="planos" className="scroll-mt-24 border-y border-white/[0.07] bg-white/[0.02] px-5 py-20 sm:px-8 sm:py-24">
+        <section id="planos" className="scroll-mt-24 px-5 py-20 sm:px-8 sm:py-24"><div className="mx-auto max-w-7xl"><div className="mx-auto max-w-3xl text-center"><p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-300">Planos transparentes</p><h2 className="mt-4 text-3xl font-semibold tracking-tight text-white sm:text-4xl">Escolha o plano que acompanha o tamanho do seu negócio</h2><p className="mt-4 leading-7 text-zinc-400">Compare limites e recursos. Todos os planos incluem contas pendentes, apoio às cobranças pelo WhatsApp e projeções de 15 e 30 dias.</p>
+            <div className="mt-7 inline-flex rounded-xl border border-white/10 bg-white/[0.03] p-1" role="group" aria-label="Periodicidade de cobrança"><button type="button" onClick={() => setBillingCycle('monthly')} aria-pressed={billingCycle === 'monthly'} className={'rounded-lg px-5 py-2.5 text-sm font-medium transition ' + (billingCycle === 'monthly' ? 'bg-emerald-300 text-zinc-950' : 'text-zinc-400 hover:text-white')}>Mensal</button><button type="button" onClick={() => setBillingCycle('annual')} aria-pressed={billingCycle === 'annual'} className={'rounded-lg px-5 py-2.5 text-sm font-medium transition ' + (billingCycle === 'annual' ? 'bg-emerald-300 text-zinc-950' : 'text-zinc-400 hover:text-white')}>Anual <span className={billingCycle === 'annual' ? 'ml-1 text-zinc-800' : 'ml-1 text-emerald-300'}>−2 meses</span></button></div></div>
+          <div className="mt-12 grid gap-5 lg:grid-cols-3">{plans.map(plan => { const annual = billingCycle === 'annual'; const price = annual ? plan.annual : plan.monthly; return <article key={plan.name} className={'relative flex flex-col rounded-2xl border bg-[#0c100e] p-6 shadow-xl shadow-black/10 sm:p-7 ' + (plan.popular ? 'border-emerald-300/40 ring-1 ring-emerald-300/20 lg:scale-[1.025]' : 'border-white/[0.09]')}>{plan.popular && <span className="absolute -top-3 left-6 rounded-full bg-emerald-300 px-3 py-1 text-xs font-semibold text-zinc-950">Mais escolhido</span>}<h3 className="text-xl font-semibold text-white">{plan.name}</h3><p className="mt-4"><span className="text-4xl font-semibold tracking-tight text-white">R$ {price.toLocaleString('pt-BR')}</span><span className="text-sm text-zinc-400">/{annual ? 'ano' : 'mês'}</span></p>{annual ? <p className="mt-1 text-sm text-zinc-400">Equivale a <span className="font-semibold text-emerald-200">R$ {(plan.annual / 12).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/mês</span></p> : <p className="mt-1 text-sm text-zinc-400">Sem fidelidade. Cancele quando quiser.</p>}<div className="my-6 h-px bg-white/[0.08]" /><ul className="flex-1 space-y-3 text-sm leading-6 text-zinc-300">{[plan.limit, 'Cobranças manuais pelo WhatsApp', plan.imports, plan.rule, 'Projeções de 15 e 30 dias', plan.risk, plan.support].map(feature => <li key={feature} className="flex gap-2"><Check className="mt-1 h-4 w-4 shrink-0 text-emerald-300" /><span>{feature}</span></li>)}</ul><Button onClick={() => go(primaryPath)} className={'mt-7 h-11 w-full rounded-xl font-semibold ' + (plan.popular ? 'bg-emerald-300 text-zinc-950 hover:bg-emerald-200' : 'bg-white/[0.08] text-white hover:bg-white/[0.13]')}>Escolher {plan.name}<ArrowRight className="ml-2 h-4 w-4" /></Button></article>; })}</div>
+          <p className="mx-auto mt-7 max-w-3xl text-center text-xs leading-6 text-zinc-500">Valores em reais. O plano anual equivale a 10 mensalidades. A primeira assinatura paga via Pix tem 10% de desconto; cupons de contadores afiliados dão 20% de desconto nas duas primeiras mensalidades e não são cumulativos com outras ofertas. As condições finais são exibidas no checkout.</p>
+        </div></section>
+
+        <section id="planos-contadores" className="scroll-mt-24 border-y border-white/[0.07] bg-[#0a0e0c] px-5 py-20 sm:px-8 sm:py-24">
           <div className="mx-auto max-w-7xl">
             <div className="mx-auto max-w-3xl text-center">
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-300">Planos e preços</p>
-              <h2 className="mt-4 text-3xl font-semibold tracking-tight text-white sm:text-4xl">Escolha o nível de controle ideal para o seu negócio</h2>
-              <p className="mt-4 leading-7 text-zinc-400">Todos os planos incluem organização de contas a receber, cobranças manuais pelo WhatsApp, importação de lançamentos por CSV, Excel e extratos PDF, além de projeções financeiras. Os limites de linhas importadas e as opções de personalização variam por plano.</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-300">Assinaturas para contadores</p>
+              <h2 className="mt-4 text-3xl font-semibold tracking-tight text-white sm:text-4xl">Um plano para cada fase do seu escritório</h2>
+              <p className="mt-4 leading-7 text-zinc-400">Planos próprios para contadores e escritórios contábeis, separados das assinaturas destinadas às empresas clientes.</p>
+              <div className="mt-7 inline-flex rounded-xl border border-white/10 bg-white/[0.03] p-1" role="group" aria-label="Periodicidade dos planos para contadores">
+                <button type="button" onClick={() => setBillingCycle('monthly')} aria-pressed={billingCycle === 'monthly'} className={'rounded-lg px-5 py-2.5 text-sm font-medium transition ' + (billingCycle === 'monthly' ? 'bg-emerald-300 text-zinc-950' : 'text-zinc-400 hover:text-white')}>Mensal</button>
+                <button type="button" onClick={() => setBillingCycle('annual')} aria-pressed={billingCycle === 'annual'} className={'rounded-lg px-5 py-2.5 text-sm font-medium transition ' + (billingCycle === 'annual' ? 'bg-emerald-300 text-zinc-950' : 'text-zinc-400 hover:text-white')}>Anual <span className={billingCycle === 'annual' ? 'ml-1 text-zinc-800' : 'ml-1 text-emerald-300'}>2 meses grátis</span></button>
+              </div>
             </div>
-            <div className="mt-12 grid gap-5 lg:grid-cols-3">
-              {[
-                { name: 'Starter', price: 'R$ 29', annual: 'R$ 290', limit: 'Até 100 contas pendentes', rows: 'CSV, Excel e PDF — até 100 linhas importadas', risks: 'Top 3 maiores riscos', detail: 'Régua padrão com 4 etapas e projeções de 15 e 30 dias.', popular: false },
-                { name: 'Pro', price: 'R$ 59', annual: 'R$ 590', limit: 'Até 500 contas pendentes', rows: 'CSV, Excel e PDF — até 500 linhas importadas', risks: 'Top 5 maiores riscos', detail: 'Personalize os dias e ative ou desative etapas da régua de cobrança.', popular: true },
-                { name: 'Business', price: 'R$ 119', annual: 'R$ 1.190', limit: 'Até 2.000 contas pendentes', rows: 'CSV, Excel e PDF — até 2.000 linhas importadas', risks: 'Top 10 maiores riscos', detail: 'Personalize os dias, as mensagens e as etapas da régua de cobrança.', popular: false },
-              ].map((plan) => (
-                <article key={plan.name} className={'relative flex flex-col rounded-2xl border bg-[#0c100e] p-6 shadow-xl shadow-black/10 ' + (plan.popular ? 'border-emerald-300/40 ring-1 ring-emerald-300/20' : 'border-white/[0.09]')}>
-                  {plan.popular && <span className="absolute -top-3 left-6 rounded-full bg-emerald-300 px-3 py-1 text-xs font-semibold text-zinc-950">Mais escolhido</span>}
-                  <h3 className="text-xl font-semibold text-white">{plan.name}</h3>
-                  <p className="mt-4"><span className="text-4xl font-semibold tracking-tight text-white">{plan.price}</span><span className="text-sm text-zinc-400">/mês</span></p>
-                  <p className="mt-1 text-sm text-zinc-400">ou <span className="font-semibold text-emerald-200">{plan.annual}/ano</span> <span className="text-zinc-500">(2 meses grátis)</span></p>
-                  <div className="my-6 h-px bg-white/[0.08]" />
-                  <ul className="space-y-3 text-sm leading-6 text-zinc-300">
-                    {[plan.limit, 'Cobranças manuais pelo WhatsApp', plan.rows, plan.detail, 'Projeções de 15 e 30 dias', plan.risks, plan.name === 'Starter' ? 'Suporte padrão' : 'Suporte prioritário'].map((feature) => (
-                      <li key={feature} className="flex gap-2"><CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-emerald-300" /><span>{feature}</span></li>
-                    ))}
-                  </ul>
-                  <Button onClick={() => handleNavigate(primaryPath)} className={'mt-7 h-11 w-full rounded-xl font-semibold ' + (plan.popular ? 'bg-emerald-400 text-zinc-950 hover:bg-emerald-300' : 'bg-white/[0.08] text-white hover:bg-white/[0.13]')}>
-                    Começar com {plan.name}<ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </article>
-              ))}
+            <div className="mt-12 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+              {accountantPlans.map(plan => { const annual = billingCycle === 'annual'; const price = annual ? plan.annual : plan.monthly; return <article key={plan.name} className={'relative flex flex-col rounded-2xl border bg-[#101512] p-6 shadow-xl shadow-black/10 sm:p-7 ' + (plan.free ? 'border-emerald-300/25' : plan.popular ? 'border-emerald-300/40 ring-1 ring-emerald-300/20 lg:scale-[1.025]' : 'border-white/[0.09]')}>{plan.free && <span className="absolute -top-3 left-6 rounded-full border border-emerald-300/30 bg-[#101512] px-3 py-1 text-xs font-semibold text-emerald-200">Comece sem pagar</span>}{plan.popular && <span className="absolute -top-3 left-6 rounded-full bg-emerald-300 px-3 py-1 text-xs font-semibold text-zinc-950">Mais escolhido</span>}<h3 className="text-xl font-semibold text-white">{plan.name}</h3><p className="mt-3 min-h-[48px] text-sm leading-6 text-zinc-400">{plan.summary}</p><p className="mt-5"><span className="text-4xl font-semibold tracking-tight text-white">{plan.free ? 'Grátis' : 'R$ ' + price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>{!plan.free && <span className="text-sm text-zinc-400">/{annual ? 'ano' : 'mês'}</span>}</p>{!plan.free && (annual ? <p className="mt-1 text-sm text-zinc-400">Equivale a <span className="font-semibold text-emerald-200">R$ {(plan.annual / 12).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/mês</span> · 2 meses grátis</p> : <p className="mt-1 text-sm text-zinc-400">Cobrança mensal</p>)}<div className="my-6 h-px bg-white/[0.08]" /><ul className="flex-1 space-y-3 text-sm leading-6 text-zinc-300">{plan.features.map(feature => <li key={feature} className="flex gap-2"><Check className="mt-1 h-4 w-4 shrink-0 text-emerald-300" /><span>{feature}</span></li>)}</ul><Button onClick={() => go('/login')} className={'mt-7 h-11 w-full rounded-xl font-semibold ' + (plan.free || plan.popular ? 'bg-emerald-300 text-zinc-950 hover:bg-emerald-200' : 'bg-white/[0.08] text-white hover:bg-white/[0.13]')}>{plan.free ? 'Começar grátis' : 'Escolher ' + plan.name}<ArrowRight className="ml-2 h-4 w-4" /></Button></article>; })}
             </div>
-            <p className="mx-auto mt-6 max-w-3xl text-center text-xs leading-6 text-zinc-500">Valores em reais. No plano anual, o total equivale a 10 mensalidades. O primeiro pagamento via Pix pode ter 10% de desconto; cupons de contador afiliado oferecem 20% de desconto e não são cumulativos com outras ofertas. As condições exibidas no checkout prevalecem.</p>
+            <p className="mx-auto mt-7 max-w-3xl text-center text-xs leading-6 text-zinc-500">No anual, os planos pagos correspondem a 10 mensalidades, com dois meses grátis em comparação a 12 pagamentos mensais. Os limites e os níveis de relatório acima são a proposta comercial para validação. A cobrança e o bloqueio automático desses limites por assinatura de contador ainda precisam ser integrados antes de vender esses planos como ativos. O plano grátis inclui auditoria básica com limite mensal.</p>
+            <p className="mt-5 text-center text-sm text-zinc-400">Quer indicar o Critical Cash e receber comissões? <a href="#contadores" className="font-semibold text-emerald-200 underline decoration-emerald-300/40 underline-offset-4 hover:text-emerald-100">Conheça o programa de afiliados para contadores</a>.</p>
           </div>
         </section>
 
-        <section id="contadores" className="scroll-mt-24 px-5 py-20 sm:px-8 sm:py-24">
-          <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-300">Programa para contadores</p>
-              <h2 className="mt-4 text-3xl font-semibold tracking-tight text-white sm:text-4xl">Indique o Critical Cash aos seus clientes e receba comissões</h2>
-              <p className="mt-5 leading-7 text-zinc-400">Contadores e escritórios contábeis podem se candidatar ao programa de afiliados, compartilhar seu cupom e ajudar clientes a organizar o contas a receber, as cobranças e a visão de caixa.</p>
-              <Button onClick={() => handleNavigate('/login')} className="mt-7 h-12 rounded-xl bg-emerald-400 px-6 font-semibold text-zinc-950 hover:bg-emerald-300">
-                Quero ser contador afiliado<ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-              <p className="mt-3 text-xs leading-5 text-zinc-500">Entre ou crie sua conta e, depois, acesse a área Contador para enviar sua solicitação. A participação depende de aprovação e validação cadastral.</p>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <article className="rounded-2xl border border-white/[0.09] bg-white/[0.025] p-6">
-                <span className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-200">Benefício para o cliente</span>
-                <p className="mt-3 text-4xl font-semibold text-white">20% <span className="text-base font-medium text-zinc-400">OFF</span></p>
-                <p className="mt-3 text-sm leading-6 text-zinc-400">O cupom do contador oferece 20% de desconto conforme as regras do programa, sem acumular com outras ofertas.</p>
-              </article>
-              <article className="rounded-2xl border border-white/[0.09] bg-white/[0.025] p-6">
-                <span className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-200">Comissão por faixa</span>
-                <p className="mt-3 text-4xl font-semibold text-white">20–30%</p>
-                <p className="mt-3 text-sm leading-6 text-zinc-400">A comissão é calculada sobre o valor efetivamente recebido, após descontos, conforme os pagamentos confirmados dos clientes indicados.</p>
-              </article>
-              <article className="rounded-2xl border border-white/[0.09] bg-white/[0.025] p-6 sm:col-span-2">
-                <h3 className="font-semibold text-white">Como evolui a comissão</h3>
-                <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                  <div className="rounded-xl border border-white/[0.08] bg-black/20 p-4"><p className="text-2xl font-semibold text-emerald-200">20%</p><p className="mt-1 text-sm text-zinc-400">De 1 a 5 clientes com pagamento confirmado</p></div>
-                  <div className="rounded-xl border border-white/[0.08] bg-black/20 p-4"><p className="text-2xl font-semibold text-emerald-200">25%</p><p className="mt-1 text-sm text-zinc-400">De 6 a 15 clientes com pagamento confirmado</p></div>
-                  <div className="rounded-xl border border-white/[0.08] bg-black/20 p-4"><p className="text-2xl font-semibold text-emerald-200">30%</p><p className="mt-1 text-sm text-zinc-400">A partir de 16 clientes com pagamento confirmado</p></div>
-                </div>
-                <p className="mt-4 text-xs leading-5 text-zinc-500">As faixas são recalculadas automaticamente conforme o total de clientes únicos com pagamento confirmado. Saques e comissões ficam sujeitos às regras do programa, à aprovação do cadastro e à validação dos dados de recebimento.</p>
-              </article>
-            </div>
-          </div>
-        </section>
+        <section id="contadores" className="scroll-mt-24 border-y border-white/[0.07] bg-white/[0.02] px-5 py-20 sm:px-8 sm:py-24"><div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center"><div><p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-300">Programa para contadores</p><h2 className="mt-4 text-3xl font-semibold tracking-tight text-white sm:text-4xl">Indique o Critical Cash e desenvolva uma nova fonte de receita</h2><p className="mt-5 leading-7 text-zinc-400">Contadores e escritórios contábeis podem solicitar participação no programa, compartilhar seu cupom e acompanhar comissões sobre pagamentos confirmados.</p><Button onClick={() => go('/login')} className="mt-7 h-12 rounded-xl bg-emerald-300 px-6 font-semibold text-zinc-950 hover:bg-emerald-200">Quero ser contador afiliado <ArrowRight className="ml-2 h-4 w-4" /></Button><p className="mt-3 text-xs leading-5 text-zinc-500">Entre ou crie sua conta e acesse a área Contador para enviar a solicitação. A participação depende de aprovação e validação cadastral.</p></div>
+          <div className="grid gap-4 sm:grid-cols-2"><article className="rounded-2xl border border-white/[0.09] bg-[#0c100e] p-6"><span className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-200">Benefício para clientes</span><p className="mt-3 text-4xl font-semibold text-white">20% <span className="text-base font-medium text-zinc-400">OFF</span></p><p className="mt-3 text-sm leading-6 text-zinc-400">Desconto nas duas primeiras mensalidades com o cupom do contador. Não cumulativo com outras ofertas.</p></article><article className="rounded-2xl border border-white/[0.09] bg-[#0c100e] p-6"><span className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-200">Comissão recorrente</span><p className="mt-3 text-4xl font-semibold text-white">20–30%</p><p className="mt-3 text-sm leading-6 text-zinc-400">Percentual conforme a faixa de clientes únicos com pagamento confirmado.</p></article><article className="rounded-2xl border border-white/[0.09] bg-[#0c100e] p-6 sm:col-span-2"><h3 className="font-semibold text-white">Faixas de comissão</h3><div className="mt-4 grid gap-3 sm:grid-cols-3"><div className="rounded-xl border border-white/[0.08] bg-black/20 p-4"><p className="text-2xl font-semibold text-emerald-200">20%</p><p className="mt-1 text-sm text-zinc-400">1 a 5 clientes pagantes</p></div><div className="rounded-xl border border-white/[0.08] bg-black/20 p-4"><p className="text-2xl font-semibold text-emerald-200">25%</p><p className="mt-1 text-sm text-zinc-400">6 a 15 clientes pagantes</p></div><div className="rounded-xl border border-white/[0.08] bg-black/20 p-4"><p className="text-2xl font-semibold text-emerald-200">30%</p><p className="mt-1 text-sm text-zinc-400">16 ou mais clientes pagantes</p></div></div><p className="mt-4 text-xs leading-5 text-zinc-500">As comissões dependem de pagamentos confirmados, das regras do programa e da aprovação do cadastro.</p></article></div>
+        </div></section>
 
-        <section id="como-funciona" className="scroll-mt-24 border-y border-white/[0.07] bg-white/[0.02] px-5 py-20 sm:px-8 sm:py-24">
-          <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-300">Comece por aqui</p>
-              <h2 className="mt-4 text-3xl font-semibold tracking-tight text-white sm:text-4xl">Uma entrada simples para sua rotina de gestão</h2>
-              <p className="mt-5 leading-7 text-zinc-400">Acesse sua conta para entrar no ambiente do Critical Cash. Se ainda não tiver cadastro, use a opção de criar conta na tela de acesso.</p>
-              <Button onClick={() => handleNavigate(primaryPath)} className="mt-7 h-12 rounded-xl bg-emerald-400 px-6 font-semibold text-zinc-950 hover:bg-emerald-300">
-                {sessionActive ? 'Ir para meu painel' : 'Entrar ou criar conta'} <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </div>
-            <div className="space-y-4">
-              {[
-                { n: '01', title: 'Acesse a plataforma', description: 'Entre com sua conta existente ou abra a tela de acesso para iniciar seu cadastro.' },
-                { n: '02', title: 'Vá para seu ambiente', description: 'Após a autenticação, o sistema direciona você conforme as permissões da sua conta.' },
-                { n: '03', title: 'Use os recursos disponíveis', description: 'Explore as funcionalidades liberadas no seu ambiente e siga os processos da sua operação.' },
-              ].map((step) => (
-                <div key={step.n} className="flex gap-5 rounded-2xl border border-white/[0.08] bg-[#0c100e] p-5 sm:p-6">
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-emerald-300/20 bg-emerald-300/[0.07] text-sm font-semibold text-emerald-200">{step.n}</span>
-                  <div><h3 className="font-semibold text-white">{step.title}</h3><p className="mt-2 text-sm leading-6 text-zinc-400">{step.description}</p></div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
+        <section id="como-funciona" className="scroll-mt-24 px-5 py-20 sm:px-8 sm:py-24"><div className="mx-auto max-w-7xl"><div className="mx-auto max-w-3xl text-center"><p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-300">Comece em poucos passos</p><h2 className="mt-4 text-3xl font-semibold tracking-tight text-white sm:text-4xl">Da inscrição à rotina financeira</h2></div><div className="mt-10 grid gap-4 md:grid-cols-3">{[{ n: '01', title: 'Crie sua conta', desc: 'Cadastre-se e experimente por 14 dias, sem cartão de crédito.' }, { n: '02', title: 'Organize seus dados', desc: 'Registre os movimentos ou importe CSV, Excel e extratos PDF para conferir.' }, { n: '03', title: 'Acompanhe e planeje', desc: 'Use as projeções, contas pendentes e recursos do seu plano para orientar a rotina.' }].map(step => <article key={step.n} className="rounded-2xl border border-white/[0.08] bg-[#0c100e] p-6 sm:p-7"><span className="flex h-11 w-11 items-center justify-center rounded-xl border border-emerald-300/20 bg-emerald-300/[0.07] text-sm font-semibold text-emerald-200">{step.n}</span><h3 className="mt-5 text-lg font-semibold text-white">{step.title}</h3><p className="mt-2 text-sm leading-6 text-zinc-400">{step.desc}</p></article>)}</div></div></section>
 
-        <section id="duvidas" className="scroll-mt-24 px-5 py-20 sm:px-8 sm:py-24">
-          <div className="mx-auto max-w-3xl">
-            <div className="text-center">
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-300">Perguntas frequentes</p>
-              <h2 className="mt-4 text-3xl font-semibold tracking-tight text-white sm:text-4xl">Antes de começar</h2>
-            </div>
-            <div className="mt-10 divide-y divide-white/[0.08] border-y border-white/[0.08]">
-              {[
-                { q: 'Quanto tempo dura o teste grátis?', a: 'Você pode testar o Critical Cash por 14 dias, sem cartão de crédito. Ao final do período, para continuar com os recursos de edição e lembretes, será necessário contratar um plano.' },
-                { q: 'Como acesso o Critical Cash?', a: 'Clique em “Entrar ou criar conta”. Na tela de acesso, você poderá entrar com uma conta existente ou selecionar a opção de criar conta.' },
-                { q: 'O que faço se ainda não tenho cadastro?', a: 'Abra a tela de acesso e selecione “Criar Conta”. Preencha os campos solicitados e siga as instruções apresentadas pelo sistema.' },
-                { q: 'Quais formatos posso importar?', a: 'Você pode importar lançamentos a partir de arquivos CSV, planilhas Excel e extratos em PDF. O sistema apresenta uma prévia para conferência antes da importação; os limites variam conforme o plano.' },
-                { q: 'A página mostra dados financeiros reais?', a: 'Não. A ilustração desta página é apenas demonstrativa. Os dados do seu ambiente ficam disponíveis após o acesso à plataforma.' },
-                { q: 'Quais são os preços dos planos?', a: 'O Starter custa R$ 29 por mês ou R$ 290 por ano; o Pro custa R$ 59 por mês ou R$ 590 por ano; e o Business custa R$ 119 por mês ou R$ 1.190 por ano. O plano anual equivale a 10 mensalidades. Confira as condições finais no checkout.' },
-                { q: 'Como funciona o programa para contadores afiliados?', a: 'Após criar uma conta, acesse a área Contador e envie sua solicitação com os dados e documentos exigidos. Depois da aprovação, você poderá divulgar seu cupom: os clientes recebem 20% de desconto e a comissão do contador varia de 20% a 30%, de acordo com a quantidade de clientes únicos com pagamento confirmado.' },
-              ].map((item) => (
-                <details key={item.q} className="group py-5">
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-left font-medium text-zinc-200 marker:content-none">
-                    {item.q}<ChevronDown className="h-4 w-4 shrink-0 text-zinc-500 transition group-open:rotate-180" />
-                  </summary>
-                  <p className="mt-3 pr-8 text-sm leading-7 text-zinc-400">{item.a}</p>
-                </details>
-              ))}
-            </div>
-          </div>
-        </section>
+        <section id="duvidas" className="scroll-mt-24 border-y border-white/[0.07] bg-white/[0.02] px-5 py-20 sm:px-8 sm:py-24"><div className="mx-auto max-w-3xl"><div className="text-center"><p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-300">Perguntas frequentes</p><h2 className="mt-4 text-3xl font-semibold tracking-tight text-white sm:text-4xl">Tire suas dúvidas</h2></div><div className="mt-10 divide-y divide-white/[0.08] border-y border-white/[0.08]">{[{ q: 'O Critical Cash oferece teste grátis?', a: 'Sim. Você pode experimentar por 14 dias, sem cartão de crédito.' }, { q: 'Quais formatos posso importar?', a: 'Você pode importar arquivos CSV, planilhas Excel e extratos PDF. O sistema apresenta uma prévia para conferência antes de confirmar; os limites variam conforme o plano.' }, { q: 'O sistema faz cobranças automáticas pelo WhatsApp?', a: 'O Critical Cash oferece apoio à rotina de cobranças pelo WhatsApp. As cobranças descritas nos planos são manuais; não prometemos envio automático de mensagens.' }, { q: 'Qual é a diferença entre os planos?', a: 'Os planos variam pelo número de contas pendentes, pelo limite de linhas por importação, pela personalização da régua de cobrança e pela quantidade de riscos destacados.' }, { q: 'Como funciona o desconto anual?', a: 'O preço anual equivale a 10 mensalidades, ou seja, dois meses a menos em comparação com doze pagamentos mensais.' }, { q: 'Existe desconto no Pix?', a: 'A primeira assinatura paga via Pix tem 10% de desconto, conforme as condições apresentadas no checkout. O desconto não é cumulativo com outras ofertas.' }, { q: 'Como funciona o programa para contadores?', a: 'Após criar uma conta, acesse a área Contador e envie a solicitação. Após aprovação, clientes recebem 20% de desconto nas duas primeiras mensalidades e a comissão varia de 20% a 30% conforme a faixa de clientes pagantes.' }, { q: 'Os dados mostrados na página são reais?', a: 'Não. Os elementos visuais são ilustrativos. Os dados do seu ambiente ficam disponíveis depois do acesso autenticado à plataforma.' }].map(item => <details key={item.q} className="group py-5"><summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-left font-medium text-zinc-200 marker:content-none">{item.q}<ChevronDown className="h-4 w-4 shrink-0 text-zinc-500 transition group-open:rotate-180" /></summary><p className="mt-3 pr-8 text-sm leading-7 text-zinc-400">{item.a}</p></details>)}</div></div></section>
 
-        <section className="px-5 pb-20 sm:px-8 sm:pb-24">
-          <div className="relative mx-auto max-w-7xl overflow-hidden rounded-3xl border border-emerald-300/15 bg-gradient-to-br from-emerald-300/[0.10] via-[#101512] to-[#101512] px-6 py-12 text-center sm:px-12 sm:py-16">
-            <div className="pointer-events-none absolute left-1/2 top-0 h-40 w-96 -translate-x-1/2 rounded-full bg-emerald-300/[0.08] blur-3xl" />
-            <div className="relative">
-              <h2 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">Traga mais clareza para a gestão do seu caixa.</h2>
-              <p className="mx-auto mt-4 max-w-2xl leading-7 text-zinc-400">Acesse o Critical Cash e continue sua rotina em um ambiente dedicado à gestão financeira do seu negócio.</p>
-              <Button onClick={() => handleNavigate(primaryPath)} className="mt-8 h-12 rounded-xl bg-emerald-400 px-7 text-base font-semibold text-zinc-950 hover:bg-emerald-300">
-                {sessionActive ? 'Acessar meu painel' : 'Acessar / criar conta'} <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </section>
+        <section className="px-5 py-20 sm:px-8 sm:py-24"><div className="relative mx-auto max-w-7xl overflow-hidden rounded-3xl border border-emerald-300/15 bg-gradient-to-br from-emerald-300/[0.11] via-[#101512] to-[#101512] px-6 py-12 text-center sm:px-12 sm:py-16"><div className="pointer-events-none absolute left-1/2 top-0 h-40 w-96 -translate-x-1/2 rounded-full bg-emerald-300/[0.08] blur-3xl" /><div className="relative"><h2 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">Seu caixa merece uma visão mais clara.</h2><p className="mx-auto mt-4 max-w-2xl leading-7 text-zinc-400">Organize as movimentações, acompanhe os compromissos e planeje os próximos passos com o Critical Cash.</p><Button onClick={() => go(primaryPath)} className="mt-8 h-12 rounded-xl bg-emerald-300 px-7 text-base font-semibold text-zinc-950 hover:bg-emerald-200">{sessionActive ? 'Acessar meu painel' : 'Experimentar por 14 dias'} <ArrowRight className="ml-2 h-4 w-4" /></Button></div></div></section>
       </main>
 
-      <footer className="border-t border-white/[0.08] px-5 py-8 sm:px-8">
-        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 text-center sm:flex-row sm:text-left">
-          <a href="/" className="flex items-center gap-2 text-sm font-semibold text-white"><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-300/10 text-emerald-300"><TrendingUp className="h-4 w-4" /></span>Critical Cash</a>
-          <p className="text-xs leading-5 text-zinc-500">© {new Date().getFullYear()} Critical Cash. Todos os direitos reservados.</p>
-          <div className="flex items-center gap-2 text-xs text-zinc-500"><LockKeyhole className="h-3.5 w-3.5 text-emerald-300" /> Acesso autenticado</div>
-        </div>
-      </footer>
+      <footer className="border-t border-white/[0.08] px-5 py-8 sm:px-8"><div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 text-center sm:flex-row sm:text-left"><a href="/" className="flex items-center gap-2 text-sm font-semibold text-white"><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-300/10 text-emerald-300"><TrendingUp className="h-4 w-4" /></span>Critical Cash</a><p className="text-xs leading-5 text-zinc-500">© {new Date().getFullYear()} Critical Cash. Todos os direitos reservados.</p><div className="flex items-center gap-2 text-xs text-zinc-500"><LockKeyhole className="h-3.5 w-3.5 text-emerald-300" /> Acesso autenticado</div></div></footer>
     </div>
   );
 }
