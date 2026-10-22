@@ -236,6 +236,22 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
             .maybeSingle();
           if (pendingCheckoutError) throw pendingCheckoutError;
 
+          // Never activate a plan from a charge that does not match the exact checkout.
+          // Re-read the payment from Asaas above; do not trust webhook-supplied amounts or IDs.
+          if (pendingCheckout) {
+            if (payment.externalReference !== pendingCheckout.checkout_reference) {
+              throw new Error("Confirmed Asaas payment external reference does not match the pending checkout");
+            }
+            if (payment.customer !== pendingCheckout.customer_id) {
+              throw new Error("Confirmed Asaas payment customer does not match the pending checkout");
+            }
+            const expectedAmountCents = Number(pendingCheckout.initial_amount_cents);
+            if (!Number.isSafeInteger(expectedAmountCents) || expectedAmountCents <= 0
+              || Math.abs(actualPaidAmountCents - expectedAmountCents) > 1) {
+              throw new Error("Confirmed Asaas payment amount does not match the pending checkout");
+            }
+          }
+
           // The first Pix is intentionally a one-off so the one-time introductory
           // discount does not accidentally reduce every later monthly/yearly charge.
           if (pendingCheckout?.status === "processed") {
