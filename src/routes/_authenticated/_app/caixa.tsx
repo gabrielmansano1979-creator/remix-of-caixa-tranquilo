@@ -106,7 +106,7 @@ function CaixaPage() {
       type: entry.is_own_transfer ? "Movimentação interna / investimento" : entry.type === "income" ? "Entrada / a receber" : "Saída / a pagar",
       is_own_transfer: Boolean(entry.is_own_transfer),
     }));
-    const expenses = ledger.rows.filter((entry) => entry.type === "expense" && !entry.is_own_transfer);
+    const expenses = ledger.rows.filter((entry) => entry.type === "expense" && !entry.is_own_transfer && !entry.is_non_operating);
     const expenseTotals = new Map<string, number>();
     expenses.forEach((entry) => expenseTotals.set(entry.description, (expenseTotals.get(entry.description) ?? 0) + entry.amount_cents));
     const largestExpense = [...expenseTotals.entries()].sort((a, b) => b[1] - a[1])[0];
@@ -147,7 +147,7 @@ function CaixaPage() {
             { key: "date", label: "Vencimento / data" }, { key: "description", label: "Descrição da despesa" },
             { key: "counterparty", label: "Beneficiário" }, { key: "status", label: "Situação" }, { key: "amount", label: "Valor" },
           ],
-          rows: baseRows.filter((row) => row.type === "Saída / a pagar"),
+          rows: baseRows.filter((row) => row.type === "Saída / a pagar" && !row.is_non_operating),
           summary: [
             ["Total de despesas registradas", formatBRL(expenses.reduce((sum, entry) => sum + entry.amount_cents, 0))],
             ["Maior destino identificado pela descrição", largestExpense ? `${largestExpense[0]} — ${formatBRL(largestExpense[1])}` : "Nenhuma despesa no período"],
