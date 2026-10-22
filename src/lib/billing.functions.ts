@@ -208,10 +208,9 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
 
       const discountPercent = affiliate?.discountPercent ?? (isFirst ? Math.round(FIRST_PIX_DISCOUNT * 100) : 0);
       const priceCents = Math.round(basePrice * (1 - discountPercent / 100));
-      // Affiliate referrals get the discount on the acquisition payment and the first
-      // monthly renewal. The webhook restores full price after the second paid invoice,
-      // so the third monthly charge uses the plan's normal price. Annual renewals are full price.
-      const recurringDiscountPercent = data.interval === "month" ? (affiliate?.discountPercent ?? 0) : 0;
+      // The partner coupon is a recurring 20% discount for both monthly and annual plans.
+      // The commission tier is snapshotted at acquisition; later partner tier changes do not alter this subscription.
+      const recurringDiscountPercent = affiliate?.discountPercent ?? 0;
       const recurringPriceCents = Math.round(basePrice * (1 - recurringDiscountPercent / 100));
       stage = "customer_lookup_or_create";
       const customerId = await ensureCustomer(userId, customerEmail, customerName, data.cpfCnpj);
