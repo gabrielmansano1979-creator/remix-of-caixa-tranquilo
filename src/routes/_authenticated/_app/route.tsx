@@ -16,6 +16,14 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/_app")({
   beforeLoad: async ({ context }) => {
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error || !user) throw redirect({ to: "/login" });
+    // Accountant profiles use the dedicated accountant workspace, not the
+    // business cash-flow shell. This is navigation only; data access remains
+    // enforced by database authorization and RLS.
+    if (user.user_metadata?.account_type === "accountant") {
+      throw redirect({ to: "/contador" });
+    }
     const profile = await context.queryClient.ensureQueryData(profileQuery);
     if (profile && !profile.onboarding_done) throw redirect({ to: "/onboarding" });
   },
