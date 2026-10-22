@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -31,7 +31,6 @@ const schema = z
   .refine((d) => d.password === d.confirm, { message: "As senhas não conferem.", path: ["confirm"] });
 
 function ResetPage() {
-  const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   const { register, handleSubmit, formState, watch } = useForm<z.infer<typeof schema>>({ resolver: zodResolver(schema) });
 
@@ -41,7 +40,7 @@ function ResetPage() {
     if (error) return setError(translateAuthError(error.message) + " O link pode ter expirado.");
     toast.success("Senha atualizada.");
     const profile = new URLSearchParams(window.location.search).get("perfil");
-    navigate({ to: "/login", replace: true, search: { perfil: profile === "contador" ? "contador" : "empresario" } as never });
+    window.location.replace(`/login?perfil=${profile === "contador" ? "contador" : "empresario"}`);
   });
 
   return (
