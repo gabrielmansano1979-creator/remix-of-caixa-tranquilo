@@ -43,7 +43,18 @@ const redirectUser = async (sessionUser: any) => {
     return;
   }
 
-  const accountType = sessionUser.user_metadata?.account_type;
+  let accountType = sessionUser.user_metadata?.account_type;
+  const requestedProfile = new URLSearchParams(window.location.search).get('perfil');
+  const registrationFlow = new URLSearchParams(window.location.search).get('cadastro') === '1';
+  if (registrationFlow && (requestedProfile === 'contador' || requestedProfile === 'empresario')) {
+    accountType = requestedProfile === 'contador' ? 'accountant' : 'business';
+    const { error: metadataError } = await supabase.auth.updateUser({ data: { account_type: accountType } });
+    if (metadataError) {
+      console.error('[LOGIN] Não foi possível salvar o perfil escolhido:', metadataError);
+      toast.error('Não foi possível salvar o perfil escolhido. Tente novamente.');
+      return;
+    }
+  }
   const targetPath = isAdmin === true ? '/admin' : accountType === 'accountant' ? '/contador' : '/caixa';
   if (window.location.pathname !== targetPath) {
     window.location.replace(targetPath);
@@ -134,7 +145,7 @@ try {
 const { error } = await supabase.auth.signInWithOAuth({
   provider: 'google',
   options: {
-    redirectTo: `${window.location.origin}/login`,
+    redirectTo: `${window.location.origin}/login?cadastro=1&perfil=${accountType === 'accountant' ? 'contador' : 'empresario'}`,
     queryParams: {
       prompt: 'select_account',
     },
