@@ -63,6 +63,12 @@ export type Entry = {
   counterparty_name: string | null;
   counterparty_email: string | null;
   counterparty_whatsapp: string | null;
+  is_own_transfer?: boolean;
+  payment_method?: string | null;
+  sender_name?: string | null;
+  recipient_name?: string | null;
+  counterparty_document?: string | null;
+  counterparty_original_name?: string | null;
   pix_url?: string | null;
   status: "pending" | "paid";
   paid_at: string | null;
