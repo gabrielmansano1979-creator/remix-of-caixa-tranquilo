@@ -4,7 +4,7 @@ import autoTable from "jspdf-autotable";
 
 export type ReportFormat = "pdf";
 export type ReportColumn = { key: string; label: string };
-export type ReportRow = Record<string, string | number | null>;
+export type ReportRow = Record<string, string | number | boolean | null>;
 
 export async function exportReport({
   title,

@@ -2,7 +2,7 @@ export interface CsvRow {
   line: number;
   raw: Record<string, string>;
   errors: string[];
-  value?: { type: "income" | "expense"; description: string; amount_cents: number; due_date: string; counterparty_name: string; counterparty_email: string; counterparty_whatsapp: string; sender_name?: string; recipient_name?: string; counterparty_document?: string; counterparty_original_name?: string; payment_method?: string; is_own_transfer?: boolean };
+  value?: { type: "income" | "expense"; description: string; amount_cents: number; due_date: string; counterparty_name: string; counterparty_email: string; counterparty_whatsapp: string; sender_name?: string; recipient_name?: string; counterparty_document?: string; counterparty_original_name?: string; payment_method?: string; is_own_transfer?: boolean; is_non_operating?: boolean; is_statement_transaction?: boolean };
 }
 
 export const CSV_TEMPLATE =
@@ -35,6 +35,13 @@ export function parseMoney(s: string): number | null {
 
 export function parseDate(s: string): string | null {
   const input = s.trim().replace(/^["']|["']$/g, "");
+  const monthNames: Record<string, string> = { jan: "01", janeiro: "01", feb: "02", fev: "02", fevereiro: "02", mar: "03", marco: "03", abril: "04", abr: "04", may: "05", mai: "05", maio: "05", jun: "06", junho: "06", jul: "07", julho: "07", aug: "08", ago: "08", agosto: "08", sep: "09", set: "09", setembro: "09", oct: "10", out: "10", outubro: "10", nov: "11", novembro: "11", dec: "12", dez: "12", dezembro: "12" };
+  const namedMonth = input.match(/^(\d{1,2})\s+([A-Za-zÀ-ÿ]+),?\s+(\d{4})$/i);
+  if (namedMonth) {
+    const monthKey = namedMonth[2].normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    const month = monthNames[namedMonth[2].toLowerCase()] ?? monthNames[monthKey];
+    if (month) return parseDate(namedMonth[1].padStart(2, "0") + "/" + month + "/" + namedMonth[3]);
+  }
   let m = input.match(/^(\d{1,2})[/. -](\d{1,2})[/. -](\d{4})(?:\s+.*)?$/);
   let iso: string | null = null;
   // Extratos brasileiros normalmente usam DD/MM/AAAA; não inverter datas ambíguas automaticamente.
@@ -49,6 +56,19 @@ export function parseDate(s: string): string | null {
 
 import { toE164 } from "./phone";
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export function isBankStatementTable(text: string): boolean {
+  const firstLine = text.split(/\r?\n/).find((line) => line.trim()) ?? "";
+  const header = firstLine.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const isTemplateHeader = /(?:^|[;,\t])\s*"?vencimento"?\s*(?:[;,\t]|$)/.test(header) ||
+    /(?:^|[;,\t])\s*"?due[_ ]date"?\s*(?:[;,\t]|$)/.test(header);
+  if (isTemplateHeader) return false;
+  const strongBankMarker = /codigo da transacao|tipo de transacao|saldo(?:\s|[;,\t,]|$)|razao social|cnpj\s*\/?\s*cpf|data lancamento|data movimento|data transacao/.test(header);
+  const dateDescriptionAmountHeader =
+    /(?:^|[;,\t])\s*"?data"?\s*(?:[;,\t])/.test(header) &&
+    /descricao/.test(header) && /valor/.test(header);
+  return strongBankMarker || dateDescriptionAmountHeader;
+}
 
 export function parseCsv(text: string): { rows: CsvRow[]; headerError?: string } {
   const lines = text.replace(/^\uFEFF/, "").split(/\r?\n/).filter((l) => l.trim());
@@ -143,7 +163,7 @@ export function parseStatementText(text: string): { rows: CsvRow[]; ignored: num
     .split(/\r?\n/)
     .map((line) => line.replace(/\s+/g, " ").trim())
     .filter(Boolean);
-  const datePattern = /(?:^|\s)(\d{2}[/. -]\d{2}[/. -]\d{4}|\d{4}-\d{2}-\d{2})(?=\s|$)/;
+  const datePattern = /(?:^|\s)(\d{2}[/. -]\d{2}[/. -]\d{4}|\d{4}-\d{2}-\d{2}|\d{1,2}\s+[A-Za-zÀ-ÿ]{3,},?\s+\d{4})(?=\s|$)/i;
   const rows: CsvRow[] = [];
   let ignored = 0;
 
@@ -208,6 +228,7 @@ export function parseStatementText(text: string): { rows: CsvRow[]; ignored: num
         counterparty_name: counterparty,
         counterparty_email: "",
         counterparty_whatsapp: "",
+        is_statement_transaction: true,
       };
     }
     rows.push(row);
@@ -272,6 +293,7 @@ export function parseOfxText(text: string): { rows: CsvRow[]; ignored: number } 
       counterparty_name: counterparty,
       counterparty_email: "",
       counterparty_whatsapp: "",
+      is_statement_transaction: true,
     };
     rows.push(row);
   }
@@ -289,14 +311,17 @@ export function parseBankTable(text: string): { rows: CsvRow[]; headerError?: st
     cell.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[.,()/:#]+/g, " ").replace(/r\$/g, "").replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim()
   );
   const dateIndex = header.findIndex((h) => /^(data|date|data lancamento|data movimento|dt lancamento|dt movimento|posting date|transaction date|data transacao|data da transacao|data efetiva|data operacao|data valor|data contabil|data contabilizacao|data de lancamento|data do lancamento|data do movimento|data hora|transaction posting date|value date|booking date|effective date)$/.test(h));
-  const descriptionIndex = header.findIndex((h) => /^(descricao|historico|historico descricao|descricao historico|lancamento|detalhe|detalhes|memo|description|transaction description|transaction details|details|narrative|particulars|payee|beneficiario|estabelecimento|transacao|transaction|nome|operacao|identificacao|complemento|documento|tipo lancamento|historico do lancamento|descricao do lancamento|historico da transacao|descricao da transacao|historico movimento|descricao movimento|historico da movimentacao|descricao da movimentacao|detalhes da transacao)$/.test(h));
+  const primaryDescriptionIndex = header.findIndex((h) => /^(descricao|historico|historico descricao|descricao historico|lancamento|lancamentos|detalhe|detalhes|memo|description|transaction description|transaction details|details|narrative|particulars|payee|beneficiario|estabelecimento|transacao|transaction|operacao|identificacao|complemento|documento|tipo lancamento|historico do lancamento|descricao do lancamento|historico da transacao|descricao da transacao|historico movimento|descricao movimento|historico da movimentacao|descricao da movimentacao|detalhes da transacao)$/.test(h));
+  const nameDescriptionIndex = header.findIndex((h) => h === "nome");
+  const descriptionIndex = primaryDescriptionIndex >= 0 ? primaryDescriptionIndex : nameDescriptionIndex;
   const amountIndex = header.findIndex((h) => /^(valor|amount|quantia|montante|valor r\$|amount brl|total|valor lancamento|valor movimento|valor da transacao|valor transacao|valor da movimentacao|valor movimentacao|valor do lancamento|valor lancamento|vl lancamento|vl movimento|transaction amount|amount of transaction|movement amount|valor da operacao|valor operacao|importe)$/.test(h));
   const debitIndex = header.findIndex((h) => /^(debito|debitos|debit|debits|saidas|saida|withdrawal|withdrawals|debit amount|valor debito|vl debito|debito r\$|saidas r\$|valor saida|valor de saida|valor de debito|valor dos debitos|retirada|retiradas|pagamento)$/.test(h));
   const creditIndex = header.findIndex((h) => /^(credito|creditos|credit|credits|entradas|entrada|deposit|deposits|deposito|credit amount|valor credito|vl credito|credito r\$|entradas r\$|valor entrada|valor de entrada|valor de credito|valor dos creditos|recebimento|depositos)$/.test(h));
-  const typeIndex = header.findIndex((h) => /^(tipo|type|natureza|operacao|operation|direcao)$/.test(h));
+  const typeIndex = header.findIndex((h) => /^(tipo|type|natureza|operacao|operation|direcao|tipo de transacao|tipo transacao|tipo de lancamento)$/.test(h));
   const senderIndex = header.findIndex((h) => /^(remetente|pagador|nome pagador|nome do pagador|ordenante|origem|sender|payer|from|sender name|payer name)$/.test(h));
   const recipientIndex = header.findIndex((h) => /^(destinatario|nome destinatario|nome do destinatario|favorecido|nome favorecido|beneficiario|nome beneficiario|recebedor|payee|recipient|recipient name|beneficiary|to)$/.test(h));
-  const counterpartyIndex = header.findIndex((h) => /^(nome|contraparte|counterparty|nome contraparte|nome favorecido|nome remetente|nome cliente|nome contraparte financeira|nome da contraparte|counterparty name|counterparty)$/.test(h));
+  const counterpartyIndex = header.findIndex((h) => /^(nome|razao social|contraparte|counterparty|nome contraparte|nome favorecido|nome remetente|nome cliente|nome contraparte financeira|nome da contraparte|counterparty name|counterparty)$/.test(h));
+  const documentIndex = header.findIndex((h) => /^(cpf|cnpj|cpf cnpj|cnpj cpf|documento contraparte|documento do favorecido|documento beneficiario|documento remetente|tax id|counterparty document)$/.test(h));
   if (dateIndex < 0 || descriptionIndex < 0 || (amountIndex < 0 && debitIndex < 0 && creditIndex < 0)) {
     return { rows: [], headerError: "Não reconheci as colunas. Preciso identificar data, descrição e valor (ou débito/crédito).", ignored: 0 };
   }
@@ -307,13 +332,16 @@ export function parseBankTable(text: string): { rows: CsvRow[]; headerError?: st
     const cells = splitLine(line, separator);
     const rawDate = cells[dateIndex] ?? "";
     const date = normalizeStatementDate(rawDate);
-    const description = (cells[descriptionIndex] ?? "").slice(0, 200);
+    const description = ((typeIndex >= 0 && header[descriptionIndex] === "detalhe" && (cells[typeIndex] ?? "").trim()) ? `${(cells[typeIndex] ?? "").trim()} — ${(cells[descriptionIndex] ?? "").trim()}` : (cells[descriptionIndex] ?? "")).slice(0, 200);
+    const normalizedDescription = description.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+    if (/^(saldo (do dia|anterior|inicial|final|disponivel)|total de (entradas|saidas|creditos|debitos))\b/.test(normalizedDescription)) continue;
     const debitRaw = debitIndex >= 0 ? cells[debitIndex] ?? "" : "";
     const creditRaw = creditIndex >= 0 ? cells[creditIndex] ?? "" : "";
     const amountRaw = amountIndex >= 0 ? cells[amountIndex] ?? "" : "";
     const debit = parseMoney(debitRaw.replace(/^[+-]/, ""));
     const credit = parseMoney(creditRaw.replace(/^[+-]/, ""));
     const signedNegative = /^\s*-/.test(amountRaw) || /^\s*\(.*\)\s*$/.test(amountRaw);
+    const signedPositive = /^\s*\+/.test(amountRaw);
     const amount = amountIndex >= 0 ? parseMoney(amountRaw.replace(/^[+-]/, "").replace(/[()]/g, "")) : null;
     const chosenAmount = debit !== null ? debit : credit !== null ? credit : amount;
     if (!date || !description || chosenAmount === null) {
@@ -322,23 +350,51 @@ export function parseBankTable(text: string): { rows: CsvRow[]; headerError?: st
     }
     const rawType = typeIndex >= 0 ? (cells[typeIndex] ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() : "";
     const directionText = (rawType + " " + description).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-    const type = debit !== null ? "expense"
+    const directionConflict = debit !== null && credit !== null;
+    const explicitDirectionText = (rawType || description).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    const explicitExpenseLabel = /\b(debito|saida|despesa|pagamento|pagto|compra|withdrawal|withdrawals|expense|saque|retirada|tarifa|boleto pago|pix enviado|transferencia enviada|paid|payment|purchase|outgoing|sent|transfer out|bill payment|amortizacao|amortizacao de emprestimo|emprestimo inteligente)\b/.test(explicitDirectionText);
+    const explicitIncomeLabel = /\b(credito|entrada|receita|deposito|recebimento|income|pix recebido|transferencia recebida|estorno|salario|received|credited|incoming|refund|transfer in|credit transfer|vendas|venda|sales|sale|liquidacao de vendas|resgate(?: total| parcial)? de? cdb)\b/.test(explicitDirectionText);
+    const signTypeConflict = (signedNegative && explicitIncomeLabel) || (signedPositive && explicitExpenseLabel);
+    const type = directionConflict || signTypeConflict ? null
+      : debit !== null ? "expense"
       : credit !== null ? "income"
-      : signedNegative || /\b(debito|saida|despesa|pagamento|pagto|compra|withdrawal|withdrawals|expense|saque|retirada|tarifa|boleto pago|pix enviado|transferencia enviada|paid|payment|purchase|outgoing|sent|transfer out|debit card|bill payment)\b/.test(directionText) ? "expense"
-      : /\b(credito|entrada|receita|deposito|recebimento|income|pix recebido|transferencia recebida|estorno|salario|received|credited|incoming|refund|transfer in|credit transfer)\b/.test(directionText) ? "income"
+      : /\b(vendas|venda|sales|sale)\b/.test(rawType) && !signedNegative ? "income"
+      : signedNegative || /\b(debito|saida|despesa|pagamento|pagto|compra|withdrawal|withdrawals|expense|saque|retirada|tarifa|boleto pago|pix enviado|transferencia enviada|paid|payment|purchase|outgoing|sent|transfer out|debit card|bill payment|amortizacao|amortizacao de emprestimo)\b/.test(directionText) ? "expense"
+      : signedPositive || /\b(credito|entrada|receita|deposito|recebimento|income|pix recebido|transferencia recebida|estorno|salario|received|credited|incoming|refund|transfer in|credit transfer|vendas|venda|sales|sale|liquidacao de vendas|resgate(?: total| parcial)? de? cdb)\b/.test(directionText) ? "income"
       : null;
-    const errors = type ? [] : ["A linha foi lida, mas o arquivo não informa se o valor é entrada ou saída; classifique manualmente."];
+    const errors = directionConflict
+      ? ["A linha contém valores simultâneos em débito e crédito; confira manualmente."]
+      : signTypeConflict
+        ? ["O sinal do valor contradiz o tipo de operação indicado no extrato; confira manualmente."]
+        : type ? [] : ["A linha foi lida, mas o arquivo não informa se o valor é entrada ou saída; classifique manualmente."];
     const explicitSender = senderIndex >= 0 ? (cells[senderIndex] ?? "").trim().slice(0, 120) : "";
     const explicitRecipient = recipientIndex >= 0 ? (cells[recipientIndex] ?? "").trim().slice(0, 120) : "";
+    const namedCounterparty = counterpartyIndex >= 0 ? (cells[counterpartyIndex] ?? "").trim().slice(0, 120) : "";
     const parties = extractTransferParties(description);
-    const sender = explicitSender || parties.sender || (type === "income" ? extractCounterparty(description, type) : "");
-    const recipient = explicitRecipient || parties.recipient || (type === "expense" ? extractCounterparty(description, type) : "");
+    const sender = explicitSender || (type === "income" ? namedCounterparty : "") || parties.sender || (type === "income" ? extractCounterparty(description, type) : "");
+    const recipient = explicitRecipient || (type === "expense" ? namedCounterparty : "") || parties.recipient || (type === "expense" ? extractCounterparty(description, type) : "");
+    const isInvestmentMovement = /\b(renda fixa|aplicacao(?: em)? cdb|resgate(?: total| parcial)? de? cdb|cdb.*(?:aplicacao|resgate)|(?:aplicacao|resgate).*cdb)\b/.test(normalizedDescription);
+    // Financing principal and bank interest are cash movements, not operating expenses.
+    const isNonOperatingMovement = /\b(emprestimo inteligente|loan repayment|loan amortization|principal repayment|amortizacao de emprestimo|juros|encargos financeiros|finance charge|interest charge)\b/.test(directionText) && !isInvestmentMovement;
+    const isCardSales = /\b(vendas|venda|sales|sale)\b/.test(rawType) && !namedCounterparty;
     const explicitCounterparty = type === "income"
       ? (sender || (counterpartyIndex >= 0 ? cells[counterpartyIndex] ?? "" : ""))
       : type === "expense"
         ? (recipient || (counterpartyIndex >= 0 ? cells[counterpartyIndex] ?? "" : ""))
         : (counterpartyIndex >= 0 ? cells[counterpartyIndex] ?? "" : "");
-    const counterparty = explicitCounterparty.trim().slice(0, 120);
+    const isPixMovement = /\bpix\s+(enviado|enviada|recebido|recebida)\b/i.test(rawType);
+    const pixDescriptionParty = isPixMovement && !/^(pix\s+(enviado|enviada|recebido|recebida)|disponivel\s+(debito|credito)\s+\w+)$/i.test(description.trim())
+      ? description.replace(/^pix\s+(?:enviado|enviada|recebido|recebida)\s+(?:de|do|da|para|pro|pra)?\s*/i, "").trim()
+      : "";
+    const counterparty = (isInvestmentMovement
+      ? (/resgate/i.test(description) ? "Resgate próprio de CDB" : "Aplicação própria em CDB")
+      : isCardSales ? "Liquidação de vendas por cartão"
+      : (explicitCounterparty.trim() || pixDescriptionParty)).slice(0, 120);
+    const counterpartyDocument = documentIndex >= 0 ? (cells[documentIndex] ?? "").trim().slice(0, 32) : "";
+    const paymentMethod = isInvestmentMovement ? (/resgate/i.test(description) ? "Resgate de CDB" : "Aplicação em CDB")
+      : /pix/i.test(directionText) ? "PIX"
+      : /boleto/i.test(directionText) ? "Boleto"
+      : isCardSales ? "Venda / liquidação de cartão" : "";
     if (type && !counterparty) errors.push(type === "income" ? "Informe quem pagou à empresa antes de importar." : "Informe quem recebeu o pagamento antes de importar.");
     const row: CsvRow = {
       line: index + 2,
@@ -350,12 +406,23 @@ export function parseBankTable(text: string): { rows: CsvRow[]; headerError?: st
         nome: counterparty,
         remetente: sender,
         destinatario: recipient,
+        metodo: paymentMethod,
+        documento_contraparte: counterpartyDocument,
+        transferencia_propria: String(isInvestmentMovement),
+        nao_operacional: String(isNonOperatingMovement),
       },
       errors,
     };
     if (type && counterparty && !errors.length) row.value = {
       type, description, amount_cents: chosenAmount, due_date: date,
       counterparty_name: counterparty, counterparty_email: "", counterparty_whatsapp: "",
+      counterparty_document: counterpartyDocument || undefined,
+      sender_name: type === "income" ? counterparty : undefined,
+      recipient_name: type === "expense" ? counterparty : undefined,
+      payment_method: paymentMethod || undefined,
+      is_own_transfer: isInvestmentMovement,
+      is_non_operating: isNonOperatingMovement,
+      is_statement_transaction: true,
     };
     rows.push(row);
   }
@@ -386,7 +453,7 @@ export function parsePdfStatementText(text: string): { rows: CsvRow[]; ignored: 
   const isDateHeader = (cell: string) =>
     /^(data|date|data lancamento|data do lancamento|data movimento|data do movimento|dt lancamento|dt movimento|posting date|transaction date|transaction posting date|data transacao|data da transacao|data efetiva|data operacao|data contabil|data contabilizacao|data valor|data hora|dia|data de movimento|data da operacao|data do evento|value date|booking date|effective date)$/.test(cell);
   const isDescriptionHeader = (cell: string) =>
-    /^(descricao|historico|historico descricao|descricao historico|lancamento|detalhe|detalhes|memo|description|transaction description|transaction details|details|narrative|particulars|payee|beneficiario|estabelecimento|transacao|transaction|operacao|identificacao|complemento|documento|saldo historico|historico da transacao|descricao da transacao|historico da movimentacao|descricao da movimentacao|historico movimento|descricao movimento|detalhes da transacao|movimentacao|movimento|origem destino)$/.test(cell);
+    /^(descricao|historico|historico descricao|descricao historico|lancamento|lancamentos|detalhe|detalhes|memo|description|transaction description|transaction details|details|narrative|particulars|payee|beneficiario|estabelecimento|transacao|transaction|operacao|identificacao|complemento|documento|saldo historico|historico da transacao|descricao da transacao|historico da movimentacao|descricao da movimentacao|historico movimento|descricao movimento|detalhes da transacao|movimentacao|movimento|origem destino)$/.test(cell);
   const isAmountHeader = (cell: string) =>
     /^(valor|amount|quantia|montante|total|debito|debit|credito|credit|entradas|saidas|deposito|retirada|valor debito|valor credito|vl debito|vl credito|valor da transacao|valor transacao|valor movimentacao|valor movimento|valor lancamento|valor da movimentacao|valor do lancamento|valor entrada|valor saida|debitos|creditos|withdrawal|withdrawals|deposit|deposits|entrada|saida|valor r\$|valor da operacao|valor operacao|importe|creditos r\$|debitos r\$|valor credito r\$|valor debito r\$|transaction amount|amount of transaction|movement amount|debits|credits)$/.test(cell);
   const isBalanceHeader = (cell: string) =>
@@ -422,7 +489,7 @@ export function parsePdfStatementText(text: string): { rows: CsvRow[]; ignored: 
 
   // Strategy 3: multi-line transactions, where date, operation, counterparty and
   // signed amount may each be on a separate line.
-  const dateToken = /(?:^|\s)(\d{2}[/. -]\d{2}[/. -]\d{4}|\d{4}[-/.]\d{1,2}[-/.]\d{1,2})(?=\s|$)/;
+  const dateToken = /(?:^|\s)(\d{2}[/. -]\d{2}[/. -]\d{4}|\d{4}[-/.]\d{1,2}[-/.]\d{1,2}|\d{1,2}\s+[A-Za-zÀ-ÿ]{3,},?\s+\d{4})(?=\s|$)/i;
   const signedAmountLine = /^\s*([+-])\s*(?:R\$\s*)?((?:\d{1,3}(?:\.\d{3})+|\d+),\d{2}|(?:\d{1,3}(?:,\d{3})+|\d+)\.\d{2})\s*(?:CR|DB|C|D)?\s*$/i;
   const amountAtEnd = /(?:R\$\s*)?([+-]?(?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d{2})?|[+-]?\d{1,3}(?:,\d{3})+\.\d{2})\s*(CR|C|DB|D)?\s*$/i;
   const noise = /^(?:extrato(?: bancario| de conta| da conta)?|saldo (?:inicial|final|anterior|disponivel|do dia)|total de (?:entradas|saidas|creditos|debitos)|periodo:|pagina \d|pag\.?\s*\d|ouvidoria|agencia|conta:|cnpj:|cpf:)/i;
@@ -430,24 +497,43 @@ export function parsePdfStatementText(text: string): { rows: CsvRow[]; ignored: 
   type Block = { date: string; parts: string[]; line: number };
   const blocks: Block[] = [];
   let current: Block | null = null;
+  let activeDate: string | null = null;
   const flushBlock = () => {
     if (current && current.parts.length) blocks.push(current);
     current = null;
   };
+  const isAmountTerminator = (line: string) => {
+    if (signedAmountLine.test(line)) return true;
+    const match = line.match(amountAtEnd);
+    if (!match) return false;
+    const moneyTokens = line.match(/(?:R\$\s*)?[-+]?\d[\d.,]*\d|\b\d+[,.]\d{2}\b/g) ?? [];
+    return moneyTokens.length === 1 && (/[+-]|R\$|[,.]\d{2}\b/.test(line) || /^\s*\d+[,.]\d{2}\s*$/.test(line));
+  };
   for (const [index, rawLine] of lines.entries()) {
     const line = rawLine.replace(/\s+/g, " ").trim();
+    const normalizedLine = line.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     const dateMatch = line.match(dateToken);
     if (dateMatch) {
       flushBlock();
       const date = normalizeStatementDate(dateMatch[1]);
       const afterDate = line.slice((dateMatch.index ?? 0) + dateMatch[0].length).trim();
       if (date) {
-        current = { date, parts: [], line: index + 1 };
-        if (afterDate) current.parts.push(afterDate);
+        activeDate = date;
+        if (afterDate) {
+          current = { date, parts: [afterDate], line: index + 1 };
+          if (isAmountTerminator(afterDate)) flushBlock();
+        }
       }
       continue;
     }
-    if (current && !noise.test(line)) current.parts.push(line);
+    if (noise.test(normalizedLine)) continue;
+    if (!activeDate) continue;
+    if (!current) current = { date: activeDate, parts: [], line: index + 1 };
+    current.parts.push(line);
+    // In statement formats that print a date once per day, each signed amount
+    // terminates one movement while the active date remains available for the
+    // next movement in that same daily block.
+    if (isAmountTerminator(line)) flushBlock();
   }
   flushBlock();
 
@@ -537,6 +623,7 @@ export function parsePdfStatementText(text: string): { rows: CsvRow[]; ignored: 
       row.value = {
         type, description, amount_cents: cents, due_date: block.date,
         counterparty_name: counterparty, counterparty_email: "", counterparty_whatsapp: "",
+        is_statement_transaction: true,
       };
     }
     rows.push(row);
@@ -647,6 +734,7 @@ export function parseCoraStatementText(text: string): { rows: CsvRow[]; ignored:
       counterparty_original_name: originalCounterparty.slice(0, 120),
       payment_method: method.slice(0, 60),
       is_own_transfer: isOwnTransfer,
+      is_statement_transaction: true,
     };
     rows.push(row);
     pendingState.current = null;
