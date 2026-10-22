@@ -480,24 +480,43 @@ export function parsePdfStatementText(text: string): { rows: CsvRow[]; ignored: 
   type Block = { date: string; parts: string[]; line: number };
   const blocks: Block[] = [];
   let current: Block | null = null;
+  let activeDate: string | null = null;
   const flushBlock = () => {
     if (current && current.parts.length) blocks.push(current);
     current = null;
   };
+  const isAmountTerminator = (line: string) => {
+    if (signedAmountLine.test(line)) return true;
+    const match = line.match(amountAtEnd);
+    if (!match) return false;
+    const moneyTokens = line.match(/(?:R\$\s*)?[-+]?\d[\d.,]*\d|\b\d+[,.]\d{2}\b/g) ?? [];
+    return moneyTokens.length === 1 && (/[+-]|R\$|[,.]\d{2}\b/.test(line) || /^\s*\d+[,.]\d{2}\s*$/.test(line));
+  };
   for (const [index, rawLine] of lines.entries()) {
     const line = rawLine.replace(/\s+/g, " ").trim();
+    const normalizedLine = line.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     const dateMatch = line.match(dateToken);
     if (dateMatch) {
       flushBlock();
       const date = normalizeStatementDate(dateMatch[1]);
       const afterDate = line.slice((dateMatch.index ?? 0) + dateMatch[0].length).trim();
       if (date) {
-        current = { date, parts: [], line: index + 1 };
-        if (afterDate) current.parts.push(afterDate);
+        activeDate = date;
+        if (afterDate) {
+          current = { date, parts: [afterDate], line: index + 1 };
+          if (isAmountTerminator(afterDate)) flushBlock();
+        }
       }
       continue;
     }
-    if (current && !noise.test(line)) current.parts.push(line);
+    if (noise.test(normalizedLine)) continue;
+    if (!activeDate) continue;
+    if (!current) current = { date: activeDate, parts: [], line: index + 1 };
+    current.parts.push(line);
+    // In statement formats that print a date once per day, each signed amount
+    // terminates one movement while the active date remains available for the
+    // next movement in that same daily block.
+    if (isAmountTerminator(line)) flushBlock();
   }
   flushBlock();
 
