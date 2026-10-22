@@ -21,7 +21,8 @@ const [phone, setPhone] = useState('');
 
 const [showPassword, setShowPassword] = useState(false);
 const [loading, setLoading] = useState(false);
-const [isRegistering, setIsRegistering] = useState(false);
+const [isRegistering, setIsRegistering] = useState(() => new URLSearchParams(window.location.search).get('cadastro') === '1');
+const [accountType, setAccountType] = useState<'business' | 'accountant'>(() => new URLSearchParams(window.location.search).get('perfil') === 'contador' ? 'accountant' : 'business');
 
 const redirectUser = async (sessionUser: any) => {
   if (!sessionUser?.id) return;
@@ -42,7 +43,8 @@ const redirectUser = async (sessionUser: any) => {
     return;
   }
 
-  const targetPath = isAdmin === true ? '/admin' : '/caixa';
+  const accountType = sessionUser.user_metadata?.account_type;
+  const targetPath = isAdmin === true ? '/admin' : accountType === 'accountant' ? '/contador' : '/caixa';
   if (window.location.pathname !== targetPath) {
     window.location.replace(targetPath);
   }
@@ -95,6 +97,7 @@ if (isRegistering) {
         company_name: companyName,
         phone: phone,
         role: 'caixa',
+        account_type: accountType,
       },
     },
   });
@@ -170,12 +173,25 @@ return (
     </div>
     <h1 className="text-2xl font-bold tracking-tight text-white">Critical Cash</h1>
     <h2 className="text-xl font-semibold text-slate-200">
-      {isRegistering ? 'Criar Nova Conta' : 'Bem-vindo de volta'}
+      {isRegistering ? (accountType === 'accountant' ? 'Criar conta de contador' : 'Criar conta de empresário') : 'Bem-vindo de volta'}
     </h2>
     <p className="text-sm text-slate-400">
-      {isRegistering ? 'Preencha os dados abaixo para registrar seu estabelecimento.' : 'Entre na sua conta para acompanhar seu caixa.'}
+      {isRegistering ? (accountType === 'accountant' ? 'Crie sua conta para acessar a área contábil e solicitar autorização aos clientes.' : 'Preencha os dados para registrar seu negócio.') : 'Entre na sua conta para continuar.'}
     </p>
   </div>
+
+  {isRegistering && (
+    <div className="grid grid-cols-2 gap-3">
+      <button type="button" onClick={() => setAccountType('business')} className={`rounded-xl border p-3 text-left transition-colors ${accountType === 'business' ? 'border-emerald-500 bg-emerald-500/10 text-white' : 'border-slate-700 text-slate-400 hover:border-slate-500'}`}>
+        <span className="block font-semibold">Sou Empresário</span>
+        <span className="mt-1 block text-xs">Gerenciar o caixa da minha empresa</span>
+      </button>
+      <button type="button" onClick={() => setAccountType('accountant')} className={`rounded-xl border p-3 text-left transition-colors ${accountType === 'accountant' ? 'border-emerald-500 bg-emerald-500/10 text-white' : 'border-slate-700 text-slate-400 hover:border-slate-500'}`}>
+        <span className="block font-semibold">Sou Contador</span>
+        <span className="mt-1 block text-xs">Acessar a área contábil</span>
+      </button>
+    </div>
+  )}
 
   <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800">
     <button
@@ -245,10 +261,10 @@ return (
             <Input
               id="companyName"
               type="text"
-              placeholder="Nome da sua empresa ou negócio"
+              placeholder={accountType === 'accountant' ? 'Nome do escritório (se houver)' : 'Nome da sua empresa ou negócio'}
               value={companyName}
               onChange={(e) => setCompanyName(e.target.value)}
-              required
+              required={accountType === 'business'}
               className="bg-slate-900/80 border-slate-800 text-slate-100 focus:border-emerald-500 focus:ring-emerald-500"
             />
           </div>
