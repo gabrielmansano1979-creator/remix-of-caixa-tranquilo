@@ -57,6 +57,19 @@ export function parseDate(s: string): string | null {
 import { toE164 } from "./phone";
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+export function isBankStatementTable(text: string): boolean {
+  const firstLine = text.split(/\r?\n/).find((line) => line.trim()) ?? "";
+  const header = firstLine.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const isTemplateHeader = /(?:^|[;,\t])\s*"?vencimento"?\s*(?:[;,\t]|$)/.test(header) ||
+    /(?:^|[;,\t])\s*"?due[_ ]date"?\s*(?:[;,\t]|$)/.test(header);
+  if (isTemplateHeader) return false;
+  const strongBankMarker = /codigo da transacao|tipo de transacao|saldo(?:\s|[;,\t,]|$)|razao social|cnpj\s*\/?\s*cpf|data lancamento|data movimento|data transacao/.test(header);
+  const dateDescriptionAmountHeader =
+    /(?:^|[;,\t])\s*"?data"?\s*(?:[;,\t])/.test(header) &&
+    /descricao/.test(header) && /valor/.test(header);
+  return strongBankMarker || dateDescriptionAmountHeader;
+}
+
 export function parseCsv(text: string): { rows: CsvRow[]; headerError?: string } {
   const lines = text.replace(/^\uFEFF/, "").split(/\r?\n/).filter((l) => l.trim());
   if (!lines.length) return { rows: [], headerError: "Arquivo vazio." };
