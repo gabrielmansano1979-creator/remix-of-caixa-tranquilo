@@ -35,7 +35,7 @@ export function parseMoney(s: string): number | null {
 
 export function parseDate(s: string): string | null {
   const input = s.trim().replace(/^["']|["']$/g, "");
-  let m = input.match(/^(\d{1,2})[/. -](\d{1,2})[/. -](\d{4})(?:\s+.*)?$/);
+  const monthNames: Record<string, string> = { jan: "01", janeiro: "01", feb: "02", fev: "02", fevereiro: "02", mar: "03", marco: "03", abril: "04", abr: "04", may: "05", mai: "05", maio: "05", jun: "06", junho: "06", jul: "07", julho: "07", aug: "08", ago: "08", agosto: "08", sep: "09", set: "09", setembro: "09", oct: "10", out: "10", outubro: "10", nov: "11", novembro: "11", dec: "12", dez: "12", dezembro: "12" };\n  const namedMonth = input.match(/^(\\d{1,2})\\s+([A-Za-zÀ-ÿ]+),?\\s+(\\d{4})$/i);\n  if (namedMonth) {\n    const monthKey = namedMonth[2].normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toLowerCase();\n    const month = monthNames[namedMonth[2].toLowerCase()] ?? monthNames[monthKey];\n    if (month) return parseDate(namedMonth[1].padStart(2, "0") + "/" + month + "/" + namedMonth[3]);\n  }\n  let m = input.match(/^(\d{1,2})[/. -](\d{1,2})[/. -](\d{4})(?:\s+.*)?$/);
   let iso: string | null = null;
   // Extratos brasileiros normalmente usam DD/MM/AAAA; não inverter datas ambíguas automaticamente.
   if (m) iso = `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
@@ -296,7 +296,7 @@ export function parseBankTable(text: string): { rows: CsvRow[]; headerError?: st
   const typeIndex = header.findIndex((h) => /^(tipo|type|natureza|operacao|operation|direcao)$/.test(h));
   const senderIndex = header.findIndex((h) => /^(remetente|pagador|nome pagador|nome do pagador|ordenante|origem|sender|payer|from|sender name|payer name)$/.test(h));
   const recipientIndex = header.findIndex((h) => /^(destinatario|nome destinatario|nome do destinatario|favorecido|nome favorecido|beneficiario|nome beneficiario|recebedor|payee|recipient|recipient name|beneficiary|to)$/.test(h));
-  const counterpartyIndex = header.findIndex((h) => /^(nome|contraparte|counterparty|nome contraparte|nome favorecido|nome remetente|nome cliente|nome contraparte financeira|nome da contraparte|counterparty name|counterparty)$/.test(h));
+  const counterpartyIndex = header.findIndex((h) => /^(nome|razao social|contraparte|counterparty|nome contraparte|nome favorecido|nome remetente|nome cliente|nome contraparte financeira|nome da contraparte|counterparty name|counterparty)$/.test(h));\n  const documentIndex = header.findIndex((h) => /^(cpf|cnpj|cpf cnpj|documento contraparte|documento do favorecido|documento beneficiario|documento remetente|tax id|counterparty document)$/.test(h));
   if (dateIndex < 0 || descriptionIndex < 0 || (amountIndex < 0 && debitIndex < 0 && creditIndex < 0)) {
     return { rows: [], headerError: "Não reconheci as colunas. Preciso identificar data, descrição e valor (ou débito/crédito).", ignored: 0 };
   }
@@ -333,13 +333,7 @@ export function parseBankTable(text: string): { rows: CsvRow[]; headerError?: st
     const parties = extractTransferParties(description);
     const sender = explicitSender || parties.sender || (type === "income" ? extractCounterparty(description, type) : "");
     const recipient = explicitRecipient || parties.recipient || (type === "expense" ? extractCounterparty(description, type) : "");
-    const explicitCounterparty = type === "income"
-      ? (sender || (counterpartyIndex >= 0 ? cells[counterpartyIndex] ?? "" : ""))
-      : type === "expense"
-        ? (recipient || (counterpartyIndex >= 0 ? cells[counterpartyIndex] ?? "" : ""))
-        : (counterpartyIndex >= 0 ? cells[counterpartyIndex] ?? "" : "");
-    const counterparty = explicitCounterparty.trim().slice(0, 120);
-    if (type && !counterparty) errors.push(type === "income" ? "Informe quem pagou à empresa antes de importar." : "Informe quem recebeu o pagamento antes de importar.");
+    const isInvestmentMovement = /\\b(renda fixa|aplicacao(?: em)? cdb|resgate(?: total| parcial)? de? cdb|cdb.*(?:aplicacao|resgate)|(?:aplicacao|resgate).*cdb)\\b/.test(normalizedDescription);\n    const explicitCounterparty = type === "income"\n      ? (sender || (counterpartyIndex >= 0 ? cells[counterpartyIndex] ?? "" : ""))\n      : type === "expense"\n        ? (recipient || (counterpartyIndex >= 0 ? cells[counterpartyIndex] ?? "" : ""))\n        : (counterpartyIndex >= 0 ? cells[counterpartyIndex] ?? "" : "");\n    const counterparty = (explicitCounterparty.trim() || (isInvestmentMovement ? (/resgate/i.test(description) ? "Resgate próprio de CDB" : "Aplicação própria em CDB") : "")).slice(0, 120);\n    const counterpartyDocument = documentIndex >= 0 ? (cells[documentIndex] ?? "").trim().slice(0, 32) : "";\n    const paymentMethod = isInvestmentMovement ? (/resgate/i.test(description) ? "Resgate de CDB" : "Aplicação em CDB")\n      : /pix/i.test(directionText) ? "PIX"\n      : /boleto/i.test(directionText) ? "Boleto"\n      : /vendas|venda|sales|sale/.test(directionText) ? "Venda / liquidação de cartão" : "";\n    if (type && !counterparty) errors.push(type === "income" ? "Informe quem pagou à empresa antes de importar." : "Informe quem recebeu o pagamento antes de importar.");
     const row: CsvRow = {
       line: index + 2,
       raw: {
