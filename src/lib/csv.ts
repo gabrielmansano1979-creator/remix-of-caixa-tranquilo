@@ -332,8 +332,8 @@ export function parseBankTable(text: string): { rows: CsvRow[]; headerError?: st
     const directionText = (rawType + " " + description).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
     const type = debit !== null ? "expense"
       : credit !== null ? "income"
-      : signedNegative || /\b(debito|saida|despesa|pagamento|pagto|compra|withdrawal|withdrawals|expense|saque|retirada|tarifa|boleto pago|pix enviado|transferencia enviada|paid|payment|purchase|outgoing|sent|transfer out|debit card|bill payment)\b/.test(directionText) ? "expense"
-      : /\b(credito|entrada|receita|deposito|recebimento|income|pix recebido|transferencia recebida|estorno|salario|received|credited|incoming|refund|transfer in|credit transfer)\b/.test(directionText) ? "income"
+      : signedNegative || /\b(debito|saida|despesa|pagamento|pagto|compra|withdrawal|withdrawals|expense|saque|retirada|tarifa|boleto pago|pix enviado|transferencia enviada|paid|payment|purchase|outgoing|sent|transfer out|debit card|bill payment|amortizacao|amortizacao de emprestimo)\b/.test(directionText) ? "expense"
+      : /\b(credito|entrada|receita|deposito|recebimento|income|pix recebido|transferencia recebida|estorno|salario|received|credited|incoming|refund|transfer in|credit transfer|vendas|venda|sales|sale|liquidacao de vendas|resgate de cdb)\b/.test(directionText) ? "income"
       : null;
     const errors = type ? [] : ["A linha foi lida, mas o arquivo não informa se o valor é entrada ou saída; classifique manualmente."];
     const explicitSender = senderIndex >= 0 ? (cells[senderIndex] ?? "").trim().slice(0, 120) : "";
@@ -342,17 +342,20 @@ export function parseBankTable(text: string): { rows: CsvRow[]; headerError?: st
     const sender = explicitSender || parties.sender || (type === "income" ? extractCounterparty(description, type) : "");
     const recipient = explicitRecipient || parties.recipient || (type === "expense" ? extractCounterparty(description, type) : "");
     const isInvestmentMovement = /\b(renda fixa|aplicacao(?: em)? cdb|resgate(?: total| parcial)? de? cdb|cdb.*(?:aplicacao|resgate)|(?:aplicacao|resgate).*cdb)\b/.test(normalizedDescription);
+    const isCardSales = /\b(vendas|venda|sales|sale)\b/.test(rawType);
     const explicitCounterparty = type === "income"
       ? (sender || (counterpartyIndex >= 0 ? cells[counterpartyIndex] ?? "" : ""))
       : type === "expense"
         ? (recipient || (counterpartyIndex >= 0 ? cells[counterpartyIndex] ?? "" : ""))
         : (counterpartyIndex >= 0 ? cells[counterpartyIndex] ?? "" : "");
-    const counterparty = (explicitCounterparty.trim() || (isInvestmentMovement ? (/resgate/i.test(description) ? "Resgate próprio de CDB" : "Aplicação própria em CDB") : "")).slice(0, 120);
+    const counterparty = (explicitCounterparty.trim() || (isInvestmentMovement
+      ? (/resgate/i.test(description) ? "Resgate próprio de CDB" : "Aplicação própria em CDB")
+      : isCardSales ? "Liquidação de vendas por cartão" : "")).slice(0, 120);
     const counterpartyDocument = documentIndex >= 0 ? (cells[documentIndex] ?? "").trim().slice(0, 32) : "";
     const paymentMethod = isInvestmentMovement ? (/resgate/i.test(description) ? "Resgate de CDB" : "Aplicação em CDB")
       : /pix/i.test(directionText) ? "PIX"
       : /boleto/i.test(directionText) ? "Boleto"
-      : /vendas|venda|sales|sale/.test(directionText) ? "Venda / liquidação de cartão" : "";
+      : isCardSales ? "Venda / liquidação de cartão" : "";
     if (type && !counterparty) errors.push(type === "income" ? "Informe quem pagou à empresa antes de importar." : "Informe quem recebeu o pagamento antes de importar.");
     const row: CsvRow = {
       line: index + 2,
