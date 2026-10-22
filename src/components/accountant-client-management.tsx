@@ -6,7 +6,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { downloadFinancialDocument } from "@/lib/financial-documents";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";\nimport { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 type AccountantPortal = {
   business_invite_token: string;
@@ -33,7 +34,19 @@ const auditMoney = (value?: string | number | null) => value !== null && value !
 export function AccountantClientManagement() {
   const [periodStart, setPeriodStart] = useState(() => `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}-01`);
   const [periodEnd, setPeriodEnd] = useState(() => new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" }));
-  const [selectedAuditClient, setSelectedAuditClient] = useState("all");\n  const [receiptViewer, setReceiptViewer] = useState<{ url: string; title: string; isPdf: boolean } | null>(null);\n  const [receiptOpening, setReceiptOpening] = useState<string | null>(null);\n  const openReceipt = async (entry: { id: string; description: string; receipt_path?: string | null }) => {\n    if (!entry.receipt_path) { toast.error("Este lançamento ainda não tem comprovante."); return; }\n    setReceiptOpening(entry.id);\n    try {\n      const { data: signed, error } = await supabase.storage.from("critical-cash-receipts").createSignedUrl(entry.receipt_path, 300);\n      if (error) throw error;\n      setReceiptViewer({ url: signed.signedUrl, title: entry.description || "Comprovante financeiro", isPdf: entry.receipt_path.toLowerCase().endsWith(".pdf") });\n    } catch (error) { toast.error(error instanceof Error ? error.message : "Não foi possível abrir o comprovante."); }\n    finally { setReceiptOpening(null); }\n  };
+  const [selectedAuditClient, setSelectedAuditClient] = useState("all");
+  const [receiptViewer, setReceiptViewer] = useState<{ url: string; title: string; isPdf: boolean } | null>(null);
+  const [receiptOpening, setReceiptOpening] = useState<string | null>(null);
+  const openReceipt = async (entry: { id: string; description: string; receipt_path?: string | null }) => {
+    if (!entry.receipt_path) { toast.error("Este lançamento ainda não tem comprovante."); return; }
+    setReceiptOpening(entry.id);
+    try {
+      const { data: signed, error } = await supabase.storage.from("critical-cash-receipts").createSignedUrl(entry.receipt_path, 300);
+      if (error) throw error;
+      setReceiptViewer({ url: signed.signedUrl, title: entry.description || "Comprovante financeiro", isPdf: entry.receipt_path.toLowerCase().endsWith(".pdf") });
+    } catch (error) { toast.error(error instanceof Error ? error.message : "Não foi possível abrir o comprovante."); }
+    finally { setReceiptOpening(null); }
+  };
 
   const query = useQuery({
     queryKey: ["accountant-client-management", periodStart, periodEnd],
