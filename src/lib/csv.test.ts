@@ -508,6 +508,34 @@ describe("additional bank statement profile regression cases", () => {
     expect(parsed.rows[0].raw.metodo).toBe("");
   });
 
+  it("splits multiple Nubank PDF transactions under one daily date and ignores daily totals", () => {
+    const parsed = parsePdfStatementText([
+      "Nubank — Extrato",
+      "01 SET 2026",
+      "Pix recebido",
+      "MARIA SILVA",
+      "123.456.789-00",
+      "+ R$ 34,00",
+      "Pix enviado",
+      "JOAO SOUZA",
+      "987.654.321-00",
+      "- R$ 18,49",
+      "Saldo do dia R$ 2.020,52",
+      "Total de entradas R$ 34,00",
+      "Total de saídas R$ 18,49",
+    ].join("\n"));
+
+    expect(parsed.rows).toHaveLength(2);
+    expect(parsed.rows[0].value).toMatchObject({
+      type: "income", amount_cents: 3400, due_date: "2026-09-01",
+      counterparty_name: "MARIA SILVA",
+    });
+    expect(parsed.rows[1].value).toMatchObject({
+      type: "expense", amount_cents: 1849, due_date: "2026-09-01",
+      counterparty_name: "JOAO SOUZA",
+    });
+  });
+
   it("parses InfinitePay PDF columns with time, transaction type, name, detail and signed amount", () => {
     const parsed = parsePdfStatementText([
       "InfinitePay — Extrato",
