@@ -28,7 +28,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -83,3 +83,13 @@ jobs:
         run: npm run build
       - name: Audit dependency vulnerabilities
         run: npm audit --audit-level=high
+      - name: Commit refreshed lockfile after successful validation
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json
+          if ! git diff --cached --quiet; then
+            git commit -m "Update dependency lockfile for patched toolchain"
+            git push origin "HEAD:${{ github.head_ref }}"
+          fi
