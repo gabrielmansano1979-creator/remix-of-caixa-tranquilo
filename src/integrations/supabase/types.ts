@@ -395,6 +395,7 @@ export type Database = {
           due_date: string
           id: string
           is_own_transfer: boolean
+          is_non_operating: boolean
           paid_at: string | null
           payment_method: string | null
           pix_url: string | null
@@ -417,6 +418,7 @@ export type Database = {
           due_date: string
           id?: string
           is_own_transfer?: boolean
+          is_non_operating?: boolean
           paid_at?: string | null
           payment_method?: string | null
           pix_url?: string | null
@@ -439,6 +441,7 @@ export type Database = {
           due_date?: string
           id?: string
           is_own_transfer?: boolean
+          is_non_operating?: boolean
           paid_at?: string | null
           payment_method?: string | null
           pix_url?: string | null
