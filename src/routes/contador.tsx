@@ -383,6 +383,28 @@ function AccountantPage() {
         )}
         {canApply && !showApplicationForm && (
           <>
+            <section className="space-y-4">
+              <div>
+                <h2 className="text-2xl font-bold tracking-tight">Planos para contadores e escritórios</h2>
+                <p className="mt-1 text-sm text-muted-foreground">Comece gratuitamente como auditor ou escolha uma estrutura para a gestão financeira do escritório.</p>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                {ACCOUNTANT_PLANS.map((plan) => (
+                  <Card key={plan.id} className={plan.popular ? "border-primary" : ""}>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base">{plan.name}</CardTitle>
+                      <p className="text-2xl font-bold">{formatPlanPrice(plan.priceMonthCents)}<span className="text-sm font-normal text-muted-foreground">/mês</span></p>
+                      {plan.priceYearCents !== null && <p className="text-sm text-muted-foreground">{formatPlanPrice(plan.priceYearCents)}/ano</p>}
+                    </CardHeader>
+                    <CardContent>
+                      <ul className="space-y-2 text-sm">
+                        {plan.features.map((feature) => <li key={feature} className="flex gap-2"><BadgeCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" /><span>{feature}</span></li>)}
+                      </ul>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </section>
             <div className="grid gap-4 md:grid-cols-3">
               <Card className="border-primary/20 bg-primary/5">
                 <CardHeader className="pb-2"><div className="mb-1 grid h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary"><BadgeCheck className="h-5 w-5" /></div><CardTitle className="text-base">Comissão recorrente</CardTitle></CardHeader>
