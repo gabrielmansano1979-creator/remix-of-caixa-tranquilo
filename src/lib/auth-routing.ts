@@ -17,7 +17,7 @@ export async function getAuthenticatedDestination(userId: string): Promise<strin
       return "/caixa";
     }
 
-    return isAdmin === true ? "/admin" : "/caixa";
+    return isAdmin === true ? "/admin" : user.user_metadata?.account_type === "accountant" ? "/contador" : "/caixa";
   } catch (error) {
     console.error("Erro em getAuthenticatedDestination:", error);
     return "/caixa";
