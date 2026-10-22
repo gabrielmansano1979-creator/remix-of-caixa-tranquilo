@@ -230,7 +230,7 @@ export function CsvImportDialog({ open, onOpenChange, onLimit }: { open: boolean
                   {rows.map((r) => (
                     <tr key={r.line} className={`border-t ${r.errors.length ? "bg-danger/5" : ""}`}>
                       <td className="p-2 num text-muted-foreground">{r.line}</td>
-                      <td className="p-2">{r.value?.type === "income" ? "Entrada" : r.value?.type === "expense" ? "Saída" : r.raw.tipo || "—"}</td>
+                      <td className="p-2">{r.value?.is_own_transfer ? "Movimentação interna / investimento" : r.value?.is_non_operating ? "Financiamento (não operacional)" : r.value?.type === "income" ? "Entrada" : r.value?.type === "expense" ? "Saída" : r.raw.tipo || "—"}</td>
                       <td className="p-2">{r.raw.descricao || "—"}</td>
                       <td className={`p-2 num ${r.value?.type === "income" ? "text-success" : r.value?.type === "expense" ? "text-danger" : ""}`}>{r.value ? `${r.value.type === "income" ? "+" : "−"}${formatBRL(r.value.amount_cents)}` : r.raw.valor}</td>
                       <td className="p-2 num">{r.value ? formatDate(r.value.due_date) : r.raw.vencimento}</td>
