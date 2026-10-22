@@ -19,6 +19,23 @@ export function CsvImportDialog({ open, onOpenChange, onLimit }: { open: boolean
   const [isReading, setIsReading] = useState(false);
   const valid = rows?.filter((r) => r.value) ?? [];
   const maxRows = access?.limits.csv_rows ?? 0;
+  const applyCompanyRoles = (items: CsvRow[]): CsvRow[] => items.map((row) => {
+    const company = businessName?.trim() || row.raw.titular_conta || "Sua empresa";
+    const type = row.value?.type ?? (row.raw.tipo === "entrada" ? "income" : row.raw.tipo === "saida" ? "expense" : null);
+    const counterparty = row.value?.counterparty_name?.trim() || row.raw.nome?.trim() || "";
+    const sender = row.value?.sender_name?.trim() || (type === "income" ? counterparty : company);
+    const recipient = row.value?.recipient_name?.trim() || (type === "expense" ? counterparty : company);
+    return {
+      ...row,
+      raw: { ...row.raw, titular_conta: company, remetente: sender, destinatario: recipient },
+      value: row.value ? {
+        ...row.value,
+        sender_name: sender.slice(0, 120),
+        recipient_name: recipient.slice(0, 120),
+      } : undefined,
+    };
+  });
+
 
   const close = (o: boolean) => { if (!o) { setRows(null); setFileErr(null); setFileWarning(null); } onOpenChange(o); };
 
@@ -44,13 +61,13 @@ export function CsvImportDialog({ open, onOpenChange, onLimit }: { open: boolean
         const parsed = parseCsv(text);
         if (!parsed.headerError) {
           if (!parsed.rows.length) throw new Error("O CSV foi aberto, mas não contém lançamentos reconhecíveis. Confira se a primeira linha contém os cabeçalhos e se o arquivo não está vazio.");
-          setRows(parsed.rows);
+          setRows(applyCompanyRoles(parsed.rows));
           return;
         }
         const bankParsed = parseBankTable(text);
         if (bankParsed.headerError) throw new Error(bankParsed.headerError);
         if (!bankParsed.rows.length) throw new Error("O CSV foi lido, mas não contém lançamentos reconhecíveis.");
-        setRows(bankParsed.rows);
+        setRows(applyCompanyRoles(bankParsed.rows));
         if (bankParsed.ignored) setFileWarning(`${bankParsed.ignored} linha(s) foram ignoradas por não conterem data, descrição e valor válidos.`);
         return;
       }
@@ -76,7 +93,7 @@ export function CsvImportDialog({ open, onOpenChange, onLimit }: { open: boolean
         const combined = usableSheets.flatMap((parsed) => parsed.rows);
         if (!combined.length) throw new Error("Nenhum lançamento reconhecível foi encontrado nas abas da planilha.");
         if (combined.length > 5000) throw new Error("A planilha excede o limite de 5.000 linhas para pré-visualização.");
-        setRows(combined.map((row, index) => ({ ...row, line: index + 2 })));
+        setRows(applyCompanyRoles(combined.map((row, index) => ({ ...row, line: index + 2 }))));
         const skippedSheets = parsedSheets.length - usableSheets.length;
         if (skippedSheets) setFileWarning(`${skippedSheets} aba(s) sem as colunas de lançamentos esperadas foram ignoradas.`);
         return;
@@ -84,7 +101,7 @@ export function CsvImportDialog({ open, onOpenChange, onLimit }: { open: boolean
       if (extension === "ofx") {
         const parsed = parseOfxText(await f.text());
         if (!parsed.rows.length) throw new Error("Não foram encontradas transações reconhecíveis no arquivo OFX.");
-        setRows(parsed.rows);
+        setRows(applyCompanyRoles(parsed.rows));
         if (parsed.ignored) setFileWarning(`${parsed.ignored} transação(ões) do arquivo não puderam ser interpretadas.`);
         return;
       }
@@ -128,7 +145,9 @@ export function CsvImportDialog({ open, onOpenChange, onLimit }: { open: boolean
 
         const pdfParseError = isCora ? undefined : (parsed as ReturnType<typeof parsePdfStatementText>).headerError;
         if (!parsed.rows.length) throw new Error(pdfParseError || "Não foram encontradas linhas de lançamentos reconhecíveis no PDF, mesmo após tentar OCR. Confira se o arquivo está legível ou exporte o extrato em OFX/CSV.");
-        const previewRows = isCora ? parsed.rows.map((row) => { const company = businessName || row.raw.titular_conta || "Sua empresa"; const isIncome = row.value?.type === "income" || row.raw.tipo === "entrada"; const counterparty = isIncome ? row.raw.remetente : row.raw.destinatario; const sender = isIncome ? (counterparty || row.raw.remetente || "") : company; const recipient = isIncome ? company : (counterparty || row.raw.destinatario || ""); return { ...row, raw: { ...row.raw, titular_extrato: row.raw.titular_conta || "", titular_conta: company, remetente: sender, destinatario: recipient }, value: row.value ? { ...row.value, sender_name: sender.slice(0, 120), recipient_name: recipient.slice(0, 120) } : undefined }; }) : parsed.rows;
+        const previewRows = applyCompanyRoles(parsed.rows.map((row) => isCora
+          ? { ...row, raw: { ...row.raw, titular_extrato: row.raw.titular_conta || "" } }
+          : row));
         setRows(previewRows);
         if (parsed.ignored) setFileWarning(`${parsed.ignored} linha(s) do documento não foram reconhecidas como lançamentos e serão ignoradas.`);
         if (extracted.ocrPages) setFileWarning((current) => `${current ? `${current} ` : ""}${extracted.ocrPages} página(s) precisaram de OCR. Confira cada valor com o PDF original.`);
