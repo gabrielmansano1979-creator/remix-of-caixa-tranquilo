@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { CheckCircle2, Loader2 } from "lucide-react";
-import { PLANS, FIRST_PIX_DISCOUNT, type PlanId } from "@/config/plans";
+import { PLANS, FIRST_PIX_DISCOUNT, PARTNER_COUPON_DISCOUNT, type PlanId } from "@/config/plans";
 import { formatBRL } from "@/lib/format";
 import { createCheckoutSession } from "@/lib/billing.functions";
 import { useEntitlements } from "@/hooks/use-entitlements";
