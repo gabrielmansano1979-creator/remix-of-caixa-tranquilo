@@ -10,11 +10,22 @@ AS $function$
 DECLARE
   allocated_number bigint;
 BEGIN
-  IF NEW.document_type <> 'nfse'
-     OR NEW.status <> 'draft'
-     OR NEW.numero_dps IS NOT NULL THEN
+  IF NEW.document_type <> 'nfse' OR NEW.status <> 'draft' THEN
     RETURN NEW;
   END IF;
+
+  -- Once allocated, the number and series are immutable for that draft.
+  IF TG_OP = 'UPDATE' THEN
+    IF OLD.numero_dps IS NOT NULL THEN
+      NEW.numero_dps := OLD.numero_dps;
+      NEW.serie := OLD.serie;
+      RETURN NEW;
+    END IF;
+  END IF;
+
+  -- Ignore any client-supplied sequence value until the server allocates it.
+  NEW.numero_dps := NULL;
+  NEW.serie := NULL;
 
   -- Drafts may be saved incrementally. Do not allocate a sequence until the fields
   -- that define the taxable service are valid; the emission endpoint reports gaps.
@@ -47,3 +58,16 @@ DROP TRIGGER IF EXISTS fiscal_invoices_assign_dps_sequence ON public.fiscal_invo
 CREATE TRIGGER fiscal_invoices_assign_dps_sequence
 BEFORE INSERT OR UPDATE ON public.fiscal_invoices
 FOR EACH ROW EXECUTE FUNCTION public.assign_nfse_dps_sequence();
+
+-- Drafts may be incomplete while being edited. Enforce the ISS-rate requirement
+-- when the invoice leaves draft status, rather than preventing a partial draft save.
+ALTER TABLE public.fiscal_invoices
+  DROP CONSTRAINT IF EXISTS fiscal_invoices_iss_aliquota_required_chk;
+
+ALTER TABLE public.fiscal_invoices
+  ADD CONSTRAINT fiscal_invoices_iss_aliquota_required_chk
+  CHECK (
+    status = 'draft'
+    OR iss_retido IS DISTINCT FROM false
+    OR aliquota_iss IS NOT NULL
+  ) NOT VALID;
