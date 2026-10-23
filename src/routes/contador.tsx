@@ -1,7 +1,7 @@
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { ArrowLeft, BadgeCheck, Building2, Clipboard, Download, FileText, LoaderCircle, Mail, MapPin, Phone, ShieldCheck, UserRound } from "lucide-react";
+import { ArrowLeft, BadgeCheck, Building2, Download, FileText, LoaderCircle, Mail, MapPin, Phone, ShieldCheck, UserRound } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,11 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { isValidCpfCnpj, isValidCrcNumber, normalizeCpfCnpj } from "@/lib/identity";
-import {
-  exportReport,
-  formatPixKeyType,
-  getPartnerAffiliateLinks,
-} from "@/lib/reporting";
+import { exportReport } from "@/lib/reporting";
 import { AccountantClientManagement } from "@/components/accountant-client-management";
 import { ACCOUNTANT_PLANS, formatPlanPrice } from "@/config/plans";
 
@@ -248,7 +244,7 @@ function AccountantPage() {
       applicationSubmitted = true;
       setShowApplicationForm(false);
       await queryClient.invalidateQueries({ queryKey: ["partner-area"] });
-      toast.success("Solicitação e documentos enviados para avaliação do administrador.");
+      toast.success("Solicitação da Auditoria Livre enviada para avaliação do administrador.");
     } catch (error) {
       if (!applicationSubmitted && userId && uploadedPaths.length > 0) {
         // Do not roll back if the RPC may have committed but its response was lost.
@@ -307,37 +303,6 @@ function AccountantPage() {
     }
   };
 
-  const savePayout = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!form.pix_type || !form.pix_key.trim()) {
-      toast.error("Informe o tipo e a chave PIX para liberar o cupom.");
-      return;
-    }
-    setBusy(true);
-    try {
-      const { error } = await supabase.rpc("update_partner_payout", {
-        _pix_type: form.pix_type,
-        _pix_key: form.pix_key.trim(),
-      });
-      if (error) throw error;
-      await queryClient.invalidateQueries({ queryKey: ["partner-area"] });
-      toast.success("Dados de recebimento salvos. Seu cupom foi atualizado.");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Não foi possível salvar os dados de recebimento.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const copy = async (value: string) => {
-    try {
-      await navigator.clipboard.writeText(value);
-      toast.success("Link copiado.");
-    } catch {
-      toast.error("Não foi possível copiar o link.");
-    }
-  };
-
   if (query.isLoading) return <div className="p-8 text-muted-foreground">Carregando painel...</div>;
   if (query.isError)
     return (
@@ -355,11 +320,11 @@ function AccountantPage() {
       <div className="mx-auto max-w-4xl space-y-6 py-8">
         <header className="space-y-3">
           <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-primary">
-            <UserRound className="h-4 w-4" /> Programa de parceiros
+            <UserRound className="h-4 w-4" /> Auditoria contábil gratuita
           </p>
-          <h1 className="text-3xl font-bold tracking-tight md:text-4xl">Contador Afiliado</h1>
+          <h1 className="text-3xl font-bold tracking-tight md:text-4xl">Auditoria Livre para Contadores</h1>
           <p className="max-w-2xl text-base leading-relaxed text-muted-foreground">
-            Área exclusiva para contadores com registro profissional válido no CRC. Meus Clientes e todos os recursos de auditoria são gratuitos; os planos pagos de escritório liberam Meu Caixa, o fluxo financeiro da própria empresa contábil. A aprovação depende da conferência dos dados e documentos comprobatórios.
+            Área gratuita de auditoria financeira para contadores com registro profissional válido no CRC. A aprovação protege os dados das empresas; os planos pagos são opcionais e servem apenas para gerir o caixa do próprio escritório.
           </p>
         </header>
         {state?.status === "pending_approval" && (
@@ -368,7 +333,7 @@ function AccountantPage() {
               <LoaderCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
               <div>
                 <h2 className="font-semibold">Solicitação em análise</h2>
-                <p className="mt-1 text-sm text-muted-foreground">Seus dados e documentos foram enviados. O administrador avaliará a solicitação e registrará a aprovação ou a recusa. Os links de indicação serão liberados após a aprovação.</p>
+                <p className="mt-1 text-sm text-muted-foreground">Seus dados e documentos foram enviados. O administrador avaliará a solicitação e registrará a aprovação ou a recusa.</p>
               </div>
             </CardContent>
           </Card>
@@ -383,60 +348,56 @@ function AccountantPage() {
         )}
         {canApply && !showApplicationForm && (
           <>
+            <Card className="border-primary/30 bg-primary/5">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><ShieldCheck className="h-5 w-5" />Auditoria Livre — gratuita</CardTitle>
+                <p className="text-sm text-muted-foreground">Acesse a auditoria financeira dos clientes que autorizarem o compartilhamento, sem contratar um plano para o escritório. Para proteger os dados financeiros, o cadastro profissional e o CRC precisam ser aprovados pelo administrador.</p>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <ul className="grid gap-2 text-sm sm:grid-cols-2">
+                  <li>✓ Conferência de lançamentos e comprovantes</li>
+                  <li>✓ Histórico de alterações financeiras</li>
+                  <li>✓ Relatórios por empresa autorizada</li>
+                  <li>✓ Sem cupom de afiliado ou comissão</li>
+                </ul>
+                <Button className="h-12 w-full rounded-xl text-base sm:w-auto" onClick={() => setShowApplicationForm(true)}>Solicitar acesso gratuito à Auditoria Livre <ArrowLeft className="ml-2 h-4 w-4 rotate-180" /></Button>
+              </CardContent>
+            </Card>
             <section className="space-y-4">
               <div>
-                <h2 className="text-2xl font-bold tracking-tight">Planos para contadores e escritórios</h2>
-                <p className="mt-1 text-sm text-muted-foreground">Auditor Free mantém Meus Clientes e toda a auditoria gratuitos, sem limite comercial. Os planos pagos liberam Meu Caixa para gerir as finanças da própria empresa contábil; não cobram pelos recursos de auditoria.</p>
+                <h2 className="text-xl font-bold tracking-tight">Planos para o caixa do escritório</h2>
+                <p className="mt-1 text-sm text-muted-foreground">Os planos pagos são somente para quem deseja gerir o fluxo financeiro da própria empresa contábil. A auditoria de clientes autorizados permanece separada.</p>
               </div>
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                {ACCOUNTANT_PLANS.map((plan) => (
+              <div className="grid gap-4 sm:grid-cols-3">
+                {ACCOUNTANT_PLANS.filter((plan) => plan.id !== "auditor_free").map((plan) => (
                   <Card key={plan.id} className={plan.popular ? "border-primary" : ""}>
                     <CardHeader className="pb-3">
                       <CardTitle className="text-base">{plan.name}</CardTitle>
                       <p className="text-2xl font-bold">{formatPlanPrice(plan.priceMonthCents)}<span className="text-sm font-normal text-muted-foreground">/mês</span></p>
                       {plan.priceYearCents !== null && <p className="text-sm text-muted-foreground">{formatPlanPrice(plan.priceYearCents)}/ano</p>}
                     </CardHeader>
-                    <CardContent>
-                      <ul className="space-y-2 text-sm">
-                        {plan.features.map((feature) => <li key={feature} className="flex gap-2"><BadgeCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" /><span>{feature}</span></li>)}
-                      </ul>
-                    </CardContent>
+                    <CardContent><ul className="space-y-2 text-sm">{plan.features.map((feature) => <li key={feature} className="flex gap-2"><BadgeCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" /><span>{feature}</span></li>)}</ul></CardContent>
                   </Card>
                 ))}
               </div>
             </section>
-            <div className="grid gap-4 md:grid-cols-3">
-              <Card className="border-primary/20 bg-primary/5">
-                <CardHeader className="pb-2"><div className="mb-1 grid h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary"><BadgeCheck className="h-5 w-5" /></div><CardTitle className="text-base">Comissão recorrente</CardTitle></CardHeader>
-                <CardContent><div className="grid grid-cols-3 gap-2"><div><p className="text-2xl font-bold">20%</p><p className="text-xs text-muted-foreground">1–5 clientes</p></div><div><p className="text-2xl font-bold">25%</p><p className="text-xs text-muted-foreground">6–15 clientes</p></div><div><p className="text-2xl font-bold">30%</p><p className="text-xs text-muted-foreground">16–30 clientes</p></div></div><p className="mt-3 text-sm text-muted-foreground">A faixa muda automaticamente conforme clientes únicos com pagamento confirmado e vale para novos clientes adquiridos dali em diante. Cada cliente mantém a taxa do nível vigente quando foi adquirido. Acima de 30 clientes, a taxa para novos clientes permanece em 30%.</p></CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2"><div className="mb-1 grid h-10 w-10 place-items-center rounded-xl bg-muted text-foreground"><Building2 className="h-5 w-5" /></div><CardTitle className="text-base">Indicação profissional</CardTitle></CardHeader>
-                <CardContent><p className="text-sm leading-relaxed text-muted-foreground">Compartilhe links e cupom exclusivos com clientes que possam se beneficiar do controle de caixa.</p></CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2"><div className="mb-1 grid h-10 w-10 place-items-center rounded-xl bg-muted text-foreground"><ShieldCheck className="h-5 w-5" /></div><CardTitle className="text-base">Análise pelo administrador</CardTitle></CardHeader>
-                <CardContent><p className="text-sm leading-relaxed text-muted-foreground">O cadastro é analisado antes da liberação. Seus documentos ficam em área privada e só podem ser consultados por você e pelos administradores autorizados.</p></CardContent>
-              </Card>
-            </div>
             <Card>
-              <CardHeader><CardTitle>Como funciona</CardTitle></CardHeader>
+              <CardHeader><CardTitle>Como liberar a Auditoria Livre</CardTitle></CardHeader>
               <CardContent className="space-y-3 text-sm text-muted-foreground">
-                <p>1. Preencha seus dados profissionais e fiscais.</p>
-                <p>2. Envie a comprovação de registro no CRC, um documento de identidade e um comprovante de endereço.</p>
-                <p>3. O administrador analisará o cadastro e registrará a decisão. Se aprovado, você terá acesso ao painel, aos links de indicação e ao acompanhamento das comissões.</p>
-                <p className="border-t pt-3">Comissão recorrente: 20% para 1–5 clientes pagantes, 25% para 6–15 e 30% para 16–30. A partir do 31º cliente, a comissão continua em 30%. Só contam clientes únicos com pagamento confirmado. Clientes indicados recebem 20% de desconto nas duas primeiras mensalidades; a terceira volta ao preço normal. Cada cliente mantém a taxa de comissão do nível vigente quando foi adquirido.</p>
+                <p>1. Solicite acesso gratuito e informe seus dados profissionais.</p>
+                <p>2. Envie a comprovação do CRC, um documento de identidade e um comprovante de endereço.</p>
+                <p>3. Após a aprovação, convide os clientes e comece a auditar somente os dados que eles autorizarem.</p>
               </CardContent>
             </Card>
-            <Button className="h-12 w-full rounded-xl text-base sm:w-auto" onClick={() => setShowApplicationForm(true)}>Quero ser um contador afiliado <ArrowLeft className="ml-2 h-4 w-4 rotate-180" /></Button>
+            <Button variant="outline" className="h-11 w-full rounded-xl text-base sm:w-auto" onClick={() => setShowApplicationForm(true)}>Solicitar Auditoria Livre <ArrowLeft className="ml-2 h-4 w-4 rotate-180" /></Button>
           </>
         )}
         {canApply && showApplicationForm && (
           <Card>
             <CardHeader>
               <Button type="button" variant="ghost" className="mb-1 w-fit px-0" onClick={() => setShowApplicationForm(false)}><ArrowLeft className="mr-2 h-4 w-4" />Voltar às informações do programa</Button>
-              <CardTitle>Quero ser um contador afiliado</CardTitle>
-              <p className="text-sm text-muted-foreground">Área exclusiva para contadores. Informe seus dados civis e profissionais e anexe cópias legíveis do CRC, da identidade e do comprovante de endereço. Envie digitalizações/fotos convertidas em PDF ou arquivos PDF, CSV e Excel (.xls/.xlsx), até 10 MB por arquivo. O PIX é opcional nesta etapa e pode ser cadastrado após a aprovação.</p>
+              <CardTitle>Solicitar acesso à Auditoria Livre</CardTitle>
+              <p className="text-sm text-muted-foreground">Informe seus dados civis e profissionais e anexe cópias legíveis do CRC, da identidade e do comprovante de endereço. Envie arquivos PDF ou Excel (.xls/.xlsx), até 10 MB por arquivo.</p>
             </CardHeader>
             <CardContent>
               <form onSubmit={submit} className="grid gap-5 sm:grid-cols-2">
@@ -462,25 +423,6 @@ function AccountantPage() {
     );
   }
 
-  const links = getPartnerAffiliateLinks(state.coupon?.code ?? "");
-  const confirmedReferrals = dashboard?.totals.referred_clients ?? 0;
-  const referralGoal = confirmedReferrals <= 5
-    ? { target: 5, nextRate: 25, nextCount: 6 }
-    : confirmedReferrals <= 15
-      ? { target: 15, nextRate: 30, nextCount: 16 }
-      : { target: 30, nextRate: 30, nextCount: 31 };
-  const referralProgress = Math.min(100, Math.round((confirmedReferrals / referralGoal.target) * 100));
-  const history = dashboard?.commissions ?? [];
-  const clientRows = dashboard?.clients ?? [];
-  const commissionRows = history.map((item) => ({
-    cliente: item.client_name ?? "Cliente",
-    base_calculo: item.payment_amount_cents == null ? "—" : money(item.payment_amount_cents),
-    taxa: item.commission_percent == null ? "—" : `${item.commission_percent}%`,
-    valor: money(item.amount_cents),
-    situacao: statusLabelPt(item.status),
-    data: new Date(item.created_at).toLocaleDateString("pt-BR"),
-    pago_em: item.paid_at ? new Date(item.paid_at).toLocaleDateString("pt-BR") : "—",
-  }));
   const exportClients = async () => {
     try {
       await exportReport({
@@ -517,29 +459,6 @@ function AccountantPage() {
       toast.error(error instanceof Error ? error.message : "Não foi possível gerar o relatório.");
     }
   };
-  const exportCommissions = async () => {
-    try {
-      await exportReport({
-        title: "Extrato de comissões",
-        fileName: "extrato-comissoes",
-        format: "pdf",
-        columns: [
-          { key: "cliente", label: "Cliente" },
-          { key: "base_calculo", label: "Valor pago após desconto" },
-          { key: "taxa", label: "Taxa de comissão" },
-          { key: "valor", label: "Comissão" },
-          { key: "situacao", label: "Situação" },
-          { key: "data", label: "Data" },
-          { key: "pago_em", label: "Pago em" },
-        ],
-        rows: commissionRows,
-        summary: [["Total acumulado", money(dashboard?.totals.commission_cents ?? 0)]],
-      });
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Não foi possível gerar o relatório.");
-    }
-  };
-
   return (
     <div className="mx-auto max-w-7xl space-y-6 py-8">
       <header>
@@ -548,7 +467,7 @@ function AccountantPage() {
         </p>
         <h1 className="mt-2 text-3xl font-bold">Painel do contador</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Acompanhe indicações, comissões e os clientes que autorizaram acesso aos seus relatórios.
+          Gerencie a Auditoria Livre e revise os dados financeiros das empresas que autorizaram o acesso.
         </p>
       </header>
       <Card className="border-primary/20 bg-primary/5">
@@ -569,103 +488,6 @@ function AccountantPage() {
         </CardContent>
       </Card>
       <AccountantClientManagement />
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Metric
-          label="Comissões acumuladas"
-          value={money(dashboard?.totals.commission_cents ?? 0)}
-        />
-        <Metric label="Aguardando pagamento" value={money(dashboard?.totals.pending_cents ?? 0)} />
-        <Metric
-          label="Clientes indicados"
-          value={String(dashboard?.totals.referred_clients ?? 0)}
-        />
-        <Metric label="Assinaturas ativas" value={String(dashboard?.totals.active_clients ?? 0)} />
-      </div>
-      <Card>
-        <CardHeader>
-          <CardTitle>Meta de comissão por clientes pagantes</CardTitle>
-          <p className="text-sm text-muted-foreground">Só contam clientes que usaram seu cupom e tiveram o pagamento confirmado pelo sistema.</p>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div><p className="text-3xl font-bold">{state.coupon?.commission_percent ?? 20}%</p><p className="text-sm text-muted-foreground">Comissão recorrente atual</p></div>
-            <p className="text-sm font-medium">{confirmedReferrals} de {referralGoal.target} clientes da faixa</p>
-          </div>
-          <div className="h-3 overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuemin={0} aria-valuemax={referralGoal.target} aria-valuenow={Math.min(confirmedReferrals, referralGoal.target)} aria-label="Progresso da meta de clientes pagantes">
-            <div className="h-full rounded-full bg-primary transition-all duration-300" style={{ width: `${referralProgress}%` }} />
-          </div>
-          {confirmedReferrals <= 5
-            ? <p className="text-sm text-muted-foreground">Faixa inicial: 20% para 1–5 clientes pagantes. Ao confirmar o pagamento do 6º cliente, a comissão passa para 25%.</p>
-            : confirmedReferrals <= 15
-              ? <p className="text-sm text-muted-foreground">Faixa atual: 25% para 6–15 clientes pagantes. Ao confirmar o pagamento do 16º cliente, a comissão passa para 30%.</p>
-              : confirmedReferrals <= 30
-                ? <p className="text-sm text-muted-foreground">Faixa atual: 30% para 16–30 clientes pagantes. A comissão permanece em 30% após o 30º cliente.</p>
-                : <p className="text-sm text-muted-foreground">Você já ultrapassou 30 clientes pagantes: sua comissão recorrente continua em 30%.</p>}
-          <p className="text-xs text-muted-foreground">As metas consideram pagamentos confirmados, não apenas cadastros ou cliques no cupom.</p>
-          <p className="rounded-lg border bg-muted/30 p-3 text-sm text-muted-foreground">Seus clientes indicados recebem 20% de desconto nas duas primeiras mensalidades; a terceira volta ao preço normal. A comissão é calculada sobre o valor efetivamente pago em cada cobrança, usando a taxa de 20%, 25% ou 30% que estava vigente quando aquele cliente foi adquirido.</p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Dados para recebimento das comissões</CardTitle>
-          <p className="text-sm text-muted-foreground">O cupom só fica ativo quando o PIX para recebimento estiver cadastrado.</p>
-        </CardHeader>
-        <CardContent>
-          <form className="grid gap-4 sm:grid-cols-2" onSubmit={savePayout}>
-            <div className="space-y-1.5">
-              <Label htmlFor="payout-pix-type">Tipo de chave PIX</Label>
-              <select id="payout-pix-type" required value={form.pix_type} onChange={(e) => setForm({ ...form, pix_type: e.target.value })} className="h-11 w-full rounded-xl border bg-background px-3 text-sm">
-                <option value="">Selecione</option><option value="cpf">CPF</option><option value="cnpj">CNPJ</option><option value="email">E-mail</option><option value="phone">Telefone</option><option value="random">Aleatória</option>
-              </select>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="payout-pix-key">Chave PIX</Label>
-              <Input id="payout-pix-key" required maxLength={180} value={form.pix_key} onChange={(e) => setForm({ ...form, pix_key: e.target.value })} />
-            </div>
-            <Button type="submit" disabled={busy} className="sm:col-span-2 sm:w-fit">{busy && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}Salvar dados de recebimento</Button>
-          </form>
-        </CardContent>
-      </Card>
-
-      {state.coupon ? <Card>
-        <CardHeader><CardTitle>Links de indicação</CardTitle></CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-2">
-          <LinkCard title="Landing page" value={links.home} onCopy={() => copy(links.home)} />
-          <LinkCard title="Checkout com desconto de 20%" value={links.checkout} onCopy={() => copy(links.checkout)} />
-          <p className="text-sm text-muted-foreground md:col-span-2">
-            Cupom <strong className="text-foreground">{state.coupon.code}</strong> · Comissão recorrente atual de {state.coupon.commission_percent}%.
-          </p>
-        </CardContent>
-      </Card> : <Card>
-        <CardHeader><CardTitle>Cupom ainda não liberado</CardTitle></CardHeader>
-        <CardContent className="text-sm text-muted-foreground">Cadastre sua chave PIX acima para ativar o cupom e liberar os links de indicação.</CardContent>
-      </Card>}
-
-      <Card>
-        <CardHeader><CardTitle>Clientes indicados com pagamento confirmado</CardTitle></CardHeader>
-        <CardContent>
-          <p className="mb-4 text-sm text-muted-foreground">A lista é atualizada automaticamente quando o pagamento do cliente é confirmado.</p>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] text-left text-sm">
-              <thead><tr className="border-b text-xs text-muted-foreground">
-                {["Cliente", "Plano", "Situação", "Indicado em", "Pagamento confirmado"].map((heading) => <th key={heading} className="px-3 py-3 font-medium">{heading}</th>)}
-              </tr></thead>
-              <tbody>
-                {(dashboard?.referrals ?? []).length ? (dashboard?.referrals ?? []).map((item) => (
-                  <tr key={item.user_id} className="border-b last:border-0">
-                    <td className="px-3 py-3 font-medium">{item.client_name || "Cliente"}</td>
-                    <td className="px-3 py-3">{planLabelPt(item.plan)}</td>
-                    <td className="px-3 py-3">{statusLabelPt(item.status)}</td>
-                    <td className="px-3 py-3">{new Date(item.created_at).toLocaleDateString("pt-BR")}</td>
-                    <td className="px-3 py-3">{item.paid_at ? new Date(item.paid_at).toLocaleDateString("pt-BR") : "—"}</td>
-                  </tr>
-                )) : <tr><td colSpan={5} className="px-3 py-8 text-center text-muted-foreground">Nenhum cliente com pagamento confirmado pelo seu cupom ainda.</td></tr>}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
       <Card>
         <CardHeader className="flex-row items-center justify-between space-y-0">
           <CardTitle>Clientes com acesso compartilhado</CardTitle>
@@ -741,22 +563,6 @@ function AccountantPage() {
           </div>
         </CardContent>
       </Card>
-      <Card>
-        <CardHeader className="flex-row items-center justify-between space-y-0">
-          <CardTitle>Histórico de comissões e saques via PIX</CardTitle>
-          <ExportButtons onExport={exportCommissions} />
-        </CardHeader>
-        <CardContent>
-          <DataTable
-            headers={["Cliente", "Valor pago após desconto", "Taxa", "Comissão", "Status", "Criada em", "Paga em"]}
-            rows={commissionRows.map((row) => Object.values(row))}
-            empty="Nenhuma comissão registrada."
-          />
-        </CardContent>
-      </Card>
-      <p className="text-xs text-muted-foreground">
-        Chave PIX cadastrada: {formatPixKeyType(state.pix_type ?? "")} · {state.pix_key}
-      </p>
     </div>
   );
 }
@@ -769,20 +575,6 @@ function Metric({ label, value }: { label: string; value: string }) {
       </CardHeader>
       <CardContent className="num text-2xl font-semibold">{value}</CardContent>
     </Card>
-  );
-}
-
-function LinkCard({ title, value, onCopy }: { title: string; value: string; onCopy: () => void }) {
-  return (
-    <div className="flex min-w-0 items-center gap-3 rounded-xl border bg-muted/30 p-4">
-      <div className="min-w-0 flex-1">
-        <p className="text-xs text-muted-foreground">{title}</p>
-        <p className="truncate text-sm">{value}</p>
-      </div>
-      <Button variant="outline" size="icon" aria-label={`Copiar ${title}`} onClick={onCopy}>
-        <Clipboard className="h-4 w-4" />
-      </Button>
-    </div>
   );
 }
 
