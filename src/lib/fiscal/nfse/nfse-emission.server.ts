@@ -65,6 +65,10 @@ export async function buildSignAndSubmitDps(input: {
   if (configError || !config || config.status !== "ativo") {
     throw new Error("Configuração fiscal ou certificado ativo não encontrado.");
   }
+  const fiscalEnvironment = config.ambiente === "producao" || config.ambiente === "producao_restrita"
+    ? config.ambiente
+    : null;
+  if (!fiscalEnvironment) throw new Error("Ambiente fiscal inválido; emissão bloqueada.");
 
   const { data: invoice, error: invoiceError } = await supabaseAdmin
     .from("fiscal_invoices")
@@ -96,7 +100,7 @@ export async function buildSignAndSubmitDps(input: {
     const built = buildDpsXml(input.dps);
     signedXml = await signDpsXml(built.xml, pfx, passphrase);
     // Validate the exact signed XML that will be transmitted, not only the unsigned payload.
-    assertDpsRequiredGroups(signedXml);
+    assertDpsRequiredGroups(signedXml, fiscalEnvironment);
   } finally {
     pfx.fill(0);
   }
