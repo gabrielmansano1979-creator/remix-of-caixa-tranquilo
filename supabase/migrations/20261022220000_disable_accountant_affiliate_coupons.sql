@@ -75,3 +75,24 @@ COMMENT ON FUNCTION public.disable_accountant_affiliate_coupons() IS
   'Critical Cash: keep accountant affiliate coupons disabled; the accountant audit service is not an affiliate program.';
 COMMENT ON FUNCTION public.strip_accountant_affiliate_attribution() IS
   'Critical Cash: remove affiliate discount/commission attribution from new and updated billing records.';
+
+-- Bloqueia qualquer comissão nova, inclusive se um webhook antigo já tiver lido
+-- uma cobrança antes desta migração. O histórico existente é preservado.
+CREATE OR REPLACE FUNCTION public.prevent_new_accountant_commissions()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = public, pg_temp
+AS $
+BEGIN
+  RETURN NULL;
+END;
+$;
+
+REVOKE ALL ON FUNCTION public.prevent_new_accountant_commissions() FROM PUBLIC, anon, authenticated;
+DROP TRIGGER IF EXISTS commissions_prevent_new_accountant_commissions ON public.commissions;
+CREATE TRIGGER commissions_prevent_new_accountant_commissions
+BEFORE INSERT ON public.commissions
+FOR EACH ROW EXECUTE FUNCTION public.prevent_new_accountant_commissions();
+
+COMMENT ON FUNCTION public.prevent_new_accountant_commissions() IS
+  'Critical Cash: no new affiliate commissions are created after the accountant affiliate program is retired.';
