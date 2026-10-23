@@ -4,6 +4,7 @@ import { buildDpsXml, type DpsBuilderInput } from "./dps-builder.server";
 import { signDpsXml } from "./xml-signer.server";
 import { queryDps, submitSignedDps } from "./nfse-national-client.server";
 import { submitNfseNational, type NfseOfficialResult } from "./nfse-submission.server";
+import { assertDpsRequiredGroups, assertFiscalRuntimeReady } from "./dps-xsd-validator.server";
 
 export interface IssueNfseInput {
   tenantUserId: string;
@@ -18,6 +19,8 @@ export interface IssueNfseInput {
  * authorize the caller against tenantUserId before calling this function.
  */
 export async function issueNfseNational(input: IssueNfseInput): Promise<NfseOfficialResult> {
+  // Fail closed before reading secrets or opening any fiscal network connection.
+  assertFiscalRuntimeReady();
   const { data: config, error } = await (supabaseAdmin as any)
     .from("configuracoes_fiscais")
     .select([
@@ -53,6 +56,8 @@ export async function issueNfseNational(input: IssueNfseInput): Promise<NfseOffi
   try {
     const { xml, id } = buildDpsXml(input.dps);
     signedXml = await signDpsXml(xml, pfx, password.toString("utf8"));
+    // Validate the exact signed XML before it can reach the SEFIN submission helper.
+    assertDpsRequiredGroups(signedXml);
     const numeroDps = String(input.dps.numeroDps);
     const serie = String(input.dps.serie);
     return await submitNfseNational({
