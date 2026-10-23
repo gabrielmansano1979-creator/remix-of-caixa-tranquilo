@@ -12,7 +12,9 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "start": "node .output/server/index.mjs",
+    "preview:node": "node .output/server/index.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
