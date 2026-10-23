@@ -26,9 +26,9 @@ export const USAGE_WARNING_RATIO = 0.8;
 export const PLANS: PlanConfig[] = [
   {
     id: "starter",
-    name: "Starter",
-    priceMonthCents: 2900,
-    priceYearCents: 29000,
+    name: "Essencial",
+    priceMonthCents: 7990,
+    priceYearCents: 79900,
     limits: { pendingEntries: 100, csvRows: 100, topRisks: 3, editRuleDays: false, editRuleTexts: false },
     features: [
       "Até 100 contas pendentes",
@@ -42,10 +42,10 @@ export const PLANS: PlanConfig[] = [
   },
   {
     id: "pro",
-    name: "Pro",
+    name: "Evolução",
     popular: true,
-    priceMonthCents: 5900,
-    priceYearCents: 59000,
+    priceMonthCents: 15990,
+    priceYearCents: 159900,
     limits: { pendingEntries: 500, csvRows: 500, topRisks: 5, editRuleDays: true, editRuleTexts: false },
     features: [
       "Até 500 contas pendentes",
@@ -59,9 +59,9 @@ export const PLANS: PlanConfig[] = [
   },
   {
     id: "business",
-    name: "Business",
-    priceMonthCents: 11900,
-    priceYearCents: 119000,
+    name: "Excelência",
+    priceMonthCents: 24990,
+    priceYearCents: 249900,
     limits: { pendingEntries: 2000, csvRows: 2000, topRisks: 10, editRuleDays: true, editRuleTexts: true },
     features: [
       "Até 2.000 contas pendentes",
