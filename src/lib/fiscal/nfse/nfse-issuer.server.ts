@@ -19,8 +19,7 @@ export interface IssueNfseInput {
  * authorize the caller against tenantUserId before calling this function.
  */
 export async function issueNfseNational(input: IssueNfseInput): Promise<NfseOfficialResult> {
-  // Fail closed before reading secrets or opening any fiscal network connection.
-  assertFiscalRuntimeReady();
+  // Load only tenant configuration, then check prerequisites for its actual SEFIN environment.
   const { data: config, error } = await (supabaseAdmin as any)
     .from("configuracoes_fiscais")
     .select([
