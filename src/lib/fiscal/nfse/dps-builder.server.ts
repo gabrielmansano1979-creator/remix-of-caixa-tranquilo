@@ -118,8 +118,8 @@ export function buildDpsXml(input: DpsBuilderInput): { xml: string; id: string }
     ? `<end><endNac>${tag("cMun", digits(input.tomador.endereco.municipioIbge, "Município do tomador"))}${tag("CEP", digits(input.tomador.endereco.cep, "CEP"))}</endNac>${tag("xLgr", input.tomador.endereco.logradouro)}${tag("nro", input.tomador.endereco.numero)}${tag("xCpl", input.tomador.endereco.complemento)}${tag("xBairro", input.tomador.endereco.bairro)}</end>`
     : "";
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<DPS xmlns="${DPS_NAMESPACE}" versao="1.00">
-  <infDPS Id="${id}" versao="1.00">
+<DPS xmlns="${DPS_NAMESPACE}" versao="1.01">
+  <infDPS Id="${id}" versao="1.01">
     ${tag("tpAmb", input.ambiente)}
     ${tag("dhEmi", input.dataHoraEmissao)}
     ${tag("verAplic", input.versaoAplicacao)}
