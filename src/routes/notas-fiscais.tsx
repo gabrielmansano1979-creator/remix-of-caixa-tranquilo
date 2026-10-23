@@ -26,6 +26,7 @@ type Draft = {
   issuer_name: string;
   issuer_cnpj: string;
   issuer_city_ibge: string;
+  municipio_prestacao_ibge: string | null;
   recipient_name: string;
   recipient_tax_id: string;
   service_description: string;
@@ -62,6 +63,7 @@ function FiscalInvoicesPage() {
   const [issuerName, setIssuerName] = useState("");
   const [issuerCnpj, setIssuerCnpj] = useState("");
   const [cityCode, setCityCode] = useState("");
+  const [serviceCityCode, setServiceCityCode] = useState("");
   const [recipientName, setRecipientName] = useState("");
   const [recipientTaxId, setRecipientTaxId] = useState("");
   const [description, setDescription] = useState("");
@@ -97,8 +99,9 @@ function FiscalInvoicesPage() {
     const cleanCnpj = normalizeCpfCnpj(issuerCnpj);
     const cleanTaxId = normalizeCpfCnpj(recipientTaxId);
     const cleanCity = digits(cityCode);
-    if (!selectedClientId || !isValidCpfCnpj(cleanCnpj) || !isValidCpfCnpj(cleanTaxId) || cleanCity.length !== 7 || !Number.isSafeInteger(cents) || cents <= 0) {
-      toast.error("Confira CNPJ, CPF/CNPJ do tomador, código IBGE de 7 dígitos e valor.");
+    const cleanServiceCity = digits(serviceCityCode);
+    if (!selectedClientId || !isValidCpfCnpj(cleanCnpj) || !isValidCpfCnpj(cleanTaxId) || cleanCity.length !== 7 || cleanServiceCity.length !== 7 || !Number.isSafeInteger(cents) || cents <= 0) {
+      toast.error("Confira CNPJ, CPF/CNPJ do tomador, os dois códigos IBGE de 7 dígitos e o valor.");
       return;
     }
     const rate = aliquotaIss.trim() === "" ? null : Number(aliquotaIss.replace(",", "."));
@@ -125,11 +128,12 @@ function FiscalInvoicesPage() {
     try {
       const { error } = await fiscalDb.from("fiscal_invoices").insert({
         ...parsed.data,
+        municipio_prestacao_ibge: cleanServiceCity,
         status: "draft",
       });
       if (error) throw error;
       toast.success("Rascunho salvo. Ele ainda não é uma nota fiscal emitida.");
-      setIssuerCnpj(""); setCityCode(""); setRecipientName(""); setRecipientTaxId(""); setDescription(""); setAmount(""); setCompetencia(""); setCodigoTribNacional(""); setCnae(""); setIssRetido(false); setAliquotaIss("");
+      setIssuerCnpj(""); setCityCode(""); setServiceCityCode(""); setRecipientName(""); setRecipientTaxId(""); setDescription(""); setAmount(""); setCompetencia(""); setCodigoTribNacional(""); setCnae(""); setIssRetido(false); setAliquotaIss("");
       await qc.invalidateQueries({ queryKey: ["fiscal-invoices"] });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível salvar o rascunho.");
@@ -160,6 +164,7 @@ function FiscalInvoicesPage() {
                 <div className="space-y-2"><Label htmlFor="issuer-name">Empresa prestadora</Label><Input id="issuer-name" required minLength={2} maxLength={180} value={issuerName} onChange={e => setIssuerName(e.target.value)} placeholder="Razão social / nome empresarial" /></div>
                 <div className="space-y-2"><Label htmlFor="issuer-cnpj">CNPJ do prestador</Label><Input id="issuer-cnpj" required value={issuerCnpj} onChange={e => setIssuerCnpj(e.target.value)} placeholder="CNPJ (14 caracteres)" inputMode="numeric" /></div>
                 <div className="space-y-2"><Label htmlFor="city-ibge">Código IBGE do município</Label><Input id="city-ibge" required value={cityCode} onChange={e => setCityCode(e.target.value)} placeholder="7 dígitos" inputMode="numeric" maxLength={7} /></div>
+                <div className="space-y-2"><Label htmlFor="service-city-ibge">Código IBGE do município da prestação</Label><Input id="service-city-ibge" required value={serviceCityCode} onChange={e => setServiceCityCode(digits(e.target.value).slice(0, 7))} placeholder="7 dígitos do local do serviço" inputMode="numeric" maxLength={7} /></div>
                 <div className="space-y-2"><Label htmlFor="recipient-name">Tomador do serviço</Label><Input id="recipient-name" required minLength={2} maxLength={180} value={recipientName} onChange={e => setRecipientName(e.target.value)} placeholder="Nome / razão social" /></div>
                 <div className="space-y-2"><Label htmlFor="recipient-tax-id">CPF/CNPJ do tomador</Label><Input id="recipient-tax-id" required value={recipientTaxId} onChange={e => setRecipientTaxId(e.target.value)} placeholder="CPF ou CNPJ válido" inputMode="numeric" /></div>
                 <div className="space-y-2"><Label htmlFor="amount">Valor do serviço (R$)</Label><Input id="amount" required value={amount} onChange={e => setAmount(e.target.value)} placeholder="0,00" inputMode="decimal" /></div>
