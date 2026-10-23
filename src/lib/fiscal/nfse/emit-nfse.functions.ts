@@ -73,7 +73,7 @@ export const emitNfseAction = createServerFn({ method: "POST" })
       if (data.configId) {
         configQuery = configQuery.eq("id", data.configId);
       } else {
-        configQuery = configQuery.eq("cnpj", String(invoice.issuer_cnpj ?? "").replace(/\\D/g, ""));
+        configQuery = configQuery.eq("cnpj", String(invoice.issuer_cnpj ?? "").replace(/\D/g, ""));
       }
       const { data: config, error: configError } = await configQuery.maybeSingle();
 
