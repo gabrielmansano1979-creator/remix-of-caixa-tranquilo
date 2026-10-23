@@ -32,8 +32,8 @@ BEGIN
     -- Tier applies to the next acquisition:
     -- referrals 1-5: 20%; 6-15: 25%; 16+: 30%.
     next_referral_rate := CASE
-      WHEN active_clients < 5 THEN 20
-      WHEN active_clients < 15 THEN 25
+      WHEN active_clients <= 5 THEN 20
+      WHEN active_clients <= 15 THEN 25
       ELSE 30
     END;
 
