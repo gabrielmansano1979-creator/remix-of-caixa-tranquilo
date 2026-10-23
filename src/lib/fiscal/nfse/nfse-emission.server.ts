@@ -214,7 +214,7 @@ export async function emitNfseForTenant(input: {
 
   const { data: invoice, error: invoiceError } = await supabaseAdmin
     .from("fiscal_invoices")
-    .select("id,user_id,document_type,status,issuer_name,issuer_cnpj,issuer_city_ibge,recipient_name,recipient_tax_id,service_description,amount_cents,competencia,codigo_trib_nacional,cnae,iss_retido,aliquota_iss,serie,numero_dps")
+    .select("id,user_id,document_type,status,issuer_name,issuer_cnpj,issuer_city_ibge,recipient_name,recipient_tax_id,service_description,amount_cents,competencia,codigo_trib_nacional,cnae,iss_retido,aliquota_iss,municipio_prestacao_ibge,serie,numero_dps")
     .eq("id", input.invoiceId)
     .eq("user_id", input.tenantUserId)
     .maybeSingle();
@@ -267,13 +267,14 @@ export async function emitNfseForTenant(input: {
     missingFields.push({ field: "numero_dps", label: "Número da DPS", message: "Não há número sequencial atribuído. Verifique se a migração e o gatilho de sequenciamento da DPS foram aplicados e grave novamente o rascunho." });
   }
 
-  // cLocPrestacao is a separate mandatory DPS field; issuer municipality is not
-  // assumed to be the service location because those municipalities can differ.
-  missingFields.push({
-    field: "municipio_prestacao_ibge",
-    label: "Município da prestação do serviço",
-    message: "Informe e persista o código IBGE do município onde o serviço foi prestado antes de emitir.",
-  });
+  // cLocPrestacao is stored separately; never infer it from the issuer municipality.
+  if (!invoice.municipio_prestacao_ibge || !/^\d{7}$/.test(invoice.municipio_prestacao_ibge)) {
+    missingFields.push({
+      field: "municipio_prestacao_ibge",
+      label: "Município da prestação do serviço",
+      message: "Informe o código IBGE de 7 dígitos do município onde o serviço foi prestado.",
+    });
+  }
 
   if (validatedDraft.success && config.cnpj && config.municipio_ibge) {
     const issuerCnpj = validatedDraft.data.issuer_cnpj;
@@ -311,7 +312,7 @@ export async function emitNfseForTenant(input: {
     },
     servico: {
       // This value must be supplied explicitly; do not infer from issuer location.
-      municipioPrestacaoIbge: "",
+      municipioPrestacaoIbge: invoice.municipio_prestacao_ibge!,
       codigoTributacaoNacional: draft.codigo_trib_nacional,
       cnae: draft.cnae,
       descricao: draft.service_description,
@@ -323,8 +324,6 @@ export async function emitNfseForTenant(input: {
     },
   };
 
-  // This is deliberately unreachable until the service municipality is persisted.
-  // The explicit missing-field result above prevents sending an incomplete DPS.
   return await buildSignAndSubmitDps({
     invoiceId: input.invoiceId,
     tenantUserId: input.tenantUserId,
