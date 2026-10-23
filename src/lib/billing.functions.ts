@@ -61,7 +61,7 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       });
       if (adminRoleError) throw adminRoleError;
       if (isPlatformAdmin === true) {
-        return { error: "Sua conta administrativa já possui acesso gratuito à plataforma; não é necessário contratar um plano." };
+        return { error: "Sua conta já possui acesso liberado; não é necessário contratar um plano." };
       }
 
       const asaas = await import("./asaas.server");
