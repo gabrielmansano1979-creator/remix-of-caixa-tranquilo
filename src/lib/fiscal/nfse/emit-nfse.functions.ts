@@ -34,20 +34,16 @@ export const emitNfseAction = createServerFn({ method: "POST" })
       if (!isOwner) {
         // The RPC derives permissions from the authenticated database identity.
         // It never accepts a caller-supplied actor ID.
-        const { data: portal, error: permissionError } = await context.supabase
-          .rpc("my_accountant_portal_invites");
+        const { data: allowed, error: permissionError } = await context.supabase
+          .rpc("can_access_fiscal_invoices", { _client_user_id: tenantUserId });
         if (permissionError) {
+          // Fail closed: an unavailable permission check must never grant access.
           console.error("[nfse.emit] tenant permission lookup failed", {
             requestId, actorUserId: userId, tenantUserId, code: permissionError.code,
           });
           throw Object.assign(new Error("FORBIDDEN"), { status: 403 });
         }
-
-        const portalData = portal as unknown as {
-          authorized_clients?: Array<{ client_user_id?: string }>;
-        } | null;
-        hasTenantPermission = (portalData?.authorized_clients ?? [])
-          .some((client) => client.client_user_id === tenantUserId);
+        hasTenantPermission = allowed === true;
       }
 
       if (!isOwner && !hasTenantPermission) {
