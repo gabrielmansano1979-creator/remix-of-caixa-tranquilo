@@ -37,7 +37,7 @@ function assertDigits(name: string, value: string, length: number): void {
 
 /** Calcula o DV usando módulo 11 e pesos 2..9 da direita para a esquerda. */
 export function calculateNfeCheckDigit(first43Digits: string): string {
-  if (!/^\\d{43}$/.test(first43Digits)) {
+  if (!/^\d{43}$/.test(first43Digits)) {
     throw new Error("O cálculo do DV exige exatamente 43 dígitos numéricos.");
   }
 
@@ -66,10 +66,10 @@ export function generateNfeKey(input: NfeKeyInput): NfeKeyResult {
   if (input.mod !== "55" && input.mod !== "65") {
     throw new Error("O modelo fiscal deve ser '55' (NF-e) ou '65' (NFC-e).");
   }
-  if (!/^\\d{1,3}$/.test(input.serie)) {
+  if (!/^\d{1,3}$/.test(input.serie)) {
     throw new Error("serie deve conter de 1 a 3 dígitos numéricos.");
   }
-  if (!/^\\d{1,9}$/.test(input.nNF)) {
+  if (!/^\d{1,9}$/.test(input.nNF)) {
     throw new Error("nNF deve conter de 1 a 9 dígitos numéricos.");
   }
 
