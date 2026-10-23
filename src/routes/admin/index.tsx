@@ -611,6 +611,7 @@ function AdminPage() {
       </header>
 
       <AdminPixPayoutManagement enabled={authStatus === "authorized"} />
+      <AdminCommissionPayoutManagement enabled={authStatus === "authorized"} />
 
       <section className="space-y-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
@@ -1176,6 +1177,172 @@ function AdminPixPayoutManagement({ enabled }: { enabled: boolean }) {
               </tbody>
             </table>
           </div>
+        </CardContent>
+      </Card>
+    </section>
+  );
+}
+
+function AdminCommissionPayoutManagement({ enabled }: { enabled: boolean }) {
+  const queryClient = useQueryClient();
+  const [amounts, setAmounts] = useState<Record<string, string>>({});
+  const [references, setReferences] = useState<Record<string, string>>({});
+  const [receipts, setReceipts] = useState<Record<string, File | null>>({});
+  const [busy, setBusy] = useState("");
+  const commissionsQuery = useQuery({
+    queryKey: ["admin-commission-approval-queue"],
+    enabled,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).rpc("admin_partner_overview");
+      if (error) throw error;
+      const rows = data && typeof data === "object" && Array.isArray((data as any).commissions)
+        ? (data as any).commissions : [];
+      return rows as Array<{ id: string; partner_id: string; partner_name: string | null; amount: number; status: string; created_at: string }>;
+    },
+    refetchInterval: 60_000,
+  });
+  const pixQuery = useQuery({
+    queryKey: ["admin-pix-payout-queue"],
+    enabled,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).rpc("admin_pix_payout_queue");
+      if (error) throw error;
+      return (Array.isArray(data) ? data : []) as Array<{
+        partner_user_id: string; full_name: string | null; email: string | null; pix_status: string;
+      }>;
+    },
+    refetchInterval: 60_000,
+  });
+  const payoutsQuery = useQuery({
+    queryKey: ["admin-commission-payouts"],
+    enabled,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).rpc("admin_commission_payouts_queue");
+      if (error) throw error;
+      return (Array.isArray(data) ? data : []) as Array<{
+        id: string; partner_user_id: string; partner_name: string | null; partner_email: string | null;
+        amount_cents: number; status: string; requested_at: string; paid_at: string | null;
+        external_transfer_reference: string | null; receipt_path: string | null;
+      }>;
+    },
+    refetchInterval: 60_000,
+  });
+  const approveCommission = async (id: string) => {
+    setBusy(id);
+    try {
+      const { error } = await (supabase as any).rpc("admin_approve_commission", { _commission_id: id });
+      if (error) throw error;
+      await queryClient.invalidateQueries({ queryKey: ["admin-commission-approval-queue"] });
+      toast.success("Comissão liberada para pagamento.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível liberar a comissão.");
+    } finally { setBusy(""); }
+  };
+  const createPayout = async (partnerUserId: string) => {
+    const amountCents = Math.round(Number((amounts[partnerUserId] ?? "").replace(",", ".")) * 100);
+    if (!Number.isSafeInteger(amountCents) || amountCents <= 0) {
+      toast.error("Informe um valor de pagamento válido.");
+      return;
+    }
+    setBusy(partnerUserId);
+    try {
+      const { error } = await (supabase as any).rpc("admin_record_commission_payout", {
+        _partner_user_id: partnerUserId, _amount_cents: amountCents,
+        _admin_note: "Transferência Pix manual registrada no painel",
+      });
+      if (error) throw error;
+      setAmounts((current) => ({ ...current, [partnerUserId]: "" }));
+      await queryClient.invalidateQueries({ queryKey: ["admin-commission-payouts"] });
+      toast.success("Pagamento registrado como aprovado. Faça a transferência no banco e anexe o comprovante para concluir.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível registrar o pagamento.");
+    } finally { setBusy(""); }
+  };
+  const confirmPayout = async (payoutId: string) => {
+    const file = receipts[payoutId];
+    const reference = (references[payoutId] ?? "").trim();
+    if (!file || !reference) {
+      toast.error("Informe a referência da transferência e selecione o comprovante.");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024 || !["application/pdf", "image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      toast.error("Use PDF, JPG, PNG ou WEBP de até 10 MB.");
+      return;
+    }
+    setBusy(payoutId);
+    let uploadedPath = "";
+    try {
+      const safeName = file.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9._-]/g, "-").slice(-100);
+      uploadedPath = payoutId + "/" + Date.now() + "-" + safeName;
+      const { error: uploadError } = await supabase.storage.from("commission-payout-receipts").upload(uploadedPath, file, {
+        contentType: file.type, upsert: false,
+      });
+      if (uploadError) throw uploadError;
+      const { error } = await (supabase as any).rpc("admin_confirm_commission_payout", {
+        _payout_id: payoutId, _transfer_reference: reference, _receipt_path: uploadedPath,
+      });
+      if (error) throw error;
+      await queryClient.invalidateQueries({ queryKey: ["admin-commission-payouts"] });
+      setReferences((current) => ({ ...current, [payoutId]: "" }));
+      setReceipts((current) => ({ ...current, [payoutId]: null }));
+      toast.success("Transferência marcada como paga com comprovante privado.");
+    } catch (error) {
+      if (uploadedPath) {
+        const { error: cleanupError } = await supabase.storage.from("commission-payout-receipts").remove([uploadedPath]);
+        if (cleanupError) console.error("Não foi possível limpar o comprovante não associado", cleanupError);
+      }
+      toast.error(error instanceof Error ? error.message : "Não foi possível confirmar a transferência.");
+    } finally { setBusy(""); }
+  };
+  const verifiedPartners = (pixQuery.data ?? []).filter((partner) => partner.pix_status === "verified");
+  const pendingCommissions = (commissionsQuery.data ?? []).filter((item) => item.status === "pending");
+  const approvedPayouts = (payoutsQuery.data ?? []).filter((item) => item.status === "approved");
+  return (
+    <section className="space-y-4">
+      <div>
+        <h2 className="text-xl font-semibold text-white">Liberação e registro de pagamentos</h2>
+        <p className="mt-1 text-sm text-zinc-400">Libere comissões confirmadas, registre o valor a transferir e finalize somente depois de realizar a transferência Pix fora da plataforma. Comprovantes ficam em armazenamento privado.</p>
+      </div>
+      {(commissionsQuery.isError || pixQuery.isError || payoutsQuery.isError) && (
+        <Card className="border-red-500/30 bg-red-950/20"><CardContent className="p-4 text-sm text-red-300">Não foi possível carregar a fila de pagamentos. Confira se a migration de indicações e Pix foi aplicada.</CardContent></Card>
+      )}
+      <Card className="border-white/10 bg-zinc-900/60 text-zinc-100">
+        <CardHeader><CardTitle className="text-base">Comissões aguardando liberação</CardTitle></CardHeader>
+        <CardContent className="space-y-2">
+          {pendingCommissions.map((item) => (
+            <div key={item.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-white/10 p-3">
+              <div><p className="font-medium">{item.partner_name ?? "Contador"}</p><p className="text-sm text-zinc-400">{money(Number(item.amount))} · {date(item.created_at)}</p></div>
+              <Button size="sm" disabled={busy === item.id} onClick={() => void approveCommission(item.id)}>Liberar para pagamento</Button>
+            </div>
+          ))}
+          {pendingCommissions.length === 0 && <p className="text-sm text-zinc-400">{commissionsQuery.isLoading ? "Carregando comissões..." : "Nenhuma comissão pendente de liberação."}</p>}
+        </CardContent>
+      </Card>
+      <Card className="border-white/10 bg-zinc-900/60 text-zinc-100">
+        <CardHeader><CardTitle className="text-base">Registrar uma transferência Pix</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          {verifiedPartners.map((partner) => (
+            <div key={partner.partner_user_id} className="grid gap-2 rounded-lg border border-white/10 p-3 sm:grid-cols-[1fr_180px_auto] sm:items-center">
+              <div><p className="font-medium">{partner.full_name ?? "Contador"}</p><p className="text-xs text-zinc-400">{partner.email ?? "Chave Pix validada"}</p></div>
+              <input aria-label={"Valor a pagar para " + (partner.full_name ?? "contador")} inputMode="decimal" placeholder="Valor em R$" value={amounts[partner.partner_user_id] ?? ""} onChange={(event) => setAmounts((current) => ({ ...current, [partner.partner_user_id]: event.target.value }))} className="h-10 rounded-md border border-white/15 bg-black/20 px-3 text-sm text-white" />
+              <Button size="sm" disabled={busy === partner.partner_user_id} onClick={() => void createPayout(partner.partner_user_id)}>Registrar valor</Button>
+            </div>
+          ))}
+          {verifiedPartners.length === 0 && <p className="text-sm text-zinc-400">{pixQuery.isLoading ? "Carregando contadores..." : "Não há chave Pix validada para pagamento."}</p>}
+        </CardContent>
+      </Card>
+      <Card className="border-white/10 bg-zinc-900/60 text-zinc-100">
+        <CardHeader><CardTitle className="text-base">Transferências aprovadas aguardando comprovante</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          {approvedPayouts.map((item) => (
+            <div key={item.id} className="space-y-3 rounded-lg border border-white/10 p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2"><div><p className="font-medium">{item.partner_name ?? "Contador"}</p><p className="text-sm text-zinc-400">{money(Number(item.amount_cents) / 100)} · {dateTime(item.requested_at)}</p></div><span className="text-xs text-amber-300">Transferência ainda não confirmada</span></div>
+              <input aria-label="Referência da transferência" placeholder="ID ou referência bancária da transferência" value={references[item.id] ?? ""} onChange={(event) => setReferences((current) => ({ ...current, [item.id]: event.target.value }))} className="h-10 w-full rounded-md border border-white/15 bg-black/20 px-3 text-sm text-white" />
+              <input aria-label="Comprovante da transferência" type="file" accept="application/pdf,image/jpeg,image/png,image/webp" onChange={(event) => setReceipts((current) => ({ ...current, [item.id]: event.target.files?.[0] ?? null }))} className="block w-full text-sm text-zinc-300" />
+              <Button size="sm" disabled={busy === item.id} onClick={() => void confirmPayout(item.id)}>Confirmar transferência e salvar comprovante</Button>
+            </div>
+          ))}
+          {approvedPayouts.length === 0 && <p className="text-sm text-zinc-400">{payoutsQuery.isLoading ? "Carregando pagamentos..." : "Nenhuma transferência aguardando comprovante."}</p>}
         </CardContent>
       </Card>
     </section>
