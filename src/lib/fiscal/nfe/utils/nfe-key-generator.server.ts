@@ -35,6 +35,14 @@ function assertDigits(name: string, value: string, length: number): void {
   }
 }
 
+const VALID_CUF_CODES = new Set([
+  "11", "12", "13", "14", "15", "16", "17",
+  "21", "22", "23", "24", "25", "26", "27", "28", "29",
+  "31", "32", "33", "35",
+  "41", "42", "43",
+  "50", "51", "52", "53",
+]);
+
 /** Calcula o DV usando módulo 11 e pesos 2..9 da direita para a esquerda. */
 export function calculateNfeCheckDigit(first43Digits: string): string {
   if (!/^\d{43}$/.test(first43Digits)) {
