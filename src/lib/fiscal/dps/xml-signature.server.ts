@@ -1,4 +1,5 @@
-import * as forge from "node-forge";
+import { spawn } from "node:child_process";
+import { createPrivateKey, createPublicKey, X509Certificate } from "node:crypto";
 import { DOMParser } from "@xmldom/xmldom";
 import { SignedXml } from "xml-crypto";
 
@@ -13,49 +14,95 @@ type PfxMaterial = {
   certificatePem: string;
 };
 
-function extractSigningMaterial(pfx: Buffer, password: string): PfxMaterial {
-  const binary = pfx.toString("binary");
-  const asn1 = forge.asn1.fromDer(binary);
-  const p12 = forge.pkcs12.pkcs12FromAsn1(asn1, false, password);
+/**
+ * Extracts the PFX material with the system OpenSSL executable instead of
+ * bundling a JavaScript PKCS#12 parser. Password travels in the child process
+ * environment, not command-line arguments; decrypted PEM stays in memory.
+ */
+async function extractSigningMaterial(pfx: Buffer, password: string): Promise<PfxMaterial> {
+  const executable = process.env.OPENSSL_BIN || "openssl";
+  const child = spawn(
+    executable,
+    ["pkcs12", "-nodes", "-passin", "env:CRITICAL_CASH_PFX_PASSWORD", "-clcerts"],
+    {
+      stdio: ["pipe", "pipe", "pipe"],
+      env: { ...process.env, CRITICAL_CASH_PFX_PASSWORD: password },
+      windowsHide: true,
+    },
+  );
 
-  const keyBags =
-    p12.getBags({ bagType: forge.pki.oids.pkcs8ShroudedKeyBag })[
-      forge.pki.oids.pkcs8ShroudedKeyBag
-    ] ?? [];
-  const plainKeyBags =
-    p12.getBags({ bagType: forge.pki.oids.keyBag })[forge.pki.oids.keyBag] ?? [];
-  const certBags =
-    p12.getBags({ bagType: forge.pki.oids.certBag })[forge.pki.oids.certBag] ?? [];
+  const stdout: Buffer[] = [];
+  const stderr: Buffer[] = [];
+  let stdoutBytes = 0;
+  const maxOutputBytes = 4 * 1024 * 1024;
 
-  const privateKey = [...keyBags, ...plainKeyBags].find((bag) => bag.key)?.key;
-  if (!privateKey) throw new Error("O arquivo PFX não contém uma chave privada utilizável.");
+  child.stdout.on("data", (chunk: Buffer) => {
+    stdoutBytes += chunk.length;
+    if (stdoutBytes > maxOutputBytes) {
+      child.kill();
+      return;
+    }
+    stdout.push(Buffer.from(chunk));
+  });
+  child.stderr.on("data", (chunk: Buffer) => {
+    if (Buffer.concat(stderr).length < 16 * 1024) stderr.push(Buffer.from(chunk));
+  });
 
-  const rsaKey = privateKey as forge.pki.rsa.PrivateKey;
-  const matchingCert = certBags
-    .map((bag) => bag.cert)
-    .find((cert) => {
-      const publicKey = cert?.publicKey as forge.pki.rsa.PublicKey | undefined;
-      return Boolean(publicKey && publicKey.n.equals(rsaKey.n) && publicKey.e.equals(rsaKey.e));
-    });
+  const exit = new Promise<{ code: number | null; error?: Error }>((resolve) => {
+    child.once("error", (error) => resolve({ code: null, error }));
+    child.once("close", (code) => resolve({ code }));
+  });
+  child.stdin.end(pfx);
 
-  if (!matchingCert) {
-    throw new Error("Não foi encontrado no PFX um certificado correspondente à chave privada.");
+  const result = await exit;
+  const output = Buffer.concat(stdout).toString("utf8");
+  if (result.error || result.code !== 0 || stdoutBytes > maxOutputBytes) {
+    // Avoid returning OpenSSL diagnostics because they may contain environment details.
+    throw new Error("Não foi possível abrir o certificado PFX. Verifique a senha, o arquivo e a disponibilidade do OpenSSL.");
   }
 
-  return {
-    privateKeyPem: forge.pki.privateKeyToPem(rsaKey),
-    certificatePem: forge.pki.certificateToPem(matchingCert),
-  };
+  const privateKeyPem = output.match(
+    /-----BEGIN (?:RSA )?PRIVATE KEY-----[\\s\\S]+?-----END (?:RSA )?PRIVATE KEY-----/,
+  )?.[0];
+  const certificates = [...output.matchAll(
+    /-----BEGIN CERTIFICATE-----[\\s\\S]+?-----END CERTIFICATE-----/g,
+  )].map((match) => match[0]);
+
+  if (!privateKeyPem || certificates.length === 0) {
+    throw new Error("O PFX precisa conter chave privada e certificado de contribuinte.");
+  }
+
+  const privateKey = createPrivateKey(privateKeyPem);
+  const privatePublicDer = createPublicKey(privateKey).export({ format: "der", type: "spki" });
+  const certificatePem = certificates.find((pem) => {
+    try {
+      const certificate = new X509Certificate(pem);
+      const publicDer = certificate.publicKey.export({ format: "der", type: "spki" });
+      return privatePublicDer.equals(publicDer);
+    } catch {
+      return false;
+    }
+  });
+
+  if (!certificatePem) {
+    throw new Error("O certificado de contribuinte não corresponde à chave privada do PFX.");
+  }
+
+  return { privateKeyPem, certificatePem };
 }
 
 /**
  * Signs only the national DPS infDPS element by its Id.
  *
- * The XMLDSIG algorithms here follow the legacy/currently documented national
- * DPS signing profile (RSA-SHA1 + SHA1 digest + inclusive C14N). Reconfirm these
- * URIs against the deployed official XSD/technical note before production use.
+ * The algorithms here follow the national DPS signing profile commonly
+ * documented as RSA-SHA1 + SHA1 digest + inclusive C14N. Reconfirm the exact
+ * algorithms and transforms against the deployed official XSD/technical note.
  */
-export function signDpsXml(dpsXml: string, pfx: Buffer, pfxPassword: string): string {
+export async function signDpsXml(
+  dpsXml: string,
+  pfx: Buffer,
+  pfxPassword: string,
+): Promise<string> {
   if (/<!DOCTYPE|<!ENTITY/i.test(dpsXml)) {
     throw new Error("DPS XML não pode conter DOCTYPE nem declarações de entidades.");
   }
@@ -80,7 +127,7 @@ export function signDpsXml(dpsXml: string, pfx: Buffer, pfxPassword: string): st
     throw new Error("A tag infDPS deve possuir um atributo Id válido.");
   }
 
-  const { privateKeyPem, certificatePem } = extractSigningMaterial(pfx, pfxPassword);
+  const { privateKeyPem, certificatePem } = await extractSigningMaterial(pfx, pfxPassword);
   const signer = new SignedXml({
     privateKey: privateKeyPem,
     publicCert: certificatePem,
