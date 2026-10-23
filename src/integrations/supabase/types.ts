@@ -1035,8 +1035,7 @@ export type Database = {
           received_at?: string
         }
         Relationships: []
-      }
-    }
+      },
       fiscal_invoices: {
         Row: {
           id: string
@@ -1126,7 +1125,7 @@ export type Database = {
           numero_dps?: number | null
         }
         Relationships: []
-      }
+      },
       configuracoes_fiscais: {
         Row: {
           id: string
@@ -1207,7 +1206,8 @@ export type Database = {
           atualizado_em?: string
         }
         Relationships: []
-      }
+      },
+    }
     Views: {
       [_ in never]: never
     }
