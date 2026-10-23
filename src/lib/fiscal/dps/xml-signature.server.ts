@@ -94,9 +94,10 @@ async function extractSigningMaterial(pfx: Buffer, password: string): Promise<Pf
 /**
  * Signs only the national DPS infDPS element by its Id.
  *
- * The algorithms here follow the national DPS signing profile commonly
- * documented as RSA-SHA1 + SHA1 digest + inclusive C14N. Reconfirm the exact
- * algorithms and transforms against the deployed official XSD/technical note.
+ * The national DPS profile documented in the official national model uses
+ * RSA-SHA1 + SHA1 digest + inclusive C14N with an enveloped signature. Do not
+ * switch to SHA-256 based on documentation for another service (for example,
+ * NFS-e Via); verify the production SEFIN/ADN profile before changing it.
  */
 export async function signDpsXml(
   dpsXml: string,
