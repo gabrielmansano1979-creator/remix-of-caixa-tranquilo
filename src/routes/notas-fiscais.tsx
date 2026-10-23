@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { isValidCpfCnpj, normalizeCpfCnpj } from "@/lib/identity";
 
 export const Route = createFileRoute("/notas-fiscais")({
   beforeLoad: async () => {
@@ -31,7 +32,11 @@ type Draft = {
   status: string;
   invoice_number: string | null;
   created_at: string;
+  user_id: string;
+  created_by_user_id: string;
 };
+
+type AccountantPortal = { authorized_clients: Array<{ client_user_id: string; client_name: string; business_size: string | null }> };
 
 const digits = (value: string) => value.replace(/\D/g, "");
 const money = (cents: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100);
@@ -47,6 +52,16 @@ function FiscalInvoicesPage() {
   const [recipientTaxId, setRecipientTaxId] = useState("");
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
+  const [selectedClientId, setSelectedClientId] = useState("");
+
+  const portalQuery = useQuery({
+    queryKey: ["nfse-authorized-clients"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("my_accountant_portal_invites");
+      if (error) throw error;
+      return data as unknown as AccountantPortal;
+    },
+  });
 
   const query = useQuery({
     queryKey: ["fiscal-invoices"],
@@ -59,17 +74,18 @@ function FiscalInvoicesPage() {
 
   const saveDraft = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const cents = Math.round(Number(amount.replace(",", ".")) * 100);
-    const cleanCnpj = digits(issuerCnpj);
-    const cleanTaxId = digits(recipientTaxId);
+    const cents = parseAmountCents(amount);
+    const cleanCnpj = normalizeCpfCnpj(issuerCnpj);
+    const cleanTaxId = normalizeCpfCnpj(recipientTaxId);
     const cleanCity = digits(cityCode);
-    if (cleanCnpj.length !== 14 || cleanTaxId.length !== 11 && cleanTaxId.length !== 14 || cleanCity.length !== 7 || !Number.isSafeInteger(cents) || cents <= 0) {
+    if (!selectedClientId || !isValidCpfCnpj(cleanCnpj) || !isValidCpfCnpj(cleanTaxId) || cleanCity.length !== 7 || !Number.isSafeInteger(cents) || cents <= 0) {
       toast.error("Confira CNPJ, CPF/CNPJ do tomador, código IBGE de 7 dígitos e valor.");
       return;
     }
     setSaving(true);
     try {
       const { error } = await fiscalDb.from("fiscal_invoices").insert({
+        user_id: selectedClientId,
         issuer_name: issuerName.trim(),
         issuer_cnpj: cleanCnpj,
         issuer_city_ibge: cleanCity,
@@ -81,7 +97,7 @@ function FiscalInvoicesPage() {
       });
       if (error) throw error;
       toast.success("Rascunho salvo. Ele ainda não é uma nota fiscal emitida.");
-      setIssuerName(""); setIssuerCnpj(""); setCityCode(""); setRecipientName(""); setRecipientTaxId(""); setDescription(""); setAmount("");
+      setIssuerCnpj(""); setCityCode(""); setRecipientName(""); setRecipientTaxId(""); setDescription(""); setAmount("");
       await qc.invalidateQueries({ queryKey: ["fiscal-invoices"] });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível salvar o rascunho.");
@@ -107,16 +123,17 @@ function FiscalInvoicesPage() {
           <CardHeader><CardTitle className="flex items-center gap-2"><Plus className="h-5 w-5" />Novo rascunho de NFS-e</CardTitle><CardDescription>Preencha os dados do prestador, tomador e serviço. Não envia nada ao governo nesta etapa.</CardDescription></CardHeader>
           <CardContent>
             <form className="space-y-4" onSubmit={saveDraft}>
+              <div className="space-y-2"><Label htmlFor="client-company">Empresa cliente autorizada</Label><select id="client-company" required value={selectedClientId} onChange={e => { const id = e.target.value; setSelectedClientId(id); const client = portalQuery.data?.authorized_clients.find(item => item.client_user_id === id); if (client) setIssuerName(client.client_name); }} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" disabled={portalQuery.isLoading || !portalQuery.data?.authorized_clients.length}><option value="">Selecione uma empresa com acesso autorizado</option>{portalQuery.data?.authorized_clients.map(client => <option key={client.client_user_id} value={client.client_user_id}>{client.client_name}{client.business_size ? ` · ${client.business_size}` : ""}</option>)}</select>{portalQuery.isError ? <p className="text-xs text-destructive">O acesso fiscal exige cadastro de contador aprovado e autorização ativa. Não foi possível carregar as empresas autorizadas.</p> : null}{portalQuery.data && portalQuery.data.authorized_clients.length === 0 ? <p className="text-xs text-muted-foreground">Nenhuma empresa autorizou seu acesso ainda.</p> : null}</div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2"><Label htmlFor="issuer-name">Empresa prestadora</Label><Input id="issuer-name" required minLength={2} maxLength={180} value={issuerName} onChange={e => setIssuerName(e.target.value)} placeholder="Razão social / nome empresarial" /></div>
-                <div className="space-y-2"><Label htmlFor="issuer-cnpj">CNPJ do prestador</Label><Input id="issuer-cnpj" required value={issuerCnpj} onChange={e => setIssuerCnpj(e.target.value)} placeholder="00.000.000/0000-00" inputMode="numeric" /></div>
+                <div className="space-y-2"><Label htmlFor="issuer-cnpj">CNPJ do prestador</Label><Input id="issuer-cnpj" required value={issuerCnpj} onChange={e => setIssuerCnpj(e.target.value)} placeholder="CNPJ (14 caracteres)" inputMode="numeric" /></div>
                 <div className="space-y-2"><Label htmlFor="city-ibge">Código IBGE do município</Label><Input id="city-ibge" required value={cityCode} onChange={e => setCityCode(e.target.value)} placeholder="7 dígitos" inputMode="numeric" maxLength={7} /></div>
                 <div className="space-y-2"><Label htmlFor="recipient-name">Tomador do serviço</Label><Input id="recipient-name" required minLength={2} maxLength={180} value={recipientName} onChange={e => setRecipientName(e.target.value)} placeholder="Nome / razão social" /></div>
-                <div className="space-y-2"><Label htmlFor="recipient-tax-id">CPF/CNPJ do tomador</Label><Input id="recipient-tax-id" required value={recipientTaxId} onChange={e => setRecipientTaxId(e.target.value)} placeholder="CPF ou CNPJ" inputMode="numeric" /></div>
+                <div className="space-y-2"><Label htmlFor="recipient-tax-id">CPF/CNPJ do tomador</Label><Input id="recipient-tax-id" required value={recipientTaxId} onChange={e => setRecipientTaxId(e.target.value)} placeholder="CPF ou CNPJ válido" inputMode="numeric" /></div>
                 <div className="space-y-2"><Label htmlFor="amount">Valor do serviço (R$)</Label><Input id="amount" required value={amount} onChange={e => setAmount(e.target.value)} placeholder="0,00" inputMode="decimal" /></div>
               </div>
               <div className="space-y-2"><Label htmlFor="description">Descrição do serviço</Label><Textarea id="description" required minLength={3} maxLength={2000} value={description} onChange={e => setDescription(e.target.value)} placeholder="Descreva o serviço prestado" rows={4} /></div>
-              <Button type="submit" disabled={saving} className="w-full sm:w-auto">{saving ? "Salvando..." : "Salvar rascunho"}</Button>
+              <Button type="submit" disabled={saving || portalQuery.isLoading || portalQuery.isError || !selectedClientId} className="w-full sm:w-auto">{saving ? "Salvando..." : "Salvar rascunho"}</Button>
             </form>
           </CardContent>
         </Card>
