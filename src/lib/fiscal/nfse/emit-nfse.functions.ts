@@ -81,7 +81,7 @@ export const emitNfseAction = createServerFn({ method: "POST" })
 
       // Return actionable validation feedback to the UI without turning missing
       // draft fields into a generic server error. No request is sent in this case.
-      if ("ok" in result && result.ok === false && result.code === "DPS_INCOMPLETE") {
+      if ("ok" in result) {
         console.info("[nfse.emit] draft needs fiscal fields", {
           requestId,
           actorUserId: userId,
