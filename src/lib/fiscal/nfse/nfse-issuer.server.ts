@@ -26,7 +26,7 @@ export async function issueNfseNational(input: IssueNfseInput): Promise<NfseOffi
     .select([
       "id", "tenant_user_id", "certificado_ciphertext", "certificado_nonce", "certificado_auth_tag",
       "senha_certificado_ciphertext", "senha_certificado_nonce", "senha_certificado_auth_tag",
-      "status", "cnpj", "municipio_ibge",
+      "status", "cnpj", "municipio_ibge", "ambiente",
     ].join(","))
     .eq("id", input.configId)
     .eq("tenant_user_id", input.tenantUserId)
@@ -34,6 +34,11 @@ export async function issueNfseNational(input: IssueNfseInput): Promise<NfseOffi
 
   if (error || !config) throw new Error("Configuração fiscal não encontrada.");
   if (config.status !== "ativo") throw new Error("O certificado fiscal não está ativo.");
+  const fiscalEnvironment = config.ambiente === "producao" || config.ambiente === "producao_restrita"
+    ? config.ambiente
+    : null;
+  if (!fiscalEnvironment) throw new Error("Ambiente fiscal inválido; emissão bloqueada.");
+  assertFiscalRuntimeReady(fiscalEnvironment);
   if (config.cnpj && config.cnpj.replace(/\D/g, "") !== input.dps.prestador.cnpj.replace(/\D/g, "")) {
     throw new Error("O CNPJ do prestador não corresponde à configuração fiscal selecionada.");
   }
@@ -57,7 +62,7 @@ export async function issueNfseNational(input: IssueNfseInput): Promise<NfseOffi
     const { xml, id } = buildDpsXml(input.dps);
     signedXml = await signDpsXml(xml, pfx, password.toString("utf8"));
     // Validate the exact signed XML before it can reach the SEFIN submission helper.
-    assertDpsRequiredGroups(signedXml);
+    assertDpsRequiredGroups(signedXml, fiscalEnvironment);
     const numeroDps = String(input.dps.numeroDps);
     const serie = String(input.dps.serie);
     return await submitNfseNational({
