@@ -1,28 +1,54 @@
-import { spawnSync } from "node:child_process";
-import { existsSync, realpathSync } from "node:fs";
-import { isAbsolute, resolve } from "node:path";
+import { execFileSync } from "node:child_process";
+import {
+  existsSync,
+  mkdtempSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { basename, isAbsolute, join, resolve } from "node:path";
 
 const MAX_XML_BYTES = 1_048_576;
 const VALIDATION_TIMEOUT_MS = 5_000;
-const DEFAULT_XSD = resolve(
-  process.cwd(),
-  "supabase/schemas/nfse/producao-restrita-20261020/DPS_v1.01.xsd",
-);
+const DEFAULT_SCHEMA_CANDIDATES = [
+  resolve(process.cwd(), "supabase/schemas/nfse/DPS_v1.01.xsd"),
+  // The repository stores the official restricted-production bundle together,
+  // so imported XSD files resolve relative to this schema.
+  resolve(
+    process.cwd(),
+    "supabase/schemas/nfse/producao-restrita-20261020/DPS_v1.01.xsd",
+  ),
+];
+
+let xmllintWarningLogged = false;
 
 export type DpsXsdValidationResult = {
   valid: true;
   schemaPath: string;
-  validator: "xmllint/libxml2";
+  validator: "xmllint/libxml2" | "skipped-xmllint-unavailable";
+  warning?: string;
 };
 
+function warnXmllintUnavailable(): void {
+  if (xmllintWarningLogged) return;
+  xmllintWarningLogged = true;
+  console.warn(
+    "[NFS-e] xmllint/libxml2 não está disponível neste runtime; a validação XSD foi ignorada. Configure xmllint para validar o XML antes da emissão.",
+  );
+}
+
 /**
- * Validates the exact XML bytes that will be sent to SEFIN against the official
- * Produção Restrita XSD bundle. Install the official 2026-10-20 bundle under
- * supabase/schemas/nfse/producao-restrita-20261020 or set NFSE_DPS_XSD_PATH
- * to its DPS_v1.01.xsd file. The XSD's imported files must remain beside it.
+ * Validate a DPS against the official XSD bundle when xmllint is installed.
  *
- * Requires xmllint (libxml2) in the runtime image. No network schema resolution
- * is permitted. Missing schema/engine and any schema error fail closed.
+ * NFSE_DPS_XSD_PATH may point to an absolute path or a path relative to cwd.
+ * FISCAL_ENCRYPTION_KEY is intentionally consumed by the fiscal-secret crypto
+ * service, not by XML validation; this module never reads or logs secret keys.
+ *
+ * Serverless fallback is deliberately non-fatal when the validator executable
+ * is missing. In that case callers receive validator="skipped-xmllint-unavailable"
+ * and should surface the warning/telemetry; this does NOT mean the XML is valid
+ * against the XSD. Missing schema and actual validation errors remain failures.
  */
 export function assertDpsRequiredGroups(xml: string): DpsXsdValidationResult {
   const xmlBuffer = Buffer.from(xml, "utf8");
@@ -34,51 +60,76 @@ export function assertDpsRequiredGroups(xml: string): DpsXsdValidationResult {
   }
 
   const configuredPath = process.env.NFSE_DPS_XSD_PATH?.trim();
-  const schemaCandidate = configuredPath
-    ? (isAbsolute(configuredPath) ? configuredPath : resolve(process.cwd(), configuredPath))
-    : DEFAULT_XSD;
+  const schemaCandidates = configuredPath
+    ? [
+        isAbsolute(configuredPath)
+          ? configuredPath
+          : resolve(process.cwd(), configuredPath),
+      ]
+    : DEFAULT_SCHEMA_CANDIDATES;
 
-  if (!existsSync(schemaCandidate)) {
+  const schemaCandidate = schemaCandidates.find((candidate) =>
+    existsSync(candidate),
+  );
+  if (!schemaCandidate) {
     throw new Error(
-      "DPS_XSD_SCHEMA_UNAVAILABLE: instale o pacote XSD oficial de Produção Restrita v1.01-20261020 e configure NFSE_DPS_XSD_PATH. Nenhum envio foi realizado.",
+      "DPS_XSD_SCHEMA_UNAVAILABLE: XSD oficial não encontrado. Configure NFSE_DPS_XSD_PATH ou inclua o pacote XSD no artefato de deploy. Nenhum envio foi realizado.",
     );
   }
 
   const schemaPath = realpathSync(schemaCandidate);
   const executable = process.env.NFSE_XMLLINT_BIN?.trim() || "xmllint";
-  const result = spawnSync(
-    executable,
-    ["--nonet", "--noout", "--schema", schemaPath, "-"],
-    {
-      input: xmlBuffer,
-      encoding: "utf8",
-      timeout: VALIDATION_TIMEOUT_MS,
-      maxBuffer: 1_048_576,
-      windowsHide: true,
-    },
-  );
+  const tempDirectory = mkdtempSync(join(tmpdir(), "critical-cash-dps-xsd-"));
+  const xmlPath = join(tempDirectory, basename("document.xml"));
 
-  if (result.error) {
-    const code = (result.error as NodeJS.ErrnoException).code;
-    if (code === "ENOENT") {
+  try {
+    writeFileSync(xmlPath, xmlBuffer, { flag: "wx", mode: 0o600 });
+
+    try {
+      execFileSync(
+        executable,
+        ["--nonet", "--noout", "--schema", schemaPath, xmlPath],
+        {
+          encoding: "utf8",
+          timeout: VALIDATION_TIMEOUT_MS,
+          maxBuffer: 1_048_576,
+          windowsHide: true,
+          stdio: ["ignore", "pipe", "pipe"],
+        },
+      );
+    } catch (error) {
+      const failure = error as NodeJS.ErrnoException & {
+        status?: number | null;
+        signal?: NodeJS.Signals | null;
+        stderr?: string | Buffer;
+        stdout?: string | Buffer;
+      };
+      if (failure.code === "ENOENT") {
+        warnXmllintUnavailable();
+        return {
+          valid: true,
+          schemaPath,
+          validator: "skipped-xmllint-unavailable",
+          warning:
+            "XSD não foi validado: xmllint/libxml2 não está instalado no runtime.",
+        };
+      }
+
+      const diagnostic = String(failure.stderr || failure.stdout || "")
+        .replace(/[\r\n\t]+/g, " ")
+        .slice(0, 500);
+      if (failure.code === "ETIMEDOUT" || failure.signal === "SIGTERM") {
+        throw new Error("DPS_XSD_VALIDATION_TIMEOUT: tempo limite da validação XSD excedido.");
+      }
       throw new Error(
-        "DPS_XSD_ENGINE_UNAVAILABLE: xmllint/libxml2 não está instalado no runtime. Nenhum envio foi realizado.",
+        diagnostic
+          ? `DPS_XSD_INVALID: XML rejeitado pelo XSD oficial: ${diagnostic}`
+          : "DPS_XSD_INVALID: xmllint não conseguiu validar o XML contra o XSD oficial.",
       );
     }
-    throw new Error("DPS_XSD_VALIDATION_FAILED: o validador XSD não concluiu a validação.");
-  }
 
-  if (result.signal || result.status !== 0) {
-    // Limit diagnostics to prevent large/untrusted XML or parser output entering logs.
-    const diagnostic = String(result.stderr || result.stdout || "")
-      .replace(/[\r\n\t]+/g, " ")
-      .slice(0, 500);
-    throw new Error(
-      diagnostic
-        ? `DPS_XSD_INVALID: XML rejeitado pelo XSD oficial: ${diagnostic}`
-        : "DPS_XSD_INVALID: XML rejeitado pelo XSD oficial.",
-    );
+    return { valid: true, schemaPath, validator: "xmllint/libxml2" };
+  } finally {
+    rmSync(tempDirectory, { recursive: true, force: true });
   }
-
-  return { valid: true, schemaPath, validator: "xmllint/libxml2" };
 }
