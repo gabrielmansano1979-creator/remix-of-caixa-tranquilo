@@ -1045,6 +1045,8 @@ export type Database = {
           issuer_name: string
           issuer_cnpj: string
           issuer_city_ibge: string
+          municipio_prestacao_ibge?: string | null
+          municipio_prestacao_ibge: string | null
           recipient_name: string
           recipient_tax_id: string
           service_description: string
@@ -1129,6 +1131,7 @@ export type Database = {
           issuer_name?: string
           issuer_cnpj?: string
           issuer_city_ibge?: string
+          municipio_prestacao_ibge?: string | null
           recipient_name?: string
           recipient_tax_id?: string
           service_description?: string
