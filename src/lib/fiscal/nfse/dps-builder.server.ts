@@ -94,7 +94,7 @@ export function buildDpsXml(input: DpsBuilderInput): { xml: string; id: string }
   const serie = padded(input.serie, 5, "Série da DPS");
   const numero = padded(input.numeroDps, 15, "Número da DPS");
   const numeroXml = String(input.numeroDps).replace(/^0+/, "") || "0";
-  if (!/^[1-9]\\d{0,14}$/.test(numeroXml)) throw new Error("Número da DPS deve ser maior que zero e conter no máximo 15 dígitos sem zeros à esquerda.");
+  if (!/^[1-9]\d{0,14}$/.test(numeroXml)) throw new Error("Número da DPS deve ser maior que zero e conter no máximo 15 dígitos sem zeros à esquerda.");
   const id = `DPS${cLocEmi}2${cnpj}${serie}${numero}`;
   const valor = money(input.servico.valorServicos, "Valor dos serviços");
   if (!input.servico.descricao.trim()) throw new Error("Descrição do serviço é obrigatória.");
