@@ -5,7 +5,7 @@ import { buildDpsXml, type DpsBuilderInput } from "./dps-builder.server";
 import { nfseDraftSchema } from "./draft-schema";
 import { signDpsXml } from "./xml-signer.server";
 import { queryDps, submitSignedDps, NfseTransportError } from "./nfse-national-client.server";
-import { assertDpsRequiredGroups } from "./dps-xsd-validator.server";
+import { assertDpsRequiredGroups, assertFiscalRuntimeReady } from "./dps-xsd-validator.server";
 
 export type NfseDraftMissingField = {
   field: string;
@@ -52,6 +52,9 @@ export async function buildSignAndSubmitDps(input: {
   dps: DpsBuilderInput;
   timeoutMs?: number;
 }) {
+  // Fail before database secrets or network access if runtime prerequisites are missing.
+  assertFiscalRuntimeReady();
+
   const { data: config, error: configError } = await supabaseAdmin
     .from("configuracoes_fiscais")
     .select("id,tenant_user_id,certificado_ciphertext,certificado_nonce,certificado_auth_tag,senha_certificado_ciphertext,senha_certificado_nonce,senha_certificado_auth_tag,status,ambiente")
@@ -99,9 +102,7 @@ export async function buildSignAndSubmitDps(input: {
   }
 
   const connection = await createFiscalMtlsConnection(input.tenantUserId, input.configId);
-  const builtId = "ID" + input.dps.municipioEmissorIbge.replace(/\D/g, "") + "2" +
-    input.dps.prestador.cnpj.replace(/\D/g, "") + String(input.dps.serie).padStart(5, "0") +
-    String(input.dps.numeroDps).padStart(15, "0");
+  const builtId = buildDpsXml(input.dps).id;
 
   try {
     let existing;
