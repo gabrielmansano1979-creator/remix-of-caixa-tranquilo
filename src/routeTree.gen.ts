@@ -14,6 +14,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as CadastroRouteImport } from './routes/cadastro'
 import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as ContadorRouteImport } from './routes/contador'
+import { Route as NotasFiscaisRouteImport } from './routes/notas-fiscais'
 import { Route as EsqueciSenhaRouteImport } from './routes/esqueci-senha'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as PrivacidadeRouteImport } from './routes/privacidade'
@@ -55,6 +56,11 @@ const CheckoutRoute = CheckoutRouteImport.update({
 const ContadorRoute = ContadorRouteImport.update({
   id: '/contador',
   path: '/contador',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NotasFiscaisRoute = NotasFiscaisRouteImport.update({
+  id: '/notas-fiscais',
+  path: '/notas-fiscais',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EsqueciSenhaRoute = EsqueciSenhaRouteImport.update({
@@ -155,6 +161,7 @@ export interface FileRoutesByFullPath {
   '/cadastro': typeof CadastroRoute
   '/checkout': typeof CheckoutRoute
   '/contador': typeof ContadorRoute
+  '/notas-fiscais': typeof NotasFiscaisRoute
   '/esqueci-senha': typeof EsqueciSenhaRoute
   '/login': typeof LoginRoute
   '/privacidade': typeof PrivacidadeRoute
@@ -178,6 +185,7 @@ export interface FileRoutesByTo {
   '/cadastro': typeof CadastroRoute
   '/checkout': typeof CheckoutRoute
   '/contador': typeof ContadorRoute
+  '/notas-fiscais': typeof NotasFiscaisRoute
   '/esqueci-senha': typeof EsqueciSenhaRoute
   '/login': typeof LoginRoute
   '/privacidade': typeof PrivacidadeRoute
@@ -203,6 +211,7 @@ export interface FileRoutesById {
   '/cadastro': typeof CadastroRoute
   '/checkout': typeof CheckoutRoute
   '/contador': typeof ContadorRoute
+  '/notas-fiscais': typeof NotasFiscaisRoute
   '/esqueci-senha': typeof EsqueciSenhaRoute
   '/login': typeof LoginRoute
   '/privacidade': typeof PrivacidadeRoute
@@ -229,6 +238,7 @@ export interface FileRouteTypes {
     | '/cadastro'
     | '/checkout'
     | '/contador'
+    | '/notas-fiscais'
     | '/esqueci-senha'
     | '/login'
     | '/privacidade'
@@ -252,6 +262,7 @@ export interface FileRouteTypes {
     | '/cadastro'
     | '/checkout'
     | '/contador'
+    | '/notas-fiscais'
     | '/esqueci-senha'
     | '/login'
     | '/privacidade'
@@ -276,6 +287,7 @@ export interface FileRouteTypes {
     | '/cadastro'
     | '/checkout'
     | '/contador'
+    | '/notas-fiscais'
     | '/esqueci-senha'
     | '/login'
     | '/privacidade'
@@ -302,6 +314,7 @@ export interface RootRouteChildren {
   CadastroRoute: typeof CadastroRoute
   CheckoutRoute: typeof CheckoutRoute
   ContadorRoute: typeof ContadorRoute
+  NotasFiscaisRoute: typeof NotasFiscaisRoute
   EsqueciSenhaRoute: typeof EsqueciSenhaRoute
   LoginRoute: typeof LoginRoute
   PrivacidadeRoute: typeof PrivacidadeRoute
@@ -349,6 +362,13 @@ declare module '@tanstack/react-router' {
       path: '/contador'
       fullPath: '/contador'
       preLoaderRoute: typeof ContadorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/notas-fiscais': {
+      id: '/notas-fiscais'
+      path: '/notas-fiscais'
+      fullPath: '/notas-fiscais'
+      preLoaderRoute: typeof NotasFiscaisRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/esqueci-senha': {
@@ -522,6 +542,7 @@ const rootRouteChildren: RootRouteChildren = {
   CadastroRoute: CadastroRoute,
   CheckoutRoute: CheckoutRoute,
   ContadorRoute: ContadorRoute,
+  NotasFiscaisRoute: NotasFiscaisRoute,
   EsqueciSenhaRoute: EsqueciSenhaRoute,
   LoginRoute: LoginRoute,
   PrivacidadeRoute: PrivacidadeRoute,
