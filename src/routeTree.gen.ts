@@ -162,6 +162,7 @@ export interface FileRoutesByFullPath {
   '/checkout': typeof CheckoutRoute
   '/contador': typeof ContadorRoute
   '/notas-fiscais': typeof NotasFiscaisRoute
+  '/notas-fiscais': typeof NotasFiscaisRoute
   '/esqueci-senha': typeof EsqueciSenhaRoute
   '/login': typeof LoginRoute
   '/privacidade': typeof PrivacidadeRoute
@@ -236,6 +237,7 @@ export interface FileRouteTypes {
     | '/cadastro'
     | '/checkout'
     | '/contador'
+    | '/notas-fiscais'
     | '/notas-fiscais'
     | '/esqueci-senha'
     | '/login'
