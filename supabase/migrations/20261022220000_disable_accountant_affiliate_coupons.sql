@@ -82,11 +82,11 @@ CREATE OR REPLACE FUNCTION public.prevent_new_accountant_commissions()
 RETURNS trigger
 LANGUAGE plpgsql
 SET search_path = public, pg_temp
-AS $
+AS $$
 BEGIN
   RETURN NULL;
 END;
-$;
+$$;
 
 REVOKE ALL ON FUNCTION public.prevent_new_accountant_commissions() FROM PUBLIC, anon, authenticated;
 DROP TRIGGER IF EXISTS commissions_prevent_new_accountant_commissions ON public.commissions;
