@@ -6,10 +6,6 @@
  */
 export const DPS_NAMESPACE = "http://www.sped.fazenda.gov.br/nfse";
 
-export const DPS_NAMESPACE = "http://www.sped.fazenda.gov.br/nfse";
-
-
-
 export interface DpsBuilderInput {
   ambiente: 1 | 2; // 1=produção, 2=produção restrita/homologação, per current layout
   dataHoraEmissao: string; // ISO 8601 with timezone
