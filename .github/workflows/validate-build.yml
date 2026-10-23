@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - "src/**"
+      - "scripts/**"
+      - "supabase/schemas/nfse/**"
       - "supabase/migrations/**"
       - "drizzle/migrations/**"
       - "package.json"
@@ -62,6 +64,10 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - name: Install libxml2 XSD validator
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes libxml2-utils
       - name: Generate lockfile and install dependencies
         run: |
           npm install --package-lock-only --ignore-scripts --no-fund --legacy-peer-deps
@@ -71,6 +77,9 @@ jobs:
           npm pkg set 'overrides.esbuild=^0.25.12'
           npm install --package-lock-only --ignore-scripts --no-fund --legacy-peer-deps
           npm ci --ignore-scripts --no-fund --legacy-peer-deps
+      - name: Verify fiscal runtime prerequisites with a synthetic test key
+        run: |
+          FISCAL_ENCRYPTION_KEY="$(node -e 'process.stdout.write(Buffer.alloc(32, 0x5a).toString("base64"))')" NFSE_XMLLINT_BIN=xmllint npm run check:fiscal-runtime
       - name: Run unit tests
         run: npm test
       - name: TypeScript check
