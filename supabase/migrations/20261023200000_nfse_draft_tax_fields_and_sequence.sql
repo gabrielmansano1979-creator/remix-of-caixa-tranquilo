@@ -25,6 +25,10 @@ BEGIN
     ALTER TABLE public.fiscal_invoices ADD CONSTRAINT fiscal_invoices_aliquota_iss_chk
       CHECK (aliquota_iss IS NULL OR (aliquota_iss >= 0 AND aliquota_iss <= 100)) NOT VALID;
   END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fiscal_invoices_iss_aliquota_required_chk') THEN
+    ALTER TABLE public.fiscal_invoices ADD CONSTRAINT fiscal_invoices_iss_aliquota_required_chk
+      CHECK (iss_retido IS DISTINCT FROM false OR aliquota_iss IS NOT NULL) NOT VALID;
+  END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fiscal_invoices_serie_chk') THEN
     ALTER TABLE public.fiscal_invoices ADD CONSTRAINT fiscal_invoices_serie_chk
       CHECK (serie IS NULL OR serie ~ '^[0-9]{1,5}$') NOT VALID;
@@ -73,7 +77,7 @@ BEGIN
     END IF;
 
     -- Ignore any client-supplied number and allocate per tenant/series atomically.
-    NEW.serie := COALESCE(NULLIF(NEW.serie, ''), '1');
+    NEW.serie := '1';
     INSERT INTO public.nfse_dps_sequences (tenant_user_id, serie, next_number)
       VALUES (NEW.user_id, NEW.serie, 2)
     ON CONFLICT (tenant_user_id, serie)
