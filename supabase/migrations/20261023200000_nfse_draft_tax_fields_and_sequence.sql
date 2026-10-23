@@ -96,6 +96,9 @@ BEGIN
 END;
 $function$;
 
+-- The function is only intended to run as a trigger; do not expose its direct execution.
+REVOKE ALL ON FUNCTION public.assign_nfse_dps_sequence() FROM PUBLIC, anon, authenticated;
+
 DROP TRIGGER IF EXISTS fiscal_invoices_assign_dps_sequence ON public.fiscal_invoices;
 CREATE TRIGGER fiscal_invoices_assign_dps_sequence
 BEFORE INSERT ON public.fiscal_invoices
