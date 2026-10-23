@@ -150,7 +150,7 @@ CREATE OR REPLACE FUNCTION public.admin_record_commission_payout(
   _partner_user_id uuid, _amount_cents bigint, _admin_note text DEFAULT NULL
 ) RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp
 AS $$
-DECLARE payout_id uuid; method public.partner_payout_methods%ROWTYPE;
+DECLARE payout_id uuid; method public.partner_payout_methods%ROWTYPE; partner_record_id uuid; available_cents bigint;
 BEGIN
   IF auth.uid() IS NULL OR NOT EXISTS (SELECT 1 FROM public.user_roles WHERE user_id=auth.uid() AND role='admin') THEN
     RAISE EXCEPTION 'admin access required';
@@ -158,8 +158,14 @@ BEGIN
   IF _amount_cents IS NULL OR _amount_cents <= 0 THEN RAISE EXCEPTION 'invalid payout amount'; END IF;
   SELECT * INTO method FROM public.partner_payout_methods WHERE partner_user_id=_partner_user_id FOR UPDATE;
   IF NOT FOUND OR method.status <> 'verified' THEN RAISE EXCEPTION 'verified Pix key required'; END IF;
-  IF NOT EXISTS (SELECT 1 FROM public.partner_requests WHERE user_id=_partner_user_id AND status='approved') THEN
-    RAISE EXCEPTION 'approved accountant required';
+  SELECT id INTO partner_record_id FROM public.partner_requests WHERE user_id=_partner_user_id AND status='approved';
+  IF partner_record_id IS NULL THEN RAISE EXCEPTION 'approved accountant required'; END IF;
+  SELECT GREATEST(0,
+    COALESCE((SELECT sum(amount_cents) FROM public.commissions WHERE partner_id=partner_record_id AND status='available'),0)
+    - COALESCE((SELECT sum(amount_cents) FROM public.commission_payouts WHERE partner_user_id=_partner_user_id AND status IN ('approved','paid')),0)
+  ) INTO available_cents;
+  IF _amount_cents > available_cents THEN
+    RAISE EXCEPTION 'payout exceeds available commissions';
   END IF;
   INSERT INTO public.commission_payouts(partner_user_id,amount_cents,status,pix_type,pix_key_masked,pix_holder_name,admin_note)
   VALUES (_partner_user_id,_amount_cents,'approved',method.pix_type,
