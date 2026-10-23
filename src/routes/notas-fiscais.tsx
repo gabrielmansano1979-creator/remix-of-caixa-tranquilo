@@ -1,6 +1,6 @@
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { ArrowLeft, FileText, Plus, ShieldCheck, CircleAlert, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -57,7 +57,7 @@ function FiscalInvoicesPage() {
     },
   });
 
-  const saveDraft = async (event: React.FormEvent<HTMLFormElement>) => {
+  const saveDraft = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const cents = Math.round(Number(amount.replace(",", ".")) * 100);
     const cleanCnpj = digits(issuerCnpj);
