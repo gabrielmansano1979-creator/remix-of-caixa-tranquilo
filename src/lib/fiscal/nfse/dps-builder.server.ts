@@ -141,7 +141,7 @@ export function buildDpsXml(input: DpsBuilderInput): { xml: string; id: string }
       <trib>
         <tribMun>
           ${tag("tribISSQN", input.servico.issRetido ? 2 : 1)}
-          ${tag("pAliq", aliquota ? input.servico.aliquotaIss!.toFixed(2) : undefined)}
+          ${tag("pAliq", input.servico.aliquotaIss !== undefined && Number.isFinite(input.servico.aliquotaIss) ? input.servico.aliquotaIss.toFixed(2) : undefined)}
         </tribMun>
       </trib>
     </valores>
