@@ -1,4 +1,5 @@
 import { request, type Agent } from "node:https";
+import { gzipSync } from "node:zlib";
 import type { NfseOfficialResult } from "./nfse-submission.server";
 
 export class NfseTransportError extends Error {
@@ -20,7 +21,7 @@ function requestText(options: ClientOptions, method: string, path: string, body?
       method,
       agent: options.agent,
       timeout: options.timeoutMs ?? 20_000,
-      headers: body ? { "content-type": "application/xml; charset=utf-8", accept: "application/json, application/xml", "content-length": Buffer.byteLength(body) } : { accept: "application/json, application/xml" },
+      headers: body ? { "content-type": "application/json; charset=utf-8", accept: "application/json", "content-length": Buffer.byteLength(body) } : { accept: "application/json" },
     }, (res) => {
       const chunks: Buffer[] = [];
       res.on("data", (chunk: Buffer | string) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
@@ -49,12 +50,16 @@ function resultFrom(status: number, body: string): NfseOfficialResult {
 }
 
 /**
- * Client methods use the published API resource patterns: POST /nfse and GET/HEAD /dps/{id}.
- * Confirm exact media type and payload wrapper against the current SEFIN OpenAPI before production.
+ * SEFIN Nacional POST /nfse contract: JSON { dpsXmlGZipB64 }, where the signed
+ * DPS XML is compressed with GZip and then encoded as Base64.
  */
 export async function submitSignedDps(input: ClientOptions & { signedXml: string }): Promise<NfseOfficialResult> {
-  const response = await requestText(input, "POST", "/nfse", input.signedXml);
-  if (response.status < 200 || response.status >= 300) return resultFrom(response.status, response.body);
+  if (!input.signedXml.includes("<Signature") || !input.signedXml.includes("</DPS>")) {
+    throw new Error("DPS assinada inválida; transmissão bloqueada.");
+  }
+  const dpsXmlGZipB64 = gzipSync(Buffer.from(input.signedXml, "utf8")).toString("base64");
+  const body = JSON.stringify({ dpsXmlGZipB64 });
+  const response = await requestText(input, "POST", "/nfse", body);
   return resultFrom(response.status, response.body);
 }
 export async function queryDps(input: ClientOptions & { dpsId: string }): Promise<NfseOfficialResult | null> {
