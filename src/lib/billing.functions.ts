@@ -52,6 +52,18 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
     let stage = "usage";
     try {
       const { supabase, userId, claims } = context;
+
+      // Platform admins (including the owner) use complimentary access and must not
+      // accidentally create a paid checkout from the ordinary customer flow.
+      const { data: isPlatformAdmin, error: adminRoleError } = await supabase.rpc("has_role", {
+        _user_id: userId,
+        _role: "admin",
+      });
+      if (adminRoleError) throw adminRoleError;
+      if (isPlatformAdmin === true) {
+        return { error: "Sua conta administrativa já possui acesso gratuito à plataforma; não é necessário contratar um plano." };
+      }
+
       const asaas = await import("./asaas.server");
 
       // Bloqueia downgrade se o uso atual exceder o plano escolhido.
