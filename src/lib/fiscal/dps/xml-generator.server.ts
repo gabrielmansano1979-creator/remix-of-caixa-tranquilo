@@ -20,8 +20,8 @@ export type DpsInput = {
   prestador: DpsParty & {
     cnpj: string;
     regimeSimplesNacional: "nao_optante" | "mei" | "simples_nacional";
-    regimeApuracaoSimples?: "tributos_federais_municipais" | "tributos_federais" | "tributos_municipais";
-    regimeEspecialTributacao?: string;
+    regimeApuracaoSimples?: "1" | "2" | "3";
+    regimeEspecialTributacao?: string; // Código do leiaute oficial, nunca uma descrição livre.
   };
   tomador?: DpsParty;
   localPrestacaoIbge: string;
