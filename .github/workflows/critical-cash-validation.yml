@@ -1,17 +1,20 @@
 name: Critical Cash validation
 
-on:
+"on":
   push:
-    branches: [main, "fix/financial-counterparty-audit"]
+    branches:
+      - main
+      - fix/financial-counterparty-audit
   pull_request:
-    branches: [main]
-  workflow_dispatch: {}
+    branches:
+      - main
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: critical-cash-validation-${{ github.event.pull_request.number || github.ref }}
+  group: critical-cash-validation-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
