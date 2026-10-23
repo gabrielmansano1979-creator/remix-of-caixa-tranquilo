@@ -96,6 +96,12 @@ export const emitNfseAction = createServerFn({ method: "POST" })
       if (status === 404 || (error instanceof Error && ["INVOICE_NOT_FOUND", "FISCAL_CONFIG_NOT_FOUND"].includes(error.message))) {
         throw new Error("Nota fiscal ou configuração fiscal não encontrada.");
       }
+      if (error instanceof Error && error.message.startsWith("DPS_INCOMPLETE:")) {
+        console.warn("[nfse.emit] blocked emission: incomplete fiscal payload", {
+          requestId, actorUserId: userId, invoiceId: data.invoiceId, tenantUserId: data.tenantUserId,
+        });
+        throw new Error("A emissão ainda não está disponível: faltam dados fiscais obrigatórios para montar a DPS Nacional. Nenhum envio foi realizado.");
+      }
 
       console.error("[nfse.emit] emission failed", {
         requestId,
