@@ -62,10 +62,8 @@ export function signDpsXml(dpsXml: string, pfx: Buffer, pfxPassword: string): st
 
   const parseErrors: string[] = [];
   const doc = new DOMParser({
-    errorHandler: {
-      warning: (message) => parseErrors.push(message),
-      error: (message) => parseErrors.push(message),
-      fatalError: (message) => parseErrors.push(message),
+    errorHandler: (level: string, message: string) => {
+      if (level === "error" || level === "fatalError") parseErrors.push(message);
     },
   }).parseFromString(dpsXml, "application/xml");
 
