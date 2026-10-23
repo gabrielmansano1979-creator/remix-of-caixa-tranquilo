@@ -86,8 +86,16 @@ export function generateNfeKeyAndId(input: NfeKeyInput): NfeKeyAndId {
   }
   const year = Number(dateMatch[1]);
   const month = Number(dateMatch[2]);
+  const dayText = input.issueDate.length === 10 ? input.issueDate.slice(8, 10) : undefined;
   if (year < 2000 || year > 2099 || month < 1 || month > 12) {
     throw new Error("A data de emissão não produz um AAMM válido para a chave.");
+  }
+  if (dayText !== undefined) {
+    const day = Number(dayText);
+    const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+    if (day < 1 || day > daysInMonth) {
+      throw new Error("O dia informado em issueDate não é válido para o mês.");
+    }
   }
 
   const emissionType = assertDigits(input.emissionType, 1, "tpEmis");
