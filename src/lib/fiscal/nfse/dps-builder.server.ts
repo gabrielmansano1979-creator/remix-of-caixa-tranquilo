@@ -93,6 +93,8 @@ export function buildDpsXml(input: DpsBuilderInput): { xml: string; id: string }
   if (cLocEmi.length !== 7) throw new Error("Código IBGE do município emissor deve conter 7 dígitos.");
   const serie = padded(input.serie, 5, "Série da DPS");
   const numero = padded(input.numeroDps, 15, "Número da DPS");
+  const numeroXml = String(input.numeroDps).replace(/^0+/, "") || "0";
+  if (!/^[1-9]\\d{0,14}$/.test(numeroXml)) throw new Error("Número da DPS deve ser maior que zero e conter no máximo 15 dígitos sem zeros à esquerda.");
   const id = `DPS${cLocEmi}2${cnpj}${serie}${numero}`;
   const valor = money(input.servico.valorServicos, "Valor dos serviços");
   if (!input.servico.descricao.trim()) throw new Error("Descrição do serviço é obrigatória.");
@@ -121,12 +123,12 @@ export function buildDpsXml(input: DpsBuilderInput): { xml: string; id: string }
     : "";
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <DPS xmlns="${DPS_NAMESPACE}" versao="1.01">
-  <infDPS Id="${id}" versao="1.01">
+  <infDPS Id="${id}">
     ${tag("tpAmb", input.ambiente)}
     ${tag("dhEmi", input.dataHoraEmissao)}
     ${tag("verAplic", input.versaoAplicacao)}
     ${tag("serie", serie)}
-    ${tag("nDPS", numero)}
+    ${tag("nDPS", numeroXml)}
     ${tag("dCompet", dateOnly(input.competencia, "Competência"))}
     ${tag("tpEmit", input.tipoEmitente)}
     ${tag("finNFSe", 0)}
