@@ -10,6 +10,12 @@ ALTER TABLE public.fiscal_invoices
   ADD COLUMN IF NOT EXISTS serie text,
   ADD COLUMN IF NOT EXISTS numero_dps bigint;
 
+-- The preceding foundation migration introduced numero_dps as text for compatibility;
+-- normalize it to bigint before adding numeric sequence constraints. Existing values are null
+-- in the current deployment; USING also safely converts any numeric legacy values.
+ALTER TABLE public.fiscal_invoices
+  ALTER COLUMN numero_dps TYPE bigint USING NULLIF(numero_dps::text, '')::bigint;
+
 -- Keep old drafts readable; enforce required fields for new drafts in the trigger.
 DO $$
 BEGIN
