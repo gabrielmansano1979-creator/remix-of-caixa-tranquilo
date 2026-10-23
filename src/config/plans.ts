@@ -1,4 +1,4 @@
-// Fonte única dos planos comerciais. Os limites de cliente espelham public.plan_limits no Supabase.
+// Fonte única de planos e limites no front. Espelho do servidor: função SQL public.plan_limits.
 export type PlanId = "starter" | "pro" | "business";
 
 export interface PlanConfig {
@@ -18,6 +18,69 @@ export interface PlanConfig {
   features: string[];
 }
 
+export const TRIAL_DAYS = 14; // teste sem cartão, com recursos Pro
+/** Desconto da primeira assinatura paga via Pix. */
+export const FIRST_PIX_DISCOUNT = 0.1;
+export const PARTNER_COUPON_DISCOUNT = 0.2;
+export const TRIAL_PLAN: PlanId = "pro";
+export const USAGE_WARNING_RATIO = 0.8;
+
+export const PLANS: PlanConfig[] = [
+  {
+    id: "starter",
+    name: "Essencial",
+    priceMonthCents: 7990,
+    priceYearCents: 79900,
+    couponDiscountPercent: 20,
+    limits: { pendingEntries: 100, csvRows: 100, topRisks: 3, editRuleDays: false, editRuleTexts: false },
+    features: [
+      "Até 100 contas pendentes",
+      "Cobranças manuais pelo WhatsApp",
+      "Importação CSV (até 100 linhas)",
+      "Régua padrão com 4 etapas",
+      "Projeção de 15 e 30 dias",
+      "Top 3 maiores riscos",
+      "Suporte padrão",
+    ],
+  },
+  {
+    id: "pro",
+    name: "Evolução",
+    popular: true,
+    priceMonthCents: 15990,
+    priceYearCents: 159900,
+    couponDiscountPercent: 20,
+    limits: { pendingEntries: 500, csvRows: 500, topRisks: 5, editRuleDays: true, editRuleTexts: false },
+    features: [
+      "Até 500 contas pendentes",
+      "Cobranças manuais pelo WhatsApp",
+      "Importação CSV (até 500 linhas)",
+      "Edite dias e ative/desative etapas",
+      "Projeção de 15 e 30 dias",
+      "Top 5 maiores riscos",
+      "Suporte prioritário",
+    ],
+  },
+  {
+    id: "business",
+    name: "Excelência",
+    priceMonthCents: 24990,
+    priceYearCents: 249900,
+    couponDiscountPercent: 20,
+    limits: { pendingEntries: 2000, csvRows: 2000, topRisks: 10, editRuleDays: true, editRuleTexts: true },
+    features: [
+      "Até 2.000 contas pendentes",
+      "Cobranças manuais pelo WhatsApp",
+      "Importação CSV (até 2.000 linhas)",
+      "Edite mensagens e etapas da régua",
+      "Projeção de 15 e 30 dias",
+      "Top 10 maiores riscos",
+      "Suporte prioritário",
+    ],
+  },
+];
+
+
 export type AccountantPlanId = "auditor_free" | "office_starter" | "office_pro" | "office_multiple";
 export interface AccountantPlanConfig {
   id: AccountantPlanId;
@@ -28,121 +91,44 @@ export interface AccountantPlanConfig {
   features: string[];
 }
 
-// O sistema mantém limites técnicos inteiros no banco; 2.147.483.647 representa
-// capacidade ilimitada para as validações existentes baseadas em INTEGER.
-const UNLIMITED = 2_147_483_647;
-
-export const TRIAL_DAYS = 14;
-export const FIRST_PIX_DISCOUNT = 0.1;
-export const PARTNER_COUPON_DISCOUNT = 0.2;
-export const TRIAL_PLAN: PlanId = "pro";
-export const USAGE_WARNING_RATIO = 0.8;
-
-export const PLANS: PlanConfig[] = [
-  {
-    id: "starter",
-    name: "Starter",
-    priceMonthCents: 5900,
-    priceYearCents: 59000,
-    couponDiscountPercent: PARTNER_COUPON_DISCOUNT * 100,
-    limits: { pendingEntries: UNLIMITED, csvRows: UNLIMITED, topRisks: UNLIMITED, editRuleDays: true, editRuleTexts: true },
-    features: [
-      "Lançamentos, entradas e saídas ilimitados",
-      "Anexos de comprovantes em PDF e fotos",
-      "Semáforo de auditoria financeira",
-      "Cobranças e lembretes via WhatsApp Direct",
-      "Importação de movimentações financeiras",
-      "Cupom de contador parceiro com 20% de desconto",
-    ],
-  },
-  {
-    id: "pro",
-    name: "Pro",
-    popular: true,
-    priceMonthCents: 9900,
-    priceYearCents: 99000,
-    couponDiscountPercent: PARTNER_COUPON_DISCOUNT * 100,
-    limits: { pendingEntries: UNLIMITED, csvRows: UNLIMITED, topRisks: UNLIMITED, editRuleDays: true, editRuleTexts: true },
-    features: [
-      "Tudo do Starter",
-      "Projeção preditiva de caixa para 30 dias",
-      "Identificação da data projetada de saldo negativo (Data do Furo)",
-      "Importação bancária OFX, CSV e PDF",
-      "Central de pendências financeiras",
-      "Lançamentos e importações ilimitados",
-      "Cupom de contador parceiro com 20% de desconto",
-    ],
-  },
-  {
-    id: "business",
-    name: "Business",
-    priceMonthCents: 19900,
-    priceYearCents: 199000,
-    couponDiscountPercent: PARTNER_COUPON_DISCOUNT * 100,
-    limits: { pendingEntries: UNLIMITED, csvRows: UNLIMITED, topRisks: UNLIMITED, editRuleDays: true, editRuleTexts: true },
-    features: [
-      "Tudo do Pro",
-      "Leitura automática OCR de comprovantes com Tesseract.js e PDF.js",
-      "Múltiplos usuários",
-      "Suporte prioritário",
-      "Lançamentos e importações ilimitados",
-      "Cupom de contador parceiro com 20% de desconto",
-    ],
-  },
-];
-
+// Auditoria gratuita apenas para contadores aprovados; não libera o caixa próprio.
 export const ACCOUNTANT_PLANS: AccountantPlanConfig[] = [
   {
-    id: "auditor_free",
-    name: "Auditor Free",
-    priceMonthCents: 0,
-    priceYearCents: null,
+    id: "auditor_free", name: "Auditoria Livre", priceMonthCents: 0, priceYearCents: null,
     features: [
-      "Gratuito para sempre: auditoria de clientes sem limite",
-      "Área Meus Clientes completa, sem exigir plano de escritório",
-      "Semáforos vermelho, amarelo e verde por lançamento",
-      "Visualização e conferência de comprovantes anexados pelos clientes",
-      "Pendências e cobrança de documentos pelo WhatsApp Direct",
-      "Relatórios e acompanhamento de auditoria gratuitos",
-      "Painel de comissões e cupom de contador parceiro com 20% de desconto",
+      "Exige aprovação do cadastro profissional",
+      "Até 1 empresa cliente vinculada",
+      "Até 1 auditoria por mês",
+      "Conferência de lançamentos e comprovantes",
+      "Não libera o fluxo de caixa da própria empresa contábil",
     ],
   },
   {
-    id: "office_starter",
-    name: "Escritório Starter",
-    priceMonthCents: 14900,
-    priceYearCents: 149000,
+    id: "office_starter", name: "Básico", priceMonthCents: 14990, priceYearCents: 149900,
     features: [
-      "Todos os recursos gratuitos de Meus Clientes e auditoria",
-      "Libera a área paga Meu Caixa para a própria empresa contábil",
-      "Fluxo de caixa do escritório, entradas, saídas e saldo",
-      "DRE simplificada",
+      "Todos os recursos de auditoria de clientes do plano gratuito",
+      "Fluxo de caixa próprio do escritório",
+      "Gestão de entradas, saídas e saldo",
+      "Relatórios financeiros básicos",
     ],
   },
   {
-    id: "office_pro",
-    name: "Escritório Pro",
-    priceMonthCents: 24900,
-    priceYearCents: 249000,
+    id: "office_pro", name: "Intermediário", priceMonthCents: 29900, priceYearCents: 299000,
+    popular: true,
     features: [
-      "Todos os recursos gratuitos de Meus Clientes e auditoria",
-      "Tudo do Meu Caixa do Escritório Starter",
-      "Gestão financeira completa do próprio escritório",
-      "Projeção preditiva de caixa para 30 dias",
-      "Importação bancária OFX e PDF",
+      "Tudo do Básico",
+      "Projeção de caixa para 30 dias",
+      "Importação bancária compatível",
+      "Relatórios financeiros ampliados",
     ],
   },
   {
-    id: "office_multiple",
-    name: "Escritório Múltiplo",
-    priceMonthCents: 39900,
-    priceYearCents: 399000,
+    id: "office_multiple", name: "Avançado", priceMonthCents: 39900, priceYearCents: 399000,
     features: [
-      "Todos os recursos gratuitos de Meus Clientes e auditoria",
-      "Tudo do Meu Caixa do Escritório Pro",
-      "Múltiplos CNPJs e filiais contábeis",
-      "Gestão de honorários dos clientes",
-      "Atendimento VIP",
+      "Tudo do Intermediário",
+      "Gestão financeira avançada do escritório",
+      "Recursos para múltiplas empresas e filiais, conforme disponibilidade",
+      "Atendimento prioritário",
     ],
   },
 ];
@@ -156,8 +142,8 @@ export const getPlan = (id: PlanId) => {
   return plan;
 };
 
-// Valores do Stripe são mantidos por compatibilidade, mas o fluxo de cobrança principal
-// documentado usa Asaas. Substitua pelos IDs reais se o Stripe voltar a ser utilizado.
+// IDs de preço do Stripe (modo teste). Substitua pelos IDs criados no seu painel Stripe.
+// Também podem ser sobrescritos no servidor pelos secrets STRIPE_PRICE_<PLANO>_<MONTH|YEAR>.
 export const STRIPE_PRICE_IDS: Record<PlanId, { month: string; year: string }> = {
   starter: { month: "price_starter_month_REPLACE", year: "price_starter_year_REPLACE" },
   pro: { month: "price_pro_month_REPLACE", year: "price_pro_year_REPLACE" },

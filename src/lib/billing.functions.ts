@@ -52,6 +52,18 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
     let stage = "usage";
     try {
       const { supabase, userId, claims } = context;
+
+      // Platform admins (including the owner) use complimentary access and must not
+      // accidentally create a paid checkout from the ordinary customer flow.
+      const { data: isPlatformAdmin, error: adminRoleError } = await supabase.rpc("has_role", {
+        _user_id: userId,
+        _role: "admin",
+      });
+      if (adminRoleError) throw adminRoleError;
+      if (isPlatformAdmin === true) {
+        return { error: "Sua conta já possui acesso liberado; não é necessário contratar um plano." };
+      }
+
       const asaas = await import("./asaas.server");
 
       // Bloqueia downgrade se o uso atual exceder o plano escolhido.
@@ -156,37 +168,20 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
 
       if (referralCode) {
         if (prev?.affiliate_partner_id && prev.affiliate_coupon_code === referralCode && prev.affiliate_commission_percent && prev.affiliate_discount_percent) {
-          // Revalidate self-referral even for an already-linked subscription; never trust an old snapshot.
-          const { data: linkedPartner, error: linkedPartnerError } = await supabaseAdmin
-            .from("partner_requests")
-            .select("user_id, email, tax_id, status")
-            .eq("id", prev.affiliate_partner_id)
-            .maybeSingle();
-          if (linkedPartnerError) throw linkedPartnerError;
-          if (!linkedPartner || linkedPartner.status !== "approved") {
-            return { error: "O cupom de indicação não está disponível." };
-          }
-          const buyerDoc = normalizeCpfCnpj(data.cpfCnpj);
-          const partnerDoc = normalizeCpfCnpj(linkedPartner.tax_id ?? "");
-          if (partnerDoc && partnerDoc === buyerDoc) {
-            return { error: "Você não pode utilizar seu próprio cupom de indicação para assinar um plano." };
-          }
           const { data: currentCoupon, error: currentCouponError } = await supabaseAdmin
             .from("coupons")
             .select("commission_percent, discount_percent")
             .eq("code", referralCode)
-            .eq("partner_id", prev.affiliate_partner_id)
             .eq("is_active", true)
             .maybeSingle();
           if (currentCouponError) throw currentCouponError;
-          if (!currentCoupon) return { error: "O cupom de indicação não está disponível." };
           affiliate = {
             partnerId: prev.affiliate_partner_id,
             code: referralCode,
             // A referred customer's commission tier and discount are fixed at acquisition.
             // A later change in the accountant's tier must only affect newly acquired clients.
-            commissionPercent: prev.affiliate_commission_percent ?? currentCoupon.commission_percent ?? 20,
-            discountPercent: prev.affiliate_discount_percent ?? currentCoupon.discount_percent ?? 20,
+            commissionPercent: prev.affiliate_commission_percent ?? currentCoupon?.commission_percent ?? 20,
+            discountPercent: prev.affiliate_discount_percent ?? currentCoupon?.discount_percent ?? 20,
           };
         } else {
           const { data: coupon, error: couponError } = await supabaseAdmin
@@ -207,9 +202,11 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
           if (partnerError) throw partnerError;
           if (!partner || partner.status !== "approved") return { error: "O cupom de indicação não está disponível." };
 
+          const buyerEmail = customerEmail.trim().toLowerCase();
+          const partnerEmail = (partner.email ?? "").trim().toLowerCase();
           const buyerDoc = normalizeCpfCnpj(data.cpfCnpj);
           const partnerDoc = normalizeCpfCnpj(partner.tax_id ?? "");
-          if (partnerDoc && partnerDoc === buyerDoc) {
+          if (partner.user_id === userId || (partnerEmail && partnerEmail === buyerEmail) || (partnerDoc && partnerDoc === buyerDoc)) {
             return { error: "Você não pode utilizar seu próprio cupom de indicação para assinar um plano." };
           }
           affiliate = {
@@ -223,9 +220,10 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
 
       const discountPercent = affiliate?.discountPercent ?? (isFirst ? Math.round(FIRST_PIX_DISCOUNT * 100) : 0);
       const priceCents = Math.round(basePrice * (1 - discountPercent / 100));
-      // The partner coupon is a recurring 20% discount for both monthly and annual plans.
-      // The commission tier is snapshotted at acquisition; later partner tier changes do not alter this subscription.
-      const recurringDiscountPercent = affiliate?.discountPercent ?? 0;
+      // Affiliate referrals get the discount on the acquisition payment and the first
+      // monthly renewal. The webhook restores full price after the second paid invoice,
+      // so the third monthly charge uses the plan's normal price. Annual renewals are full price.
+      const recurringDiscountPercent = data.interval === "month" ? (affiliate?.discountPercent ?? 0) : 0;
       const recurringPriceCents = Math.round(basePrice * (1 - recurringDiscountPercent / 100));
       stage = "customer_lookup_or_create";
       const customerId = await ensureCustomer(userId, customerEmail, customerName, data.cpfCnpj);
