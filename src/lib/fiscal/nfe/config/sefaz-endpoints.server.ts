@@ -1,6 +1,12 @@
 /**
  * Catálogo de endpoints SOAP NF-e 4.00.
- * URLs consultadas nos portais oficiais do Portal Nacional/SEFAZ e SVRS.
+ * URLs consultadas nos portais oficiais:
+ * - Portal Nacional NF-e: https://www.nfe.fazenda.gov.br/PORTAL/WebServices.aspx
+ * - SEFAZ-MG NF-e: https://portalsped.fazenda.mg.gov.br/spedmg/nfe/webservices/
+ * - SEFAZ-MG NFC-e: https://portalsped.fazenda.mg.gov.br/spedmg/nfce/web-services/
+ * - SVRS NF-e: https://dfe-portal.svrs.rs.gov.br/Nfe/Servicos
+ * - SVRS NFC-e: https://dfe-portal.svrs.rs.gov.br/Nfce/Servicos
+ *
  * Confirme credenciamento, UF autorizadora e ambiente antes de transmitir.
  */
 
@@ -42,11 +48,19 @@ export const SEFAZ_ENDPOINTS: Readonly<Record<NfeAuthority, EnvironmentEndpointM
         NfeAutorizacao4: "https://nfe.fazenda.mg.gov.br/nfe2/services/NFeAutorizacao4",
         NfeRetAutorizacao4: "https://nfe.fazenda.mg.gov.br/nfe2/services/NFeRetAutorizacao4",
       },
+      "65": {
+        NfeAutorizacao4: "https://nfce.fazenda.mg.gov.br/nfce/services/NFeAutorizacao4",
+        NfeRetAutorizacao4: "https://nfce.fazenda.mg.gov.br/nfce/services/NFeRetAutorizacao4",
+      },
     },
     homologacao: {
       "55": {
         NfeAutorizacao4: "https://hnfe.fazenda.mg.gov.br/nfe2/services/NFeAutorizacao4",
         NfeRetAutorizacao4: "https://hnfe.fazenda.mg.gov.br/nfe2/services/NFeRetAutorizacao4",
+      },
+      "65": {
+        NfeAutorizacao4: "https://hnfce.fazenda.mg.gov.br/nfce/services/NFeAutorizacao4",
+        NfeRetAutorizacao4: "https://hnfce.fazenda.mg.gov.br/nfce/services/NFeRetAutorizacao4",
       },
     },
   },
@@ -56,11 +70,19 @@ export const SEFAZ_ENDPOINTS: Readonly<Record<NfeAuthority, EnvironmentEndpointM
         NfeAutorizacao4: "https://nfe.svrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx",
         NfeRetAutorizacao4: "https://nfe.svrs.rs.gov.br/ws/NfeRetAutorizacao/NFeRetAutorizacao4.asmx",
       },
+      "65": {
+        NfeAutorizacao4: "https://nfce.svrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx",
+        NfeRetAutorizacao4: "https://nfce.svrs.rs.gov.br/ws/NfeRetAutorizacao/NFeRetAutorizacao4.asmx",
+      },
     },
     homologacao: {
       "55": {
         NfeAutorizacao4: "https://nfe-homologacao.svrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx",
         NfeRetAutorizacao4: "https://nfe-homologacao.svrs.rs.gov.br/ws/NfeRetAutorizacao/NFeRetAutorizacao4.asmx",
+      },
+      "65": {
+        NfeAutorizacao4: "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeAutorizacao/NFeAutorizacao4.asmx",
+        NfeRetAutorizacao4: "https://nfce-homologacao.svrs.rs.gov.br/ws/NfeRetAutorizacao/NFeRetAutorizacao4.asmx",
       },
     },
   },
