@@ -3,8 +3,6 @@ import {
   type NfeModel,
 } from "../utils/nfe-key-generator.server";
 
-const NFE_NAMESPACE = "http://www.portalfiscal.inf.br/nfe";
-
 export type NfeBaseXmlInput = {
   /** Chave de acesso com exatamente 44 dígitos numéricos e DV consistente. */
   chave: string;
@@ -49,7 +47,7 @@ export function buildNfeBaseXml(input: NfeBaseXmlInput): string {
 
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
-    '<NFe xmlns="' + NFE_NAMESPACE + '">',
+    ' <NFe xmlns="http://www.portalfiscal.inf.br/nfe">'.trimStart()',
     '  <infNFe Id="' + idXml + '" versao="4.00">',
     "    <ide></ide>",
     "    <emit></emit>",
