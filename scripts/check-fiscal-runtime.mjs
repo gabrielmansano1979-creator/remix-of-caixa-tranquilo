@@ -18,16 +18,30 @@ if (!encodedKey) {
   else console.log("[fiscal-runtime] FISCAL_ENCRYPTION_KEY: formato válido (32 bytes; valor oculto).");
 }
 
-const configuredSchema = process.env.NFSE_DPS_XSD_PATH?.trim();
+const ambiente = process.env.FISCAL_NFSE_AMBIENTE?.trim() || "producao_restrita";
+if (ambiente !== "producao" && ambiente !== "producao_restrita") {
+  fail("FISCAL_NFSE_AMBIENTE deve ser 'producao' ou 'producao_restrita'.");
+}
+const configuredSchema = ambiente === "producao"
+  ? process.env.NFSE_DPS_XSD_PATH_PRODUCAO?.trim()
+  : process.env.NFSE_DPS_XSD_PATH_PRODUCAO_RESTRITA?.trim() || process.env.NFSE_DPS_XSD_PATH?.trim();
+const defaultSchemaCandidates = ambiente === "producao"
+  ? [
+      resolve(process.cwd(), "supabase/schemas/nfse/producao-20260209/DPS_v1.01.xsd"),
+      resolve(process.cwd(), "supabase/schemas/nfse/producao/DPS_v1.01.xsd"),
+    ]
+  : [
+      resolve(process.cwd(), "supabase/schemas/nfse/producao-restrita-20261020/DPS_v1.01.xsd"),
+      resolve(process.cwd(), "supabase/schemas/nfse/DPS_v1.01.xsd"),
+    ];
 const schemaCandidates = configuredSchema
   ? [isAbsolute(configuredSchema) ? configuredSchema : resolve(process.cwd(), configuredSchema)]
-  : [
-      resolve(process.cwd(), "supabase/schemas/nfse/DPS_v1.01.xsd"),
-      resolve(process.cwd(), "supabase/schemas/nfse/producao-restrita-20261020/DPS_v1.01.xsd"),
-    ];
+  : defaultSchemaCandidates;
 const schema = schemaCandidates.find((path) => existsSync(path));
-if (!schema) fail("DPS_v1.01.xsd não encontrado; configure NFSE_DPS_XSD_PATH.");
-else console.log(`[fiscal-runtime] XSD principal: ${realpathSync(schema)}`);
+if (!schema) {
+  const variable = ambiente === "producao" ? "NFSE_DPS_XSD_PATH_PRODUCAO" : "NFSE_DPS_XSD_PATH_PRODUCAO_RESTRITA";
+  fail(`XSD oficial do ambiente ${ambiente} não encontrado; configure ${variable}.`);
+} else console.log(`[fiscal-runtime] Ambiente SEFIN: ${ambiente}; XSD: ${realpathSync(schema)}`);
 
 const xmllint = process.env.NFSE_XMLLINT_BIN?.trim() || "xmllint";
 const result = spawnSync(xmllint, ["--version"], { encoding: "utf8", timeout: 5000, windowsHide: true });
