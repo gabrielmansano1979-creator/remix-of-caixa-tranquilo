@@ -1037,6 +1037,177 @@ export type Database = {
         Relationships: []
       }
     }
+      fiscal_invoices: {
+        Row: {
+          id: string
+          user_id: string
+          created_by_user_id: string
+          document_type: string
+          issuer_name: string
+          issuer_cnpj: string
+          issuer_city_ibge: string
+          recipient_name: string
+          recipient_tax_id: string
+          service_description: string
+          amount_cents: number
+          status: string
+          access_key: string | null
+          invoice_number: string | null
+          official_pdf_url: string | null
+          official_xml_url: string | null
+          provider_response: Json | null
+          issued_at: string | null
+          created_at: string
+          updated_at: string
+          competencia: string | null
+          codigo_trib_nacional: string | null
+          cnae: string | null
+          iss_retido: boolean | null
+          aliquota_iss: number | null
+          serie: string | null
+          numero_dps: number | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          created_by_user_id?: string
+          document_type?: string
+          issuer_name: string
+          issuer_cnpj: string
+          issuer_city_ibge: string
+          recipient_name: string
+          recipient_tax_id: string
+          service_description: string
+          amount_cents: number
+          status?: string
+          access_key?: string | null
+          invoice_number?: string | null
+          official_pdf_url?: string | null
+          official_xml_url?: string | null
+          provider_response?: Json | null
+          issued_at?: string | null
+          created_at?: string
+          updated_at?: string
+          competencia?: string | null
+          codigo_trib_nacional?: string | null
+          cnae?: string | null
+          iss_retido?: boolean | null
+          aliquota_iss?: number | null
+          serie?: string | null
+          numero_dps?: number | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          created_by_user_id?: string
+          document_type?: string
+          issuer_name?: string
+          issuer_cnpj?: string
+          issuer_city_ibge?: string
+          recipient_name?: string
+          recipient_tax_id?: string
+          service_description?: string
+          amount_cents?: number
+          status?: string
+          access_key?: string | null
+          invoice_number?: string | null
+          official_pdf_url?: string | null
+          official_xml_url?: string | null
+          provider_response?: Json | null
+          issued_at?: string | null
+          created_at?: string
+          updated_at?: string
+          competencia?: string | null
+          codigo_trib_nacional?: string | null
+          cnae?: string | null
+          iss_retido?: boolean | null
+          aliquota_iss?: number | null
+          serie?: string | null
+          numero_dps?: number | null
+        }
+        Relationships: []
+      }
+      configuracoes_fiscais: {
+        Row: {
+          id: string
+          tenant_user_id: string
+          cnpj: string
+          inscricao_municipal: string | null
+          municipio_ibge: string
+          regime_tributario: string
+          ambiente: string
+          certificado_ciphertext: string
+          certificado_nonce: string
+          certificado_auth_tag: string
+          senha_certificado_ciphertext: string
+          senha_certificado_nonce: string
+          senha_certificado_auth_tag: string
+          encryption_key_version: number
+          certificado_subject: string | null
+          certificado_issuer: string | null
+          certificado_serial: string | null
+          certificado_valid_from: string | null
+          certificado_valid_to: string | null
+          status: string
+          ultimo_erro_validacao: string | null
+          criado_por: string | null
+          criado_em: string
+          atualizado_em: string
+        }
+        Insert: {
+          id?: string
+          tenant_user_id: string
+          cnpj: string
+          inscricao_municipal?: string | null
+          municipio_ibge: string
+          regime_tributario: string
+          ambiente?: string
+          certificado_ciphertext: string
+          certificado_nonce: string
+          certificado_auth_tag: string
+          senha_certificado_ciphertext: string
+          senha_certificado_nonce: string
+          senha_certificado_auth_tag: string
+          encryption_key_version?: number
+          certificado_subject?: string | null
+          certificado_issuer?: string | null
+          certificado_serial?: string | null
+          certificado_valid_from?: string | null
+          certificado_valid_to?: string | null
+          status?: string
+          ultimo_erro_validacao?: string | null
+          criado_por?: string | null
+          criado_em?: string
+          atualizado_em?: string
+        }
+        Update: {
+          id?: string
+          tenant_user_id?: string
+          cnpj?: string
+          inscricao_municipal?: string | null
+          municipio_ibge?: string
+          regime_tributario?: string
+          ambiente?: string
+          certificado_ciphertext?: string
+          certificado_nonce?: string
+          certificado_auth_tag?: string
+          senha_certificado_ciphertext?: string
+          senha_certificado_nonce?: string
+          senha_certificado_auth_tag?: string
+          encryption_key_version?: number
+          certificado_subject?: string | null
+          certificado_issuer?: string | null
+          certificado_serial?: string | null
+          certificado_valid_from?: string | null
+          certificado_valid_to?: string | null
+          status?: string
+          ultimo_erro_validacao?: string | null
+          criado_por?: string | null
+          criado_em?: string
+          atualizado_em?: string
+        }
+        Relationships: []
+      }
     Views: {
       [_ in never]: never
     }
@@ -1058,6 +1229,10 @@ export type Database = {
       admin_update_partner_rate: {
         Args: { _partner_id: string; _percent: number }
         Returns: undefined
+      }
+      can_access_fiscal_invoices: {
+        Args: { _client_user_id: string }
+        Returns: boolean
       }
       can_manage_partner_application_documents: {
         Args: never
