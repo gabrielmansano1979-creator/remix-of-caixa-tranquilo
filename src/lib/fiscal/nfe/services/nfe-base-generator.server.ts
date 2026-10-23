@@ -47,7 +47,7 @@ export function buildNfeBaseXml(input: NfeBaseXmlInput): string {
 
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
-    ' <NFe xmlns="http://www.portalfiscal.inf.br/nfe">'.trimStart()',
+    '<NFe xmlns="http://www.portalfiscal.inf.br/nfe">'',
     '  <infNFe Id="' + idXml + '" versao="4.00">',
     "    <ide></ide>",
     "    <emit></emit>",
