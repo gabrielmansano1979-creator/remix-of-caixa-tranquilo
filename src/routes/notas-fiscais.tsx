@@ -39,6 +39,12 @@ type Draft = {
 type AccountantPortal = { authorized_clients: Array<{ client_user_id: string; client_name: string; business_size: string | null }> };
 
 const digits = (value: string) => value.replace(/\D/g, "");
+const parseAmountCents = (value: string) => {
+  const raw = value.trim().replace(/^R\$\s*/i, "").replace(/\s/g, "");
+  const normalized = raw.includes(",") ? raw.replace(/\./g, "").replace(",", ".") : raw;
+  const number = Number(normalized);
+  return Number.isFinite(number) ? Math.round(number * 100) : Number.NaN;
+};
 const money = (cents: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100);
 const fiscalDb = supabase as any;
 
