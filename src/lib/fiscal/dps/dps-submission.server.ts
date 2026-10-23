@@ -96,7 +96,6 @@ function parseFiscalResponse(xml: string): ParsedFiscalResponse {
   const errorContainers = elementsByLocalName(doc, [
     "MensagemRetorno",
     "MensagemRetornoLote",
-    "Mensagem",
     "Erro",
   ]);
 
@@ -115,9 +114,17 @@ function parseFiscalResponse(xml: string): ParsedFiscalResponse {
     }
   }
 
-  // Some responses group fiscal messages in ListaMensagemRetorno with children
-  // whose local name is MensagemRetorno; the generic scan above handles both
-  // prefixed and unprefixed XML names.
+  // Some providers return a bare Mensagem node rather than a structured
+  // MensagemRetorno/Erro element. Use it only as a fallback to avoid duplicate
+  // errors when the same text is nested inside a structured message.
+  if (errors.length === 0) {
+    for (const element of elementsByLocalName(doc, ["Mensagem"])) {
+      const message = element.textContent?.trim();
+      if (message) errors.push({ message });
+    }
+  }
+
+  // Namespace prefixes vary between environments; match by local element name.
   const keyElement = elementsByLocalName(doc, ["chNFSe", "ChaveAcesso", "chaveAcesso", "ChaveNfse"])[0];
   const accessKey = keyElement?.textContent?.trim() || undefined;
   const hasInvoice =
