@@ -33,7 +33,7 @@ type Draft = {
   created_at: string;
 };
 
-const digits = (value: string) => value.replace(/\\D/g, "");
+const digits = (value: string) => value.replace(/\D/g, "");
 const money = (cents: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100);
 const fiscalDb = supabase as any;
 
