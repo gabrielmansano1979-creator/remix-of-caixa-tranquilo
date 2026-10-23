@@ -2,18 +2,6 @@ import { Agent } from "node:https";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { decryptFiscalSecret, fiscalSecretAad } from "./crypto.server";
 
-type FiscalConfigRow = {
-  id: string;
-  tenant_user_id: string;
-  ambiente: "producao_restrita" | "producao";
-  status: "pendente" | "ativo" | "expirado" | "invalido" | "revogado";
-  certificado_ciphertext: string;
-  certificado_nonce: string;
-  certificado_auth_tag: string;
-  senha_certificado_ciphertext: string;
-  senha_certificado_nonce: string;
-  senha_certificado_auth_tag: string;
-};
 
 const SEFIN_BASE_URLS = {
   producao_restrita: "https://sefin.producaorestrita.nfse.gov.br",
@@ -34,21 +22,20 @@ export async function createFiscalMtlsConnection(
   tenantUserId: string,
   configId: string,
 ): Promise<FiscalMtlsConnection> {
-  const { data, error } = await (supabaseAdmin as any)
+  const { data, error } = await supabaseAdmin
     .from("configuracoes_fiscais")
-    .select([
-      "id", "tenant_user_id", "ambiente", "status",
-      "certificado_ciphertext", "certificado_nonce", "certificado_auth_tag",
-      "senha_certificado_ciphertext", "senha_certificado_nonce", "senha_certificado_auth_tag",
-    ].join(","))
+    .select("id,tenant_user_id,ambiente,status,certificado_ciphertext,certificado_nonce,certificado_auth_tag,senha_certificado_ciphertext,senha_certificado_nonce,senha_certificado_auth_tag")
     .eq("id", configId)
     .eq("tenant_user_id", tenantUserId)
     .maybeSingle();
 
   if (error) throw new Error("Não foi possível carregar a configuração fiscal.");
   if (!data) throw new Error("Configuração fiscal não encontrada para esta empresa.");
-  const config = data as FiscalConfigRow;
+  const config = data;
   if (config.status !== "ativo") throw new Error("O certificado fiscal não está ativo.");
+  if (config.ambiente !== "producao_restrita" && config.ambiente !== "producao") {
+    throw new Error("Ambiente fiscal não suportado.");
+  }
 
   const pfx = decryptFiscalSecret(
     {
