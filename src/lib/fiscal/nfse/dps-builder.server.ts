@@ -1,10 +1,14 @@
 /**
  * DPS Nacional XML builder.
- * The DPS identifier follows the official composition: "ID" + cLocEmi(7) +
- * tpInsc(1) + CNPJ/CPF padded to 14 + serie(5) + nDPS(15).
+ * The DPS identifier follows the official XSD composition: "DPS" + cLocEmi(7) +
+ * tpInsc(1) + federal registration padded to 14 + serie(5) + nDPS(15).
  * Validate the generated XML against the current official XSD before sending.
  */
 export const DPS_NAMESPACE = "http://www.sped.fazenda.gov.br/nfse";
+
+export const DPS_NAMESPACE = "http://www.sped.fazenda.gov.br/nfse";
+
+
 
 export interface DpsBuilderInput {
   ambiente: 1 | 2; // 1=produção, 2=produção restrita/homologação, per current layout
@@ -91,7 +95,7 @@ export function buildDpsXml(input: DpsBuilderInput): { xml: string; id: string }
   if (cLocEmi.length !== 7) throw new Error("Código IBGE do município emissor deve conter 7 dígitos.");
   const serie = padded(input.serie, 5, "Série da DPS");
   const numero = padded(input.numeroDps, 15, "Número da DPS");
-  const id = `ID${cLocEmi}2${cnpj}${serie}${numero}`;
+  const id = `DPS${cLocEmi}2${cnpj}${serie}${numero}`;
   const valor = money(input.servico.valorServicos, "Valor dos serviços");
   if (!input.servico.descricao.trim()) throw new Error("Descrição do serviço é obrigatória.");
   if (!/^\d{6}$/.test(input.servico.codigoTributacaoNacional)) {
