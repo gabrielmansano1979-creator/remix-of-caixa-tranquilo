@@ -43,10 +43,9 @@ export async function buildSignAndSubmitDps(input: {
   let signedXml: string;
   try {
     const built = buildDpsXml(input.dps);
-    // The gate checks mandatory groups and then fails closed while the official
-    // current XSD and a real XSD validator are not configured in this repository.
-    assertDpsRequiredGroups(built.xml);
     signedXml = await signDpsXml(built.xml, pfx, passphrase);
+    // Validate the exact signed XML that will be transmitted, not just the unsigned payload.
+    assertDpsRequiredGroups(signedXml);
   } finally {
     pfx.fill(0);
   }
