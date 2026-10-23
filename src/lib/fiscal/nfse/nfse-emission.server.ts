@@ -2,6 +2,7 @@ import { createFiscalMtlsConnection } from "../security/mtls-agent.server";
 import { decryptFiscalSecret, fiscalSecretAad } from "../security/crypto.server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { buildDpsXml, type DpsBuilderInput } from "./dps-builder.server";
+import { nfseDraftSchema } from "./draft-schema";
 import { signDpsXml } from "./xml-signer.server";
 import { queryDps, submitSignedDps, NfseTransportError } from "./nfse-national-client.server";
 
@@ -141,12 +142,33 @@ export async function emitNfseForTenant(input: {
 
   const { data: invoice, error: invoiceError } = await (supabaseAdmin as any)
     .from("fiscal_invoices")
-    .select("id,user_id,document_type,status,issuer_cnpj,issuer_city_ibge,recipient_name,recipient_tax_id,service_description,amount_cents")
+    .select("id,user_id,document_type,status,issuer_name,issuer_cnpj,issuer_city_ibge,recipient_name,recipient_tax_id,service_description,amount_cents,competencia,codigo_trib_nacional,cnae,iss_retido,aliquota_iss")
     .eq("id", input.invoiceId)
     .eq("user_id", input.tenantUserId)
     .maybeSingle();
   if (invoiceError || !invoice || invoice.document_type !== "nfse") {
     throw new Error("Rascunho de NFS-e não encontrado.");
   }
-  throw new Error("DPS_INCOMPLETE: o rascunho ainda não contém todos os campos fiscais obrigatórios para construir e validar a DPS Nacional. Nenhum envio foi realizado.");
+  const validatedDraft = nfseDraftSchema.safeParse({
+    user_id: invoice.user_id,
+    issuer_name: invoice.issuer_name,
+    issuer_cnpj: invoice.issuer_cnpj,
+    issuer_city_ibge: invoice.issuer_city_ibge,
+    recipient_name: invoice.recipient_name,
+    recipient_tax_id: invoice.recipient_tax_id,
+    service_description: invoice.service_description,
+    amount_cents: Number(invoice.amount_cents),
+    competencia: invoice.competencia,
+    codigo_trib_nacional: invoice.codigo_trib_nacional,
+    cnae: invoice.cnae,
+    iss_retido: invoice.iss_retido,
+    aliquota_iss: invoice.aliquota_iss === null ? null : Number(invoice.aliquota_iss),
+  });
+  if (!validatedDraft.success) {
+    throw new Error("DPS_INCOMPLETE: rascunho inválido para emissão. Revise competência, código nacional, CNAE, retenção do ISS e alíquota. Nenhum envio foi realizado.");
+  }
+  // Do not transmit yet: the current persisted draft still lacks the explicitly
+  // selected service municipality and a complete taxpayer-approved DPS regime
+  // payload, and the generated XML is not yet checked against the current official XSD.
+  throw new Error("DPS_INCOMPLETE: campos básicos validados, mas faltam dados necessários para gerar e validar a DPS Nacional conforme o XSD oficial. Nenhum envio foi realizado.");
 }
