@@ -8,9 +8,9 @@ import { ArrowRight, BarChart3, Check, CheckCircle2, ChevronDown, ClipboardCheck
 export const Route = createFileRoute('/')({ component: IndexComponent });
 
 const plans = [
-  { name: 'Essencial', monthly: 149.9, annual: 1499, limit: 'Até 100 contas pendentes', imports: 'CSV, Excel e PDF — até 100 linhas por importação', risk: 'Top 3 maiores riscos', rule: 'Régua padrão de cobrança com 4 etapas', support: 'Suporte padrão', popular: false },
-  { name: 'Evolução', monthly: 299, annual: 2990, limit: 'Até 500 contas pendentes', imports: 'CSV, Excel e PDF — até 500 linhas por importação', risk: 'Top 5 maiores riscos', rule: 'Personalize os dias e ative/desative etapas', support: 'Suporte prioritário', popular: true },
-  { name: 'Excelência', monthly: 399, annual: 3990, limit: 'Até 2.000 contas pendentes', imports: 'CSV, Excel e PDF — até 2.000 linhas por importação', risk: 'Top 10 maiores riscos', rule: 'Personalize os dias, as mensagens e as etapas', support: 'Suporte prioritário', popular: false },
+  { name: 'Essencial', monthly: 79.9, annual: 799, limit: 'Até 100 contas pendentes', imports: 'CSV, Excel e PDF — até 100 linhas por importação', risk: 'Top 3 maiores riscos', rule: 'Régua padrão de cobrança com 4 etapas', support: 'Suporte padrão', popular: false },
+  { name: 'Evolução', monthly: 159.9, annual: 1599, limit: 'Até 500 contas pendentes', imports: 'CSV, Excel e PDF — até 500 linhas por importação', risk: 'Top 5 maiores riscos', rule: 'Personalize os dias e ative/desative etapas', support: 'Suporte prioritário', popular: true },
+  { name: 'Excelência', monthly: 249.9, annual: 2499, limit: 'Até 2.000 contas pendentes', imports: 'CSV, Excel e PDF — até 2.000 linhas por importação', risk: 'Top 10 maiores riscos', rule: 'Personalize os dias, as mensagens e as etapas', support: 'Suporte prioritário', popular: false },
 ];
 
 const accountantPlans = [
