@@ -6,6 +6,13 @@ import {
 
 const NF_E_NAMESPACE = "http://www.portalfiscal.inf.br/nfe";
 
+const UF_CUF: Record<string, string> = {
+  RO: "11", AC: "12", AM: "13", RR: "14", PA: "15", AP: "16", TO: "17",
+  MA: "21", PI: "22", CE: "23", RN: "24", PB: "25", PE: "26", AL: "27",
+  SE: "28", BA: "29", MG: "31", ES: "32", RJ: "33", SP: "35", PR: "41",
+  SC: "42", RS: "43", MS: "50", MT: "51", GO: "52", DF: "53",
+};
+
 export type NfeAddress = {
   street: string;
   number: string;
@@ -231,6 +238,14 @@ export function buildNfeBaseXml(input: BuildNfeBaseXmlInput): string {
 
   const key = generateNfeKeyAndId(input.key);
   const cnpj = requiredDigits(input.issuer.cnpj, 14, "CNPJ do emitente");
+  const keyCnpj = requiredDigits(input.key.issuerCnpj, 14, "CNPJ usado na chave");
+  if (keyCnpj !== cnpj) {
+    throw new Error("O CNPJ da chave de acesso deve ser o mesmo CNPJ do emitente.");
+  }
+  const issuerUf = input.issuer.address.uf.toUpperCase();
+  if (!UF_CUF[issuerUf] || UF_CUF[issuerUf] !== input.key.cUF) {
+    throw new Error("cUF da chave deve corresponder à UF do endereço do emitente.");
+  }
   const ide = input.ide;
   const issueDate = new Date(ide.issueDateTime);
   if (Number.isNaN(issueDate.getTime()) || !/(Z|[+-]\d{2}:\d{2})$/.test(ide.issueDateTime)) {
