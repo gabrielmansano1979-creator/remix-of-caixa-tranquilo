@@ -62,6 +62,8 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - name: Refresh lockfile for declared dependencies
+        run: npm install --package-lock-only --ignore-scripts --no-fund --legacy-peer-deps
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
       - name: Resolve vulnerable transitive esbuild dependency
