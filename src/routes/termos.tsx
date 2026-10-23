@@ -5,7 +5,7 @@ export const Route = createFileRoute("/termos")({
   head: () => ({
     meta: [
       { title: "Termos de Uso — Critical Cash" },
-      { name: "description", content: "Termos de uso do Critical Cash, previsão de caixa e cobrança automática." },
+      { name: "description", content: "Termos de uso do Critical Cash para acompanhamento e projeção do fluxo de caixa." },
       { property: "og:title", content: "Termos de Uso — Critical Cash" },
       { property: "og:description", content: "Condições de uso do serviço Critical Cash." },
       { property: "og:type", content: "website" },
