@@ -19,8 +19,8 @@ function extractPkcs12(pfxBuffer: Buffer, passphrase: string): { privateKeyPem: 
     ...(p12.getBags({ bagType: forge.pki.oids.keyBag })[forge.pki.oids.keyBag] ?? []),
   ];
   const certBags = p12.getBags({ bagType: forge.pki.oids.certBag })[forge.pki.oids.certBag] ?? [];
-  const key = keyBags.find((bag) => bag.key)?.key;
-  const cert = certBags.find((bag) => bag.cert)?.cert;
+  const key = keyBags.find((bag) => bag.key)?.key as forge.pki.PrivateKey | undefined;
+  const cert = certBags.find((bag) => bag.cert)?.cert as forge.pki.Certificate | undefined;
   if (!key || !cert) throw new Error("O PKCS#12 não contém chave privada e certificado X.509.");
   return {
     privateKeyPem: forge.pki.privateKeyToPem(key),
