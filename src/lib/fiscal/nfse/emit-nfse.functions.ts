@@ -91,7 +91,16 @@ export const emitNfseAction = createServerFn({ method: "POST" })
         return result;
       }
 
-      return result;
+      // Only return serializable, user-safe status fields. The raw SEFIN body is
+      // persisted server-side and must not cross the Server Function boundary.
+      return {
+        ok: true as const,
+        accepted: result.accepted,
+        accessKey: result.accessKey ?? null,
+        protocol: result.protocol ?? null,
+        statusCode: result.statusCode,
+        rejectionReason: result.rejectionReason ?? null,
+      };
     } catch (error) {
       const status = typeof error === "object" && error !== null && "status" in error
         ? Number((error as { status: unknown }).status)
