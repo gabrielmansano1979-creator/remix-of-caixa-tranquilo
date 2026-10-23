@@ -36,7 +36,7 @@ export type DpsInput = {
 const XML_NS = "http://www.sped.fazenda.gov.br/nfse";
 
 function digits(value: string): string {
-  return value.replace(/\\D/g, "");
+  return value.replace(/\D/g, "");
 }
 
 function requiredDigits(value: string, length: number, field: string): string {
@@ -78,9 +78,10 @@ function partyXml(party: DpsParty, required = false): string {
 }
 
 /**
- * Builds a DPS XML skeleton with the official national namespace and the
- * deterministic DPS identifier structure. This is not a substitute for
- * validation against the current official XSD and municipal business rules.
+ * Builds the single-DPS XML document used by the synchronous SEFIN Nacional
+ * POST /nfse API. This endpoint's documented payload is a DPS, not the legacy
+ * EnviarLoteDpsEnvio/ListaDps SOAP envelope. Validate this skeleton against the
+ * current official XSD and Anexo I before production use.
  */
 export function buildDpsXml(input: DpsInput): { xml: string; infDpsId: string } {
   const municipio = requiredDigits(input.municipioEmissorIbge, 7, "Código IBGE do município emissor");
@@ -91,20 +92,20 @@ export function buildDpsXml(input: DpsInput): { xml: string; infDpsId: string } 
   const numero = digits(String(input.numeroDps));
   if (!serie || serie.length > 5) throw new Error("A série da DPS deve ter de 1 a 5 dígitos.");
   if (!numero || numero.length > 15) throw new Error("O número da DPS deve ter de 1 a 15 dígitos.");
-  if (!/^\\d{4}-\\d{2}-\\d{2}T/.test(input.dataEmissao)) {
+  if (!/^\d{4}-\d{2}-\d{2}T/.test(input.dataEmissao)) {
     throw new Error("Data de emissão deve ser ISO 8601 com data e hora.");
   }
-  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(input.competencia)) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.competencia)) {
     throw new Error("Competência deve usar o formato AAAA-MM-DD.");
   }
-  if (!/^\\d+(?:[.,]\\d{1,2})?$/.test(String(input.valorServico))) {
+  if (!/^\d+(?:[.,]\d{1,2})?$/.test(String(input.valorServico))) {
     throw new Error("Valor do serviço inválido.");
   }
   const valor = String(input.valorServico).replace(",", ".");
   if (!Number.isFinite(Number(valor)) || Number(valor) <= 0) {
     throw new Error("O valor do serviço deve ser maior que zero.");
   }
-  if (!/^\\d{6}$/.test(input.codigoTributacaoNacional)) {
+  if (!/^\d{6}$/.test(input.codigoTributacaoNacional)) {
     throw new Error("Código de tributação nacional deve ter 6 dígitos conforme o leiaute configurado.");
   }
 
