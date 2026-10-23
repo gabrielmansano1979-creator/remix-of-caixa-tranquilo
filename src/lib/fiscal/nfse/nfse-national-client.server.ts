@@ -64,8 +64,12 @@ export async function queryDps(input: ClientOptions & { dpsId: string }): Promis
   if (head.status === 404) return null;
   if (head.status >= 200 && head.status < 300) {
     const get = await requestText(input, "GET", path);
-    if (get.status >= 200 && get.status < 300) return resultFrom(get.status, get.body);
-    return { accepted: true, statusCode: String(head.status), responseBody: { headStatus: head.status, detail: get.body } };
+    if (get.status >= 200 && get.status < 300) {
+      const result = resultFrom(get.status, get.body);
+      if (result.accessKey) return result;
+    }
+    // HEAD confirms that the DPS exists, but without the GET result we must not resend.
+    throw new NfseTransportError("A DPS já foi processada, mas a chave de acesso não foi recuperada. Resultado incerto; não retransmitir.", true);
   }
   if (head.status >= 500) throw new NfseTransportError("Consulta DPS retornou erro temporário; não retransmitir sem nova consulta.", true);
   return { accepted: false, statusCode: String(head.status), rejectionReason: head.body, responseBody: head.body };
