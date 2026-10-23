@@ -63,18 +63,16 @@ export type Entry = {
   counterparty_name: string | null;
   counterparty_email: string | null;
   counterparty_whatsapp: string | null;
-  is_own_transfer?: boolean;
-  is_non_operating?: boolean;
-  payment_method?: string | null;
-  sender_name?: string | null;
-  recipient_name?: string | null;
-  counterparty_document?: string | null;
-  counterparty_original_name?: string | null;
   pix_url?: string | null;
   status: "pending" | "paid";
   paid_at: string | null;
   reminders_muted: boolean;
   created_at: string;
+  receipt_path?: string | null;
+  receipt_status?: "missing" | "pending" | "matched" | "mismatch";
+  receipt_amount_cents?: number | null;
+  receipt_review_note?: string | null;
+  receipt_reviewed_at?: string | null;
 };
 
 export const entriesQuery = queryOptions({

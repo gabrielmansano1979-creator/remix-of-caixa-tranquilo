@@ -1,12 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Building2, Clipboard, Download, FileText, History, ShieldCheck, Users } from "lucide-react";
+import { Building2, Clipboard, Download, FileText, History, ShieldCheck, Users, Eye, Paperclip } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { downloadFinancialDocument } from "@/lib/financial-documents";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 type AccountantPortal = {
   business_invite_token: string;
@@ -18,7 +19,7 @@ type AccountantPortal = {
     initial_balance_cents: number;
     balance_date: string | null;
     balance_updated_at: string | null;
-    entries: Array<{ id: string; description: string; type: "income" | "expense"; amount_cents: number; due_date: string; status: string; paid_at: string | null; counterparty_name: string | null; created_at: string }>;
+    entries: Array<{ id: string; description: string; type: "income" | "expense"; amount_cents: number; due_date: string; status: string; paid_at: string | null; counterparty_name: string | null; created_at: string; receipt_path?: string | null; receipt_status?: "missing" | "pending" | "matched" | "mismatch"; receipt_amount_cents?: number | null; receipt_review_note?: string | null; receipt_reviewed_at?: string | null }>;
   }>;
   pending_requests: Array<{ id: string; client_name: string; requested_at: string }>;
   invited_companies: Array<{ client_name: string; accepted_at: string; access_granted: boolean }>;
@@ -34,6 +35,18 @@ export function AccountantClientManagement() {
   const [periodStart, setPeriodStart] = useState(() => `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}-01`);
   const [periodEnd, setPeriodEnd] = useState(() => new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" }));
   const [selectedAuditClient, setSelectedAuditClient] = useState("all");
+  const [receiptViewer, setReceiptViewer] = useState<{ url: string; title: string; isPdf: boolean } | null>(null);
+  const [receiptOpening, setReceiptOpening] = useState<string | null>(null);
+  const openReceipt = async (entry: { id: string; description: string; receipt_path?: string | null }) => {
+    if (!entry.receipt_path) { toast.error("Este lançamento ainda não tem comprovante."); return; }
+    setReceiptOpening(entry.id);
+    try {
+      const { data: signed, error } = await supabase.storage.from("critical-cash-receipts").createSignedUrl(entry.receipt_path, 300);
+      if (error) throw error;
+      setReceiptViewer({ url: signed.signedUrl, title: entry.description || "Comprovante financeiro", isPdf: entry.receipt_path.toLowerCase().endsWith(".pdf") });
+    } catch (error) { toast.error(error instanceof Error ? error.message : "Não foi possível abrir o comprovante."); }
+    finally { setReceiptOpening(null); }
+  };
 
   const query = useQuery({
     queryKey: ["accountant-client-management", periodStart, periodEnd],
@@ -48,6 +61,60 @@ export function AccountantClientManagement() {
     },
   });
   const data = query.data;
+  const [reviewingReceipt, setReviewingReceipt] = useState<string | null>(null);
+  const reviewReceipt = async (
+    entry: AccountantPortal["authorized_clients"][number]["entries"][number],
+    status: "matched" | "mismatch",
+  ) => {
+    if (!entry.receipt_path) return;
+    let amountCents = entry.receipt_amount_cents ?? null;
+    if (status === "matched") {
+      const initial = amountCents == null ? "" : (amountCents / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      const entered = window.prompt("Digite o valor que você conferiu visualmente no comprovante (ex.: 1.200,00). O sistema só marcará verde se for igual ao lançamento.", initial);
+      if (entered === null) return;
+      const normalized = entered.trim().replace(/^R\$\s*/i, "").replace(/\./g, "").replace(",", ".");
+      const value = Number(normalized);
+      if (!normalized || !Number.isFinite(value) || value <= 0 || !Number.isSafeInteger(Math.round(value * 100))) {
+        toast.error("Informe um valor válido para concluir a conferência.");
+        return;
+      }
+      amountCents = Math.round(value * 100);
+      if (amountCents !== entry.amount_cents) {
+        toast.error("O valor conferido difere do lançamento. Marque a divergência e corrija os dados antes de aprovar.");
+        return;
+      }
+    } else if (amountCents == null) {
+      const entered = window.prompt("Valor identificado no comprovante (opcional). Deixe em branco se não for possível identificar.");
+      if (entered === null) return;
+      if (entered.trim()) {
+        const normalized = entered.trim().replace(/^R\$\s*/i, "").replace(/\./g, "").replace(",", ".");
+        const value = Number(normalized);
+        if (!Number.isFinite(value) || value <= 0 || !Number.isSafeInteger(Math.round(value * 100))) {
+          toast.error("O valor informado não é válido.");
+          return;
+        }
+        amountCents = Math.round(value * 100);
+      }
+    }
+    setReviewingReceipt(entry.id);
+    try {
+      const { error } = await supabase.rpc("review_financial_receipt", {
+        _entry_id: entry.id,
+        _status: status,
+        _receipt_amount_cents: amountCents,
+        _note: status === "matched"
+          ? "Conferido visualmente pelo contador autorizado; valor compatível com o lançamento."
+          : "Divergência confirmada em revisão pelo contador autorizado.",
+      });
+      if (error) throw error;
+      await query.refetch();
+      toast.success(status === "matched" ? "Comprovante conferido. Semáforo verde." : "Divergência registrada. Semáforo vermelho.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível salvar a revisão do comprovante.");
+    } finally {
+      setReviewingReceipt(null);
+    }
+  };
   const origin = typeof window === "undefined" ? "" : window.location.origin;
   const companyInviteUrl = data?.business_invite_token
     ? `${origin}/cadastro?contador_convite=${encodeURIComponent(data.business_invite_token)}`
@@ -203,6 +270,7 @@ export function AccountantClientManagement() {
   };
 
   return (
+    <>
     <section className="space-y-5">
       <div>
         <h2 className="text-2xl font-semibold">Carteira contábil</h2>
@@ -275,7 +343,7 @@ export function AccountantClientManagement() {
             const projectedClosing = projected;
             const income = periodEntries.filter((entry) => entry.type === "income").reduce((sum, entry) => sum + entry.amount_cents, 0);
             const expense = periodEntries.filter((entry) => entry.type === "expense").reduce((sum, entry) => sum + entry.amount_cents, 0);
-            return <div key={client.client_user_id} className="rounded-xl border p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-semibold">{client.client_name}</h3><p className="text-xs text-muted-foreground">Porte declarado: {client.business_size ?? "Não informado"} · Autorizado em {date(client.granted_at)} · {periodEntries.length} movimentações no período</p></div><span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs text-emerald-600">Acesso autorizado</span></div><div className="mt-3 grid gap-3 sm:grid-cols-3"><div className="rounded-lg bg-muted/30 p-3"><p className="text-xs text-muted-foreground">Entradas no período</p><p className="font-semibold">{money(income)}</p></div><div className="rounded-lg bg-muted/30 p-3"><p className="text-xs text-muted-foreground">Saídas no período</p><p className="font-semibold">{money(expense)}</p></div><div className="rounded-lg bg-muted/30 p-3"><p className="text-xs text-muted-foreground">Saldo efetivo após pagamentos</p><p className="font-semibold">{money(closing)}</p><p className="mt-2 text-xs text-muted-foreground">Saldo previsto ao final do período</p><p className="font-semibold">{money(projectedClosing)}</p></div></div><div className="mt-4 rounded-xl border p-4"><h4 className="font-semibold">Documentos para download — {client.client_name}</h4><p className="mt-1 text-xs text-muted-foreground">Todos os PDFs usam o período selecionado acima. Os documentos 04, 05 e 06 são exclusivos do contador.</p><div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3"><Button size="sm" variant="outline" onClick={() => void downloadAccountantDocument(client, "cash-flow")}><Download className="mr-2 h-4 w-4" />01 — Fluxo de Caixa</Button><Button size="sm" variant="outline" onClick={() => void downloadAccountantDocument(client, "payables-receivables")}><Download className="mr-2 h-4 w-4" />02 — Contas a Pagar/Receber</Button><Button size="sm" variant="outline" onClick={() => void downloadAccountantDocument(client, "expenses-goals")}><Download className="mr-2 h-4 w-4" />03 — Despesas e Metas</Button><Button size="sm" variant="outline" onClick={() => void downloadAccountantDocument(client, "financial-complete")}><Download className="mr-2 h-4 w-4" />04 — Financeiro Completo</Button><Button size="sm" variant="outline" onClick={() => void downloadAccountantDocument(client, "audit")}><Download className="mr-2 h-4 w-4" />05 — Auditoria Financeira</Button><Button size="sm" variant="outline" onClick={() => void downloadAccountantDocument(client, "closing-projection")}><Download className="mr-2 h-4 w-4" />06 — Fechamento e Projeção</Button></div></div><p className="mt-2 text-xs text-muted-foreground">Os relatórios incluem somente os lançamentos cadastrados e identificam despesas por descrição, não como classificação contábil oficial.</p><details className="mt-3" open><summary className="cursor-pointer text-sm font-medium text-primary">Extrato com saldo antes e depois de cada movimentação</summary><div className="mt-3 overflow-x-auto"><table className="w-full min-w-[1050px] text-left text-sm"><thead><tr className="border-b text-xs text-muted-foreground"><th className="px-2 py-2">Data</th><th className="px-2 py-2">Descrição</th><th className="px-2 py-2">Pagador</th><th className="px-2 py-2">Beneficiário</th><th className="px-2 py-2">Situação</th><th className="px-2 py-2 text-right">Entrada</th><th className="px-2 py-2 text-right">Saída</th><th className="px-2 py-2 text-right">Saldo efetivo após movimentação</th><th className="px-2 py-2 text-right">Saldo previsto</th></tr></thead><tbody><tr className="border-b bg-muted/30 font-medium"><td className="px-2 py-2" colSpan={7}>Saldo de abertura · antes da primeira movimentação</td><td className="px-2 py-2 text-right">{money(opening)}</td><td className="px-2 py-2 text-right">{money(opening)}</td></tr>{periodEntries.map((entry) => <tr key={client.client_user_id + entry.id} className="border-b last:border-0"><td className="whitespace-nowrap px-2 py-2">{date(entry.status === "paid" ? (entry.paid_at ?? entry.due_date).slice(0, 10) : entry.due_date)}</td><td className="px-2 py-2">{entry.description}</td><td className="px-2 py-2">{entry.type === "income" ? entry.counterparty_name || "—" : "—"}</td><td className="px-2 py-2">{entry.type === "expense" ? entry.counterparty_name || "—" : "—"}</td><td className="px-2 py-2">{entry.status === "paid" ? "Pago" : "Pendente · previsto"}</td><td className="px-2 py-2 text-right">{entry.type === "income" ? money(entry.amount_cents) : "—"}</td><td className="px-2 py-2 text-right">{entry.type === "expense" ? money(entry.amount_cents) : "—"}</td><td className="px-2 py-2 text-right font-semibold">{money(entry.actual_balance)}</td><td className="px-2 py-2 text-right">{money(entry.projected_balance)}</td></tr>)}{!periodEntries.length && <tr><td className="px-2 py-5 text-center text-muted-foreground" colSpan={8}>Nenhuma movimentação neste período.</td></tr>}<tr className="bg-muted/30 font-semibold"><td className="px-2 py-2" colSpan={7}>Saldo final efetivo (após todas as movimentações pagas)</td><td className="px-2 py-2 text-right">{money(closing)}</td><td className="px-2 py-2 text-right">{money(projectedClosing)}</td></tr></tbody></table></div><p className="mt-2 text-xs text-muted-foreground">O saldo efetivo muda apenas com movimentações marcadas como pagas. O saldo previsto considera também as pendências; ambos partem do saldo informado pela empresa.</p></details></div>;
+            return <div key={client.client_user_id} className="rounded-xl border p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-semibold">{client.client_name}</h3><p className="text-xs text-muted-foreground">Porte declarado: {client.business_size ?? "Não informado"} · Autorizado em {date(client.granted_at)} · {periodEntries.length} movimentações no período</p></div><span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs text-emerald-600">Acesso autorizado</span></div><div className="mt-3 grid gap-3 sm:grid-cols-3"><div className="rounded-lg bg-muted/30 p-3"><p className="text-xs text-muted-foreground">Entradas no período</p><p className="font-semibold">{money(income)}</p></div><div className="rounded-lg bg-muted/30 p-3"><p className="text-xs text-muted-foreground">Saídas no período</p><p className="font-semibold">{money(expense)}</p></div><div className="rounded-lg bg-muted/30 p-3"><p className="text-xs text-muted-foreground">Saldo efetivo após pagamentos</p><p className="font-semibold">{money(closing)}</p><p className="mt-2 text-xs text-muted-foreground">Saldo previsto ao final do período</p><p className="font-semibold">{money(projectedClosing)}</p></div></div><div className="mt-4 rounded-xl border p-4"><h4 className="font-semibold">Documentos para download — {client.client_name}</h4><p className="mt-1 text-xs text-muted-foreground">Todos os PDFs usam o período selecionado acima. Os documentos 04, 05 e 06 são exclusivos do contador.</p><div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3"><Button size="sm" variant="outline" onClick={() => void downloadAccountantDocument(client, "cash-flow")}><Download className="mr-2 h-4 w-4" />01 — Fluxo de Caixa</Button><Button size="sm" variant="outline" onClick={() => void downloadAccountantDocument(client, "payables-receivables")}><Download className="mr-2 h-4 w-4" />02 — Contas a Pagar/Receber</Button><Button size="sm" variant="outline" onClick={() => void downloadAccountantDocument(client, "expenses-goals")}><Download className="mr-2 h-4 w-4" />03 — Despesas e Metas</Button><Button size="sm" variant="outline" onClick={() => void downloadAccountantDocument(client, "financial-complete")}><Download className="mr-2 h-4 w-4" />04 — Financeiro Completo</Button><Button size="sm" variant="outline" onClick={() => void downloadAccountantDocument(client, "audit")}><Download className="mr-2 h-4 w-4" />05 — Auditoria Financeira</Button><Button size="sm" variant="outline" onClick={() => void downloadAccountantDocument(client, "closing-projection")}><Download className="mr-2 h-4 w-4" />06 — Fechamento e Projeção</Button></div></div><p className="mt-2 text-xs text-muted-foreground">Os relatórios incluem somente os lançamentos cadastrados e identificam despesas por descrição, não como classificação contábil oficial.</p><details className="mt-3" open><summary className="cursor-pointer text-sm font-medium text-primary">Extrato com saldo antes e depois de cada movimentação</summary><div className="mt-3 overflow-x-auto"><table className="w-full min-w-[1050px] text-left text-sm"><thead><tr className="border-b text-xs text-muted-foreground"><th className="px-2 py-2">Data</th><th className="px-2 py-2">Descrição</th><th className="px-2 py-2">Pagador</th><th className="px-2 py-2">Beneficiário</th><th className="px-2 py-2">Situação</th><th className="px-2 py-2">Comprovante / conferência</th><th className="px-2 py-2 text-right">Entrada</th><th className="px-2 py-2 text-right">Saída</th><th className="px-2 py-2 text-right">Saldo efetivo após movimentação</th><th className="px-2 py-2 text-right">Saldo previsto</th></tr></thead><tbody><tr className="border-b bg-muted/30 font-medium"><td className="px-2 py-2" colSpan={7}>Saldo de abertura · antes da primeira movimentação</td><td className="px-2 py-2 text-right">{money(opening)}</td><td className="px-2 py-2 text-right">{money(opening)}</td></tr>{periodEntries.map((entry) => <tr key={client.client_user_id + entry.id} className="border-b last:border-0"><td className="whitespace-nowrap px-2 py-2">{date(entry.status === "paid" ? (entry.paid_at ?? entry.due_date).slice(0, 10) : entry.due_date)}</td><td className="px-2 py-2">{entry.description}</td><td className="px-2 py-2">{entry.type === "income" ? entry.counterparty_name || "—" : "—"}</td><td className="px-2 py-2">{entry.type === "expense" ? entry.counterparty_name || "—" : "—"}</td><td className="px-2 py-2">{entry.status === "paid" ? "Pago" : "Pendente · previsto"}</td><td className="px-2 py-2"><div className="flex min-w-44 flex-col items-start gap-1">{entry.receipt_status === "matched" ? <span className="text-xs font-medium text-emerald-700">● Compatível</span> : entry.receipt_status === "mismatch" ? <span className="text-xs font-medium text-red-700">● Divergência</span> : entry.receipt_path ? <span className="text-xs font-medium text-amber-700">● Aguardando conferência</span> : <span className="text-xs font-medium text-red-700">● Sem comprovante</span>}{entry.receipt_path && <Button size="sm" variant="outline" className="h-8" disabled={receiptOpening === entry.id} onClick={() => void openReceipt(entry)}><Eye className="mr-1 h-3.5 w-3.5" />{receiptOpening === entry.id ? "Abrindo..." : "Visualizar"}</Button>}{entry.receipt_review_note && <span className="max-w-48 whitespace-normal text-xs text-muted-foreground">{entry.receipt_review_note}</span>}{entry.receipt_path && entry.receipt_status !== "matched" && <div className="flex flex-wrap gap-1"><Button size="sm" className="h-8" disabled={reviewingReceipt === entry.id} onClick={() => void reviewReceipt(entry, "matched")}>{reviewingReceipt === entry.id ? "Salvando..." : "Conferir verde"}</Button><Button size="sm" variant="outline" className="h-8 border-red-300 text-red-700" disabled={reviewingReceipt === entry.id} onClick={() => void reviewReceipt(entry, "mismatch")}>Marcar divergência</Button></div>}</div></td><td className="px-2 py-2 text-right">{entry.type === "income" ? money(entry.amount_cents) : "—"}</td><td className="px-2 py-2 text-right">{entry.type === "expense" ? money(entry.amount_cents) : "—"}</td><td className="px-2 py-2 text-right font-semibold">{money(entry.actual_balance)}</td><td className="px-2 py-2 text-right">{money(entry.projected_balance)}</td></tr>)}{!periodEntries.length && <tr><td className="px-2 py-5 text-center text-muted-foreground" colSpan={8}>Nenhuma movimentação neste período.</td></tr>}<tr className="bg-muted/30 font-semibold"><td className="px-2 py-2" colSpan={7}>Saldo final efetivo (após todas as movimentações pagas)</td><td className="px-2 py-2 text-right">{money(closing)}</td><td className="px-2 py-2 text-right">{money(projectedClosing)}</td></tr></tbody></table></div><p className="mt-2 text-xs text-muted-foreground">O saldo efetivo muda apenas com movimentações marcadas como pagas. O saldo previsto considera também as pendências; ambos partem do saldo informado pela empresa.</p></details></div>;
           })}</div> : <p className="text-sm text-muted-foreground">Nenhum cliente autorizou o acesso ainda.</p>}
         </CardContent>
       </Card>
@@ -320,5 +388,12 @@ export function AccountantClientManagement() {
         </CardContent>
       </Card>
     </section>
+    <Dialog open={!!receiptViewer} onOpenChange={(open) => !open && setReceiptViewer(null)}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
+        <DialogHeader><DialogTitle className="flex items-center gap-2"><Paperclip className="h-5 w-5" />Comprovante — {receiptViewer?.title}</DialogTitle></DialogHeader>
+        {receiptViewer && (receiptViewer.isPdf ? <iframe title={receiptViewer.title} src={receiptViewer.url} className="h-[70vh] w-full rounded-lg border" /> : <img src={receiptViewer.url} alt={receiptViewer.title} className="mx-auto max-h-[70vh] w-full rounded-lg object-contain" />)}
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }

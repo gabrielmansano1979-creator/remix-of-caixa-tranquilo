@@ -82,6 +82,11 @@ export async function getCustomerByEmail(email: string) {
   return data.data?.[0] ?? null;
 }
 
+export async function getCustomerDocument(id: string) {
+  const customer = await asaasFetch<{ id: string; cpfCnpj?: string | null }>(`/customers/${encodeURIComponent(id)}`);
+  return customer.cpfCnpj ?? null;
+}
+
 export async function createPixCharge(customerId: string, amountCents: number, externalReference: string, description: string) {
   if (!Number.isSafeInteger(amountCents) || amountCents <= 0) throw new RangeError("PIX amount must be positive safe integer cents");
   const payment = await asaasFetch<{ id: string; value: number }>("/payments", {

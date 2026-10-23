@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { calculateCommissionAmountCents } from "@/lib/affiliate-commission";
 import { getPlan, type PlanId } from "@/config/plans";
 import { nextBillingDate, type BillingInterval } from "@/lib/billing-cycle";
+import { normalizeCpfCnpj } from "@/lib/identity";
 
 type AdminDb = typeof import("@/integrations/supabase/client.server")["supabaseAdmin"];
 
@@ -40,11 +41,25 @@ async function recordAffiliateCommission(
   if (!input.partnerId || input.actualPaidAmountCents <= 0) return;
 
   const { data: partner, error: partnerError } = await db.from("partner_requests")
-    .select("id, user_id, status, pix_type, pix_key")
+    .select("id, user_id, tax_id, status, pix_type, pix_key")
     .eq("id", input.partnerId)
     .maybeSingle();
   if (partnerError) throw partnerError;
   if (partner?.status !== "approved" || !partner.pix_type || !partner.pix_key) return;
+  // Self-referral checks use only CPF/CNPJ. The billing provider is the source
+  // of the buyer document on confirmed payments; email and login ID are not identity keys.
+  const { data: subscription, error: subscriptionError } = await db.from("subscriptions")
+    .select("asaas_customer_id")
+    .eq("id", input.subscriptionId)
+    .maybeSingle();
+  if (subscriptionError) throw subscriptionError;
+  if (subscription?.asaas_customer_id && partner.tax_id) {
+    const asaas = await import("@/lib/asaas.server");
+    const buyerDocument = await asaas.getCustomerDocument(subscription.asaas_customer_id);
+    const buyerDoc = normalizeCpfCnpj(buyerDocument ?? "");
+    const partnerDoc = normalizeCpfCnpj(partner.tax_id ?? "");
+    if (buyerDoc && partnerDoc && buyerDoc === partnerDoc) return;
+  }
 
   let commissionRate = Number(input.commissionPercentAtAcquisition ?? 0);
   if (![20, 25, 30].includes(commissionRate)) {
@@ -220,6 +235,22 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
             .eq("payment_id", paymentIdText)
             .maybeSingle();
           if (pendingCheckoutError) throw pendingCheckoutError;
+
+          // Never activate a plan from a charge that does not match the exact checkout.
+          // Re-read the payment from Asaas above; do not trust webhook-supplied amounts or IDs.
+          if (pendingCheckout) {
+            if (payment.externalReference !== pendingCheckout.checkout_reference) {
+              throw new Error("Confirmed Asaas payment external reference does not match the pending checkout");
+            }
+            if (payment.customer !== pendingCheckout.customer_id) {
+              throw new Error("Confirmed Asaas payment customer does not match the pending checkout");
+            }
+            const expectedAmountCents = Number(pendingCheckout.initial_amount_cents);
+            if (!Number.isSafeInteger(expectedAmountCents) || expectedAmountCents <= 0
+              || Math.abs(actualPaidAmountCents - expectedAmountCents) > 1) {
+              throw new Error("Confirmed Asaas payment amount does not match the pending checkout");
+            }
+          }
 
           // The first Pix is intentionally a one-off so the one-time introductory
           // discount does not accidentally reduce every later monthly/yearly charge.
@@ -411,36 +442,8 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
             });
             if (auditError) throw auditError;
 
-            // The acquisition payment and the first monthly renewal are discounted.
-            // Once the second paid invoice is confirmed, update both the recurrence and
-            // any already-created pending invoice so the third monthly charge is full price.
-            if (
-              interval === "month"
-              && sub.affiliate_partner_id
-              && Number(sub.affiliate_discount_percent ?? 0) > 0
-              && asaasSubscriptionId
-            ) {
-              const { data: cycleLogs, error: cycleLogsError } = await db.from("audit_logs")
-                .select("action, details")
-                .eq("user_id", renewedSub.user_id)
-                .in("action", ["subscription_start", "subscription_renewal"]);
-              if (cycleLogsError) throw cycleLogsError;
-              const paidPaymentIds = new Set((cycleLogs ?? []).flatMap((log) => {
-                const meta = log.details;
-                if (!meta || typeof meta !== "object" || Array.isArray(meta)) return [];
-                const values = meta as Record<string, unknown>;
-                if (values.asaas_subscription_id !== asaasSubscriptionId || typeof values.payment_id !== "string") return [];
-                return [values.payment_id];
-              }));
-              const plan = getPlan(sub.plan as PlanId);
-              if (paidPaymentIds.size >= 2 && Number(sub.affiliate_payment_amount_cents ?? 0) !== plan.priceMonthCents) {
-                await asaas.updateAsaasSubscriptionAmount(asaasSubscriptionId, plan.priceMonthCents);
-                const { error: amountError } = await db.from("subscriptions")
-                  .update({ affiliate_payment_amount_cents: plan.priceMonthCents, updated_at: paidAt })
-                  .eq("id", sub.id);
-                if (amountError) throw amountError;
-              }
-            }
+            // Partner coupon pricing remains discounted for the subscription's recurring invoices.
+            // Do not reset the Asaas recurring amount after a fixed number of payments.
           } else {
             // Compatibility for a Pix issued by the previous version before pending checkouts
             // were stored separately. We still activate it and install the new recurring cycle.

@@ -15,6 +15,7 @@ import {
   getPartnerAffiliateLinks,
 } from "@/lib/reporting";
 import { AccountantClientManagement } from "@/components/accountant-client-management";
+import { ACCOUNTANT_PLANS, formatPlanPrice } from "@/config/plans";
 
 export const Route = createFileRoute("/contador")({
   beforeLoad: async () => {
@@ -358,7 +359,7 @@ function AccountantPage() {
           </p>
           <h1 className="text-3xl font-bold tracking-tight md:text-4xl">Contador Afiliado</h1>
           <p className="max-w-2xl text-base leading-relaxed text-muted-foreground">
-            Área exclusiva para contadores com registro profissional válido no CRC. Não é destinada a outros perfis profissionais. A aprovação depende da conferência dos dados e documentos comprobatórios.
+            Área exclusiva para contadores com registro profissional válido no CRC. Meus Clientes e todos os recursos de auditoria são gratuitos; os planos pagos de escritório liberam Meu Caixa, o fluxo financeiro da própria empresa contábil. A aprovação depende da conferência dos dados e documentos comprobatórios.
           </p>
         </header>
         {state?.status === "pending_approval" && (
@@ -382,6 +383,28 @@ function AccountantPage() {
         )}
         {canApply && !showApplicationForm && (
           <>
+            <section className="space-y-4">
+              <div>
+                <h2 className="text-2xl font-bold tracking-tight">Planos para contadores e escritórios</h2>
+                <p className="mt-1 text-sm text-muted-foreground">Auditor Free mantém Meus Clientes e toda a auditoria gratuitos, sem limite comercial. Os planos pagos liberam Meu Caixa para gerir as finanças da própria empresa contábil; não cobram pelos recursos de auditoria.</p>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                {ACCOUNTANT_PLANS.map((plan) => (
+                  <Card key={plan.id} className={plan.popular ? "border-primary" : ""}>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base">{plan.name}</CardTitle>
+                      <p className="text-2xl font-bold">{formatPlanPrice(plan.priceMonthCents)}<span className="text-sm font-normal text-muted-foreground">/mês</span></p>
+                      {plan.priceYearCents !== null && <p className="text-sm text-muted-foreground">{formatPlanPrice(plan.priceYearCents)}/ano</p>}
+                    </CardHeader>
+                    <CardContent>
+                      <ul className="space-y-2 text-sm">
+                        {plan.features.map((feature) => <li key={feature} className="flex gap-2"><BadgeCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" /><span>{feature}</span></li>)}
+                      </ul>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </section>
             <div className="grid gap-4 md:grid-cols-3">
               <Card className="border-primary/20 bg-primary/5">
                 <CardHeader className="pb-2"><div className="mb-1 grid h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary"><BadgeCheck className="h-5 w-5" /></div><CardTitle className="text-base">Comissão recorrente</CardTitle></CardHeader>

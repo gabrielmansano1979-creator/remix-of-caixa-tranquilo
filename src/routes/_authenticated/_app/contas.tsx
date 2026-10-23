@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
 import {
-  AlertTriangle, CheckCircle2, Clock, FileUp, MoreVertical, Pencil, Plus, Search, Trash2, Inbox, RotateCcw, MessageCircle, ArrowDownToLine, ArrowUpFromLine,
+  AlertTriangle, CheckCircle2, Clock, FileUp, MoreVertical, Pencil, Plus, Search, Trash2, Inbox, RotateCcw, MessageCircle, ArrowDownToLine, ArrowUpFromLine, Paperclip,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { accessQuery, profileQuery, entriesQuery, isOverdue, parseDbError, todaySP, type Entry, type LimitKind } from "@/lib/app-data";
@@ -181,7 +181,7 @@ function ContasPage() {
                     {e.type === "income" ? <ArrowDownToLine className="mr-1 inline h-3.5 w-3.5" /> : <ArrowUpFromLine className="mr-1 inline h-3.5 w-3.5" />}
                     {e.type === "income" ? "+" : "−"}{formatBRL(e.amount_cents)}
                   </td>
-                  <td className="col-start-1 md:px-5"><StatusBadge e={e} /></td>
+                  <td className="col-start-1 md:px-5"><div className="flex flex-wrap items-center gap-2"><StatusBadge e={e} /><ReceiptStatus e={e} /></div></td>
                   <td className="col-start-2 row-start-3 flex items-center justify-end gap-1 md:px-5">
                     {e.status === "pending" && (
                       <Button size="sm" variant="ghost" className="h-10 rounded-lg text-success" onClick={guard(() => markPaid.mutate({ id: e.id, paid: true }))} aria-label="Marcar como pago">
@@ -229,7 +229,28 @@ function ContasPage() {
   );
 }
 
+function ReceiptStatus({ e }: { e: Entry }) {
+  if (e.receipt_status === "matched") return <span className="inline-flex items-center gap-1 rounded-full bg-success/10 px-2 py-1 text-[11px] font-semibold text-success" title="Comprovante revisado e compatível"><span className="h-1.5 w-1.5 rounded-full bg-success" />Comprovante conferido</span>;
+  if (e.receipt_status === "mismatch") return <span className="inline-flex items-center gap-1 rounded-full bg-danger/10 px-2 py-1 text-[11px] font-semibold text-danger" title="Possível divergência de valor"><span className="h-1.5 w-1.5 rounded-full bg-danger" />Divergência</span>;
+  if (e.receipt_status === "pending") return <span className="inline-flex items-center gap-1 rounded-full bg-warning/10 px-2 py-1 text-[11px] font-semibold text-warning" title="Comprovante aguardando revisão"><span className="h-1.5 w-1.5 rounded-full bg-warning" />Conferência pendente</span>;
+  return <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-1 text-[11px] font-medium text-muted-foreground"><span className="h-1.5 w-1.5 rounded-full bg-muted-foreground" />Sem comprovante</span>;
+}
+
 function EntryDetail({ entry, onClose }: { entry: Entry | null; onClose: () => void }) {
+  const [receiptOpening, setReceiptOpening] = useState(false);
+  const openReceipt = async () => {
+    if (!entry?.receipt_path) return;
+    setReceiptOpening(true);
+    try {
+      const { data, error } = await supabase.storage.from("critical-cash-receipts").createSignedUrl(entry.receipt_path, 300);
+      if (error) throw error;
+      window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+    } catch {
+      toast.error("Não foi possível abrir o comprovante. Confira se você ainda tem acesso ao lançamento.");
+    } finally {
+      setReceiptOpening(false);
+    }
+  };
   const logs = useQuery({
     queryKey: ["logs", entry?.id],
     enabled: !!entry,
@@ -251,7 +272,8 @@ function EntryDetail({ entry, onClose }: { entry: Entry | null; onClose: () => v
               <div><dt className="text-muted-foreground">Status</dt><dd><StatusBadge e={entry} /></dd></div>
               <div><dt className="text-muted-foreground">Vencimento</dt><dd className="num">{formatDate(entry.due_date)}</dd></div>
               <div><dt className="text-muted-foreground">Pago em</dt><dd className="num">{entry.paid_at ? formatDate(entry.paid_at) : "—"}</dd></div>
-              <div className="col-span-2"><dt className="text-muted-foreground">{entry.type === "income" ? "Cliente" : "Fornecedor"}</dt><dd>{entry.counterparty_name || "—"} {entry.counterparty_whatsapp && <span className="text-muted-foreground">· WhatsApp {entry.counterparty_whatsapp}</span>}</dd></div>
+              <div className="col-span-2"><dt className="text-muted-foreground">{entry.type === "income" ? "Pagador" : "Beneficiário"}</dt><dd>{entry.counterparty_name || "—"} {entry.counterparty_whatsapp && <span className="text-muted-foreground">· WhatsApp {entry.counterparty_whatsapp}</span>}</dd></div>
+              <div className="col-span-2"><dt className="text-muted-foreground">Auditoria documental</dt><dd className="mt-1 flex flex-wrap items-center gap-2"><ReceiptStatus e={entry} />{entry.receipt_amount_cents != null && <span className="text-xs text-muted-foreground">Valor lido: {formatBRL(entry.receipt_amount_cents)}</span>}</dd>{entry.receipt_review_note && <p className="mt-2 text-xs text-muted-foreground">{entry.receipt_review_note}</p>}{entry.receipt_path && <Button type="button" variant="outline" className="mt-2 h-10" disabled={receiptOpening} onClick={() => void openReceipt()}><Paperclip className="mr-2 h-4 w-4" />{receiptOpening ? "Abrindo..." : "Abrir comprovante"}</Button>}</div>
             </dl>
             {entry.type === "income" && (
               <div className="mt-8">

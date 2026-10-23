@@ -7,6 +7,7 @@ export interface PlanConfig {
   popular?: boolean;
   priceMonthCents: number;
   priceYearCents: number;
+  couponDiscountPercent: number;
   limits: {
     pendingEntries: number;
     csvRows: number;
@@ -20,6 +21,7 @@ export interface PlanConfig {
 export const TRIAL_DAYS = 14; // teste sem cartão, com recursos Pro
 /** Desconto da primeira assinatura paga via Pix. */
 export const FIRST_PIX_DISCOUNT = 0.1;
+export const PARTNER_COUPON_DISCOUNT = 0.2;
 export const TRIAL_PLAN: PlanId = "pro";
 export const USAGE_WARNING_RATIO = 0.8;
 
@@ -29,6 +31,7 @@ export const PLANS: PlanConfig[] = [
     name: "Essencial",
     priceMonthCents: 7990,
     priceYearCents: 79900,
+    couponDiscountPercent: 20,
     limits: { pendingEntries: 100, csvRows: 100, topRisks: 3, editRuleDays: false, editRuleTexts: false },
     features: [
       "Até 100 contas pendentes",
@@ -46,6 +49,7 @@ export const PLANS: PlanConfig[] = [
     popular: true,
     priceMonthCents: 15990,
     priceYearCents: 159900,
+    couponDiscountPercent: 20,
     limits: { pendingEntries: 500, csvRows: 500, topRisks: 5, editRuleDays: true, editRuleTexts: false },
     features: [
       "Até 500 contas pendentes",
@@ -62,6 +66,7 @@ export const PLANS: PlanConfig[] = [
     name: "Excelência",
     priceMonthCents: 24990,
     priceYearCents: 249900,
+    couponDiscountPercent: 20,
     limits: { pendingEntries: 2000, csvRows: 2000, topRisks: 10, editRuleDays: true, editRuleTexts: true },
     features: [
       "Até 2.000 contas pendentes",
@@ -74,6 +79,62 @@ export const PLANS: PlanConfig[] = [
     ],
   },
 ];
+
+
+export type AccountantPlanId = "auditor_free" | "office_starter" | "office_pro" | "office_multiple";
+export interface AccountantPlanConfig {
+  id: AccountantPlanId;
+  name: string;
+  priceMonthCents: number;
+  priceYearCents: number | null;
+  popular?: boolean;
+  features: string[];
+}
+
+// Auditoria gratuita apenas para contadores aprovados; não libera o caixa próprio.
+export const ACCOUNTANT_PLANS: AccountantPlanConfig[] = [
+  {
+    id: "auditor_free", name: "Auditoria Livre", priceMonthCents: 0, priceYearCents: null,
+    features: [
+      "Exige aprovação do cadastro profissional",
+      "Até 1 empresa cliente vinculada",
+      "Até 1 auditoria por mês",
+      "Conferência de lançamentos e comprovantes",
+      "Não libera o fluxo de caixa da própria empresa contábil",
+    ],
+  },
+  {
+    id: "office_starter", name: "Básico", priceMonthCents: 14990, priceYearCents: 149900,
+    features: [
+      "Todos os recursos de auditoria de clientes do plano gratuito",
+      "Fluxo de caixa próprio do escritório",
+      "Gestão de entradas, saídas e saldo",
+      "Relatórios financeiros básicos",
+    ],
+  },
+  {
+    id: "office_pro", name: "Intermediário", priceMonthCents: 29900, priceYearCents: 299000,
+    popular: true,
+    features: [
+      "Tudo do Básico",
+      "Projeção de caixa para 30 dias",
+      "Importação bancária compatível",
+      "Relatórios financeiros ampliados",
+    ],
+  },
+  {
+    id: "office_multiple", name: "Avançado", priceMonthCents: 39900, priceYearCents: 399000,
+    features: [
+      "Tudo do Intermediário",
+      "Gestão financeira avançada do escritório",
+      "Recursos para múltiplas empresas e filiais, conforme disponibilidade",
+      "Atendimento prioritário",
+    ],
+  },
+];
+
+export const formatPlanPrice = (cents: number) =>
+  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100);
 
 export const getPlan = (id: PlanId) => {
   const plan = PLANS.find((p) => p.id === id);

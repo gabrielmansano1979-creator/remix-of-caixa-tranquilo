@@ -1,10 +1,10 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, FileText, Eye, Upload, X, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { addDays, parseDbError, profileQuery, todaySP, type Entry, type LimitKind } from "@/lib/app-data";
 import { MoneyInput } from "@/components/money-input";
@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { toE164 } from "@/lib/phone";
+import { evaluateReceiptText, extractReceiptText } from "@/lib/receipt-audit";
 
 const schema = z
   .object({
@@ -37,6 +38,11 @@ export function EntryFormDialog({ open, onOpenChange, entry, onLimit }: {
   const qc = useQueryClient();
   const { data: profile } = useQuery(profileQuery);
   const addAnother = useRef(false);
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [existingReceiptPath, setExistingReceiptPath] = useState<string | null>(null);
+  const [receiptPreviewUrl, setReceiptPreviewUrl] = useState<string | null>(null);
+  const [receiptPreviewType, setReceiptPreviewType] = useState<string | null>(null);
+  const [receiptLoading, setReceiptLoading] = useState(false);
   const blank = (): FormV => ({
     type: (typeof window !== "undefined" && (localStorage.getItem(LAST_TYPE) as "income" | "expense")) || "income",
     description: "", amount_cents: 0, due_date: todaySP(), counterparty_name: "", counterparty_whatsapp: "", pix_url: "",
@@ -46,6 +52,9 @@ export function EntryFormDialog({ open, onOpenChange, entry, onLimit }: {
 
   useEffect(() => {
     if (!open) return;
+    setReceiptFile(null);
+    setReceiptPreviewUrl(null);
+    setExistingReceiptPath((entry as (Entry & { receipt_path?: string | null }) | null | undefined)?.receipt_path ?? null);
     reset(entry ? {
       type: entry.type, description: entry.description, amount_cents: entry.amount_cents, due_date: entry.due_date,
       counterparty_name: entry.counterparty_name ?? "", counterparty_whatsapp: entry.counterparty_whatsapp ?? "",
@@ -56,17 +65,84 @@ export function EntryFormDialog({ open, onOpenChange, entry, onLimit }: {
 
   const save = useMutation({
     mutationFn: async (v: FormV) => {
-      const payload = { ...v, pix_url: v.pix_url || null, counterparty_name: v.counterparty_name || null, counterparty_whatsapp: toE164(v.counterparty_whatsapp) };
-      const { error } = entry
-        ? await supabase.from("entries").update(payload).eq("id", entry.id)
-        : await supabase.from("entries").insert(payload);
-      if (error) throw error;
+      setReceiptLoading(true);
+      try {
+        const payload = { ...v, pix_url: v.pix_url || null, counterparty_name: v.counterparty_name.trim() || null, counterparty_whatsapp: toE164(v.counterparty_whatsapp) };
+        let entryId = entry?.id ?? null;
+        if (entryId) {
+          const { error } = await supabase.from("entries").update(payload).eq("id", entryId);
+          if (error) throw error;
+        } else {
+          const { data, error } = await supabase.from("entries").insert(payload).select("id").single();
+          if (error) throw error;
+          entryId = data.id;
+        }
+
+        if (!receiptFile || !entryId) return { receiptWarning: null as string | null, receiptStatus: null as "pending" | "mismatch" | null };
+        const { data: authData, error: authError } = await supabase.auth.getUser();
+        if (authError || !authData.user) {
+          return { receiptWarning: "Movimentação salva, mas não foi possível confirmar a sessão para anexar o comprovante. Edite o lançamento e tente anexar novamente.", receiptStatus: null };
+        }
+
+        const extension = receiptFile.type === "application/pdf" ? "pdf"
+          : receiptFile.type === "image/jpeg" ? "jpg"
+          : receiptFile.type === "image/png" ? "png" : "webp";
+        const newPath = `${authData.user.id}/${entryId}/${crypto.randomUUID()}.${extension}`;
+        const { error: uploadError } = await supabase.storage.from("critical-cash-receipts").upload(newPath, receiptFile, {
+          contentType: receiptFile.type,
+          upsert: false,
+        });
+        if (uploadError) {
+          return { receiptWarning: "Movimentação salva, mas o comprovante não foi anexado. Confira sua conexão e tente anexá-lo novamente.", receiptStatus: null };
+        }
+
+        const { error: pathError } = await supabase.from("entries").update({ receipt_path: newPath }).eq("id", entryId);
+        if (pathError) {
+          await supabase.storage.from("critical-cash-receipts").remove([newPath]);
+          return { receiptWarning: "Movimentação salva, mas o vínculo do comprovante falhou. Tente anexá-lo novamente.", receiptStatus: null };
+        }
+
+        let suggestion: ReturnType<typeof evaluateReceiptText>;
+        try {
+          const text = await extractReceiptText(receiptFile);
+          suggestion = evaluateReceiptText(text, v.amount_cents);
+        } catch {
+          suggestion = {
+            status: "pending",
+            amountCents: null,
+            note: "O arquivo foi anexado, mas a leitura automática falhou. Confira manualmente o valor, a data e o pagador/beneficiário.",
+          };
+        }
+
+        const { error: auditError } = await supabase.from("entries").update({
+          receipt_status: suggestion.status,
+          receipt_amount_cents: suggestion.amountCents,
+          receipt_review_note: suggestion.note,
+        }).eq("id", entryId);
+        if (auditError) {
+          return { receiptWarning: "Comprovante anexado, mas a análise não pôde ser salva. O lançamento permanece pendente de conferência.", receiptStatus: "pending" as const };
+        }
+
+        const previousPath = (entry as (Entry & { receipt_path?: string | null }) | null | undefined)?.receipt_path;
+        if (previousPath && previousPath !== newPath) {
+          await supabase.storage.from("critical-cash-receipts").remove([previousPath]);
+        }
+        return { receiptWarning: null as string | null, receiptStatus: suggestion.status };
+      } finally {
+        setReceiptLoading(false);
+      }
     },
-    onSuccess: (_d, v) => {
+    onSuccess: (result, v) => {
       localStorage.setItem(LAST_TYPE, v.type);
-      qc.invalidateQueries({ queryKey: ["entries"] });
-      qc.invalidateQueries({ queryKey: ["projection"] });
-      toast.success(entry ? "Conta atualizada." : "Conta salva.");
+      void qc.invalidateQueries({ queryKey: ["entries"] });
+      void qc.invalidateQueries({ queryKey: ["projection"] });
+      setReceiptFile(null);
+      if (receiptPreviewUrl) URL.revokeObjectURL(receiptPreviewUrl);
+      setReceiptPreviewUrl(null);
+      if (result.receiptWarning) toast.warning(result.receiptWarning);
+      else if (result.receiptStatus === "mismatch") toast.error("Movimentação salva. O comprovante apresenta possível divergência de valor; confira a auditoria.");
+      else if (result.receiptStatus === "pending") toast.warning("Movimentação salva. O comprovante ficou amarelo e precisa de conferência.");
+      else toast.success(entry ? "Conta atualizada." : "Conta salva.");
       if (addAnother.current && !entry) {
         reset({ ...blank(), type: v.type });
         setTimeout(() => setFocus("description"), 0);
@@ -132,13 +208,21 @@ export function EntryFormDialog({ open, onOpenChange, entry, onLimit }: {
             <FieldError msg={formState.errors.counterparty_whatsapp?.message} />
           </div>
           <div><Label htmlFor="pix_url">Link Pix do cliente (opcional)</Label><Input id="pix_url" type="url" maxLength={2000} className="mt-1.5 h-11" {...register("pix_url")} /><FieldError msg={formState.errors.pix_url?.message} /></div>
+          <div className="space-y-2 rounded-xl border border-dashed p-3">
+            <div className="flex items-start gap-2"><FileText className="mt-0.5 h-5 w-5 shrink-0 text-primary" /><div><Label htmlFor="receipt-file" className="cursor-pointer">Comprovante da movimentação</Label><p className="mt-1 text-xs text-muted-foreground">Anexe o comprovante de pagamento ou recebimento para a conferência automática. PDF, JPG, PNG ou WEBP; até 10 MB.</p></div></div>
+            <label htmlFor="receipt-file" className="flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-lg border bg-muted/30 px-3 py-2 text-sm font-medium hover:bg-accent"><Upload className="h-4 w-4" />{receiptFile ? "Trocar comprovante" : existingReceiptPath ? "Substituir comprovante" : "Escolher comprovante"}<input id="receipt-file" type="file" accept="application/pdf,image/jpeg,image/png,image/webp" className="sr-only" onChange={(event) => { const file = event.target.files?.[0]; if (!file) return; if (file.size > 10 * 1024 * 1024) { toast.error("O comprovante deve ter no máximo 10 MB."); event.currentTarget.value = ""; return; } if (!["application/pdf","image/jpeg","image/png","image/webp"].includes(file.type)) { toast.error("Formato não permitido. Use PDF, JPG, PNG ou WEBP."); event.currentTarget.value = ""; return; } setReceiptFile(file); setReceiptPreviewType(file.type); setReceiptPreviewUrl(URL.createObjectURL(file)); }} /></label>
+            {receiptFile && <div className="flex items-center justify-between gap-2 rounded-lg bg-muted/40 p-2 text-xs"><span className="flex min-w-0 items-center gap-2"><FileText className="h-4 w-4 shrink-0" /><span className="truncate">{receiptFile.name}</span></span><button type="button" className="rounded p-1 text-muted-foreground hover:text-foreground" aria-label="Remover comprovante selecionado" onClick={() => { setReceiptFile(null); if (receiptPreviewUrl) URL.revokeObjectURL(receiptPreviewUrl); setReceiptPreviewUrl(null); }}><X className="h-4 w-4" /></button></div>}
+            {existingReceiptPath && !receiptFile && <p className="text-xs text-emerald-700">Já existe um comprovante anexado. Selecione outro arquivo para substituí-lo.</p>}
+            {receiptPreviewUrl && <div className="overflow-hidden rounded-lg border"><div className="flex items-center justify-between border-b px-3 py-2 text-xs font-medium"><span>Pré-visualização do comprovante</span><a href={receiptPreviewUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-primary"><Eye className="h-3.5 w-3.5" />Abrir</a></div>{receiptPreviewType === "application/pdf" ? <iframe title="Pré-visualização do comprovante PDF" src={receiptPreviewUrl} className="h-64 w-full" /> : <img src={receiptPreviewUrl} alt="Pré-visualização do comprovante" className="max-h-64 w-full object-contain" />}</div>}
+            <p role="status" className="flex items-start gap-1.5 text-xs text-amber-700"><AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />Após anexar, o sistema precisa conferir o documento e o valor. O arquivo sozinho não aprova a movimentação; enquanto a conferência não terminar, ela fica pendente.</p>
+          </div>
           <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row">
             {!entry && (
-              <Button type="button" variant="outline" className="h-11 flex-1 rounded-xl" disabled={save.isPending} onClick={() => submit(true)}>
+              <Button type="button" variant="outline" className="h-11 flex-1 rounded-xl" disabled={save.isPending || receiptLoading} onClick={() => submit(true)}>
                 Salvar e adicionar outra
               </Button>
             )}
-            <Button type="submit" className="h-11 flex-1 rounded-xl" disabled={save.isPending}>Salvar</Button>
+            <Button type="submit" className="h-11 flex-1 rounded-xl" disabled={save.isPending || receiptLoading}>{receiptLoading ? "Conferindo comprovante..." : save.isPending ? "Salvando..." : "Salvar"}</Button>
           </div>
         </form>
       </DialogContent>

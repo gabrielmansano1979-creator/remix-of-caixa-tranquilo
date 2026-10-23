@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -30,15 +30,17 @@ function ForgotPage() {
   const [error, setError] = useState<string | null>(null);
   const { register, handleSubmit, formState } = useForm<z.infer<typeof schema>>({ resolver: zodResolver(schema) });
 
+  const accountProfile = new URLSearchParams(window.location.search).get("perfil") === "contador" ? "contador" : "empresario";
+
   const onSubmit = handleSubmit(async ({ email }) => {
     setError(null);
-    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + "/redefinir-senha" });
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/redefinir-senha?perfil=${accountProfile}` });
     if (error) return setError(translateAuthError(error.message));
     setSent(true);
   });
 
   return (
-    <AuthShell title="Esqueceu a senha?" subtitle="Enviaremos um link para você criar uma nova." footer={<Link to="/login" className="text-primary hover:underline">Voltar ao login</Link>}>
+    <AuthShell title="Esqueceu a senha?" subtitle="Enviaremos um link para você criar uma nova." footer={<a href={`/login?perfil=${accountProfile}`} className="text-primary hover:underline">Voltar ao login</a>}>
       {sent ? (
         <p className="rounded-xl bg-success/10 p-3 text-sm text-success" role="status">Se o e-mail estiver cadastrado, você receberá o link em instantes.</p>
       ) : (
