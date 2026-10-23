@@ -13,6 +13,7 @@ import { exportReport } from "@/lib/reporting";
 import { AccountantClientManagement } from "@/components/accountant-client-management";
 import { ACCOUNTANT_PLANS, formatPlanPrice } from "@/config/plans";
 import { accessQuery } from "@/lib/app-data";
+import { AccountantReferralProgram } from "@/components/accountant-referral-program";
 
 export const Route = createFileRoute("/contador")({
   beforeLoad: async () => {
@@ -483,6 +484,7 @@ function AccountantPage() {
         </CardContent>
       </Card>}
       <AccountantPixPayoutSettings />
+      {state.coupon && <AccountantReferralProgram coupon={state.coupon} totals={dashboard?.totals} commissions={dashboard?.commissions} />}
       <AccountantClientManagement />
       <Card>
         <CardHeader className="flex-row items-center justify-between space-y-0">
