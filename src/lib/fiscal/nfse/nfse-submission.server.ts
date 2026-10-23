@@ -74,9 +74,12 @@ export async function submitNfseNational(
     const existing = await transport.queryByDps({
       baseUrl, agent, numeroDps: input.numeroDps, serie: input.serie,
     });
-    if (existing?.accepted) {
+    if (existing?.accepted && existing.accessKey) {
       await persistResult(input, existing, config.ambiente);
       return existing;
+    }
+    if (existing?.accepted && !existing.accessKey) {
+      throw new Error("A SEFIN indica que a DPS existe, mas não retornou chave de acesso. Não retransmitir; regularize a consulta.");
     }
 
     const { error: markError } = await (supabaseAdmin as any)
