@@ -54,7 +54,7 @@ function resultFrom(status: number, body: string): NfseOfficialResult {
  * DPS XML is compressed with GZip and then encoded as Base64.
  */
 export async function submitSignedDps(input: ClientOptions & { signedXml: string }): Promise<NfseOfficialResult> {
-  if (!/<(?:[A-Za-z_][\\w.-]*:)?Signature\\b/.test(input.signedXml) || !input.signedXml.includes("</DPS>")) {
+  if (!/<(?:[A-Za-z_][\w.-]*:)?Signature\b/.test(input.signedXml) || !input.signedXml.includes("</DPS>")) {
     throw new Error("DPS assinada inválida; transmissão bloqueada.");
   }
   const dpsXmlGZipB64 = gzipSync(Buffer.from(input.signedXml, "utf8")).toString("base64");
