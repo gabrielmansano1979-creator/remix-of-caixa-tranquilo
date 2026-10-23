@@ -59,12 +59,8 @@ BEGIN
   END IF;
   IF normalized_type NOT IN ('cpf','cnpj','email','phone','random')
      OR normalized_key = '' OR length(normalized_key) > 254
-     OR normalized_holder NOT BETWEEN '' AND '' THEN
-    -- Holder validation is kept separate to avoid locale-dependent comparisons.
+     OR length(normalized_holder) < 2 OR length(normalized_holder) > 160 THEN
     RAISE EXCEPTION 'invalid payout details';
-  END IF;
-  IF length(normalized_holder) < 2 OR length(normalized_holder) > 160 THEN
-    RAISE EXCEPTION 'invalid holder name';
   END IF;
   IF NOT public.is_valid_pix_key(normalized_type, normalized_key) THEN
     RAISE EXCEPTION 'invalid Pix key';
