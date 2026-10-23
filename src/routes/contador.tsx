@@ -12,6 +12,7 @@ import { isValidCpfCnpj, isValidCrcNumber, normalizeCpfCnpj } from "@/lib/identi
 import { exportReport } from "@/lib/reporting";
 import { AccountantClientManagement } from "@/components/accountant-client-management";
 import { ACCOUNTANT_PLANS, formatPlanPrice } from "@/config/plans";
+import { accessQuery } from "@/lib/app-data";
 
 export const Route = createFileRoute("/contador")({
   beforeLoad: async () => {
@@ -136,6 +137,7 @@ function AccountantPage() {
     },
     refetchInterval: 15_000,
   });
+  const access = useQuery(accessQuery);
   const state = query.data?.status;
   const dashboard = query.data?.dashboard;
   useEffect(() => {
@@ -462,7 +464,7 @@ function AccountantPage() {
           Gerencie a Auditoria Livre e revise os dados financeiros das empresas que autorizaram o acesso.
         </p>
       </header>
-      <Card className="border-primary/20 bg-primary/5">
+      {access.data?.can_write && <Card className="border-primary/20 bg-primary/5">
         <CardHeader>
           <CardTitle>Fluxo de caixa da sua empresa</CardTitle>
           <p className="text-sm text-muted-foreground">
@@ -478,7 +480,7 @@ function AccountantPage() {
             <Link to="/contas">Gerenciar entradas e saídas</Link>
           </Button>
         </CardContent>
-      </Card>
+      </Card>}
       <AccountantClientManagement />
       <Card>
         <CardHeader className="flex-row items-center justify-between space-y-0">
