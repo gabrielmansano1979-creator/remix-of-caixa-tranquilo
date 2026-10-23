@@ -10,7 +10,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 const emissionInput = z.object({
   invoiceId: z.string().uuid(),
   tenantUserId: z.string().uuid(),
-  configId: z.string().uuid(),
+  configId: z.string().uuid().optional(),
 });
 
 export const emitNfseAction = createServerFn({ method: "POST" })
@@ -27,7 +27,7 @@ export const emitNfseAction = createServerFn({ method: "POST" })
         throw Object.assign(new Error("UNAUTHENTICATED"), { status: 401 });
       }
 
-      const { invoiceId, tenantUserId, configId } = data;
+      const { invoiceId, tenantUserId } = data;
       const isOwner = authData.user.id === tenantUserId;
       let hasTenantPermission = false;
 
@@ -52,20 +52,9 @@ export const emitNfseAction = createServerFn({ method: "POST" })
 
       // Use admin only after caller identity and tenant permission have been checked.
       const { supabaseAdmin: db } = await import("@/integrations/supabase/client.server");
-      const { data: config, error: configError } = await db
-        .from("configuracoes_fiscais")
-        .select("id,tenant_user_id,status")
-        .eq("id", configId)
-        .eq("tenant_user_id", tenantUserId)
-        .maybeSingle();
-
-      if (configError || !config || config.status !== "ativo") {
-        throw Object.assign(new Error("FISCAL_CONFIG_NOT_FOUND"), { status: 404 });
-      }
-
       const { data: invoice, error: invoiceError } = await db
         .from("fiscal_invoices")
-        .select("id,user_id,document_type,status")
+        .select("id,user_id,document_type,status,issuer_cnpj")
         .eq("id", invoiceId)
         .eq("user_id", tenantUserId)
         .maybeSingle();
@@ -74,10 +63,28 @@ export const emitNfseAction = createServerFn({ method: "POST" })
         throw Object.assign(new Error("INVOICE_NOT_FOUND"), { status: 404 });
       }
 
+      // The browser cannot read configuracoes_fiscais (service-role only). Resolve
+      // the active configuration server-side by the draft's issuer CNPJ.
+      let configQuery = db
+        .from("configuracoes_fiscais")
+        .select("id,tenant_user_id,status")
+        .eq("tenant_user_id", tenantUserId)
+        .eq("status", "ativo");
+      if (data.configId) {
+        configQuery = configQuery.eq("id", data.configId);
+      } else {
+        configQuery = configQuery.eq("cnpj", String(invoice.issuer_cnpj ?? "").replace(/\\D/g, ""));
+      }
+      const { data: config, error: configError } = await configQuery.maybeSingle();
+
+      if (configError || !config || config.status !== "ativo") {
+        throw Object.assign(new Error("FISCAL_CONFIG_NOT_FOUND"), { status: 404 });
+      }
+
       // No blind retries. The emission service must consult the official DPS state
       // before any retransmission after an uncertain network outcome.
       const { emitNfseForTenant } = await import("./nfse-emission.server");
-      const result = await emitNfseForTenant({ invoiceId, tenantUserId, configId });
+      const result = await emitNfseForTenant({ invoiceId, tenantUserId, configId: config.id });
 
       // Return actionable validation feedback to the UI without turning missing
       // draft fields into a generic server error. No request is sent in this case.
@@ -120,7 +127,7 @@ export const emitNfseAction = createServerFn({ method: "POST" })
         actorUserId: userId,
         invoiceId: data.invoiceId,
         tenantUserId: data.tenantUserId,
-        configId: data.configId,
+        configId: data.configId ?? "resolved-server-side",
         errorName: error instanceof Error ? error.name : "UnknownError",
         // Deliberately omit error.message, request bodies, XML, PFX and passwords.
       });
