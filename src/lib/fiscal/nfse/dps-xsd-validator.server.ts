@@ -1,40 +1,84 @@
-/**
- * Defensive DPS layout gate.
- *
- * This is intentionally NOT represented as an XSD validator: the official
- * current-version XSD bundle and a real XSD engine are not present in this
- * repository. Structural checks catch incomplete mandatory groups, then the
- * function fails closed until official XSD validation is wired in.
- */
-const REQUIRED_DPS_GROUPS: Array<{ label: string; pattern: RegExp }> = [
-  { label: "raiz DPS e namespace nacional", pattern: /<DPS\b[^>]*xmlns=["']http:\/\/www\.sped\.fazenda\.gov\.br\/nfse["'][^>]*>/ },
-  { label: "infDPS com Id e versão", pattern: /<infDPS\b(?=[^>]*\bId=["'][^"']+["'])(?=[^>]*\bversao=["'][^"']+["'])[^>]*>/ },
-  { label: "tpAmb", pattern: /<tpAmb>\s*[12]\s*<\/tpAmb>/ },
-  { label: "dhEmi", pattern: /<dhEmi>[^<]+<\/dhEmi>/ },
-  { label: "verAplic", pattern: /<verAplic>[^<]+<\/verAplic>/ },
-  { label: "serie", pattern: /<serie>\d+<\/serie>/ },
-  { label: "nDPS", pattern: /<nDPS>\d+<\/nDPS>/ },
-  { label: "dCompet", pattern: /<dCompet>\d{4}-\d{2}-\d{2}<\/dCompet>/ },
-  { label: "tpEmit", pattern: /<tpEmit>\d<\/tpEmit>/ },
-  { label: "cLocEmi", pattern: /<cLocEmi>\d{7}<\/cLocEmi>/ },
-  { label: "prestador e CNPJ", pattern: /<prest>[\s\S]*?<CNPJ>\d{14}<\/CNPJ>[\s\S]*?<\/prest>/ },
-  { label: "regime tributário do prestador", pattern: /<regTrib>[\s\S]*?<opSimpNac>\d<\/opSimpNac>[\s\S]*?<\/regTrib>/ },
-  { label: "local de prestação", pattern: /<locPrest>[\s\S]*?<cLocPrestacao>\d{7}<\/cLocPrestacao>[\s\S]*?<\/locPrest>/ },
-  { label: "serviço com código nacional e descrição", pattern: /<cServ>[\s\S]*?<cTribNac>\d{6}<\/cTribNac>[\s\S]*?<xDescServ>[^<]+<\/xDescServ>[\s\S]*?<\/cServ>/ },
-  { label: "valor do serviço", pattern: /<vServPrest>[\s\S]*?<vServ>\d+(?:\.\d{2})?<\/vServ>[\s\S]*?<\/vServPrest>/ },
-  { label: "tributação municipal do ISS", pattern: /<tribMun>[\s\S]*?<tribISSQN>\d<\/tribISSQN>[\s\S]*?<\/tribMun>/ },
-  { label: "fechamento de infDPS e DPS", pattern: /<\/infDPS>\s*<\/DPS>\s*$/ },
-];
+import { spawnSync } from "node:child_process";
+import { existsSync, realpathSync } from "node:fs";
+import { isAbsolute, resolve } from "node:path";
 
-export function assertDpsRequiredGroups(xml: string): void {
-  const missing = REQUIRED_DPS_GROUPS.filter(({ pattern }) => !pattern.test(xml)).map(({ label }) => label);
-  if (missing.length) {
-    throw new Error(`DPS_INCOMPLETE: grupos obrigatórios ausentes ou inválidos: ${missing.join(", ")}.`);
+const MAX_XML_BYTES = 1_048_576;
+const VALIDATION_TIMEOUT_MS = 5_000;
+const DEFAULT_XSD = resolve(
+  process.cwd(),
+  "supabase/schemas/nfse/producao-restrita-20261020/DPS_v1.01.xsd",
+);
+
+export type DpsXsdValidationResult = {
+  valid: true;
+  schemaPath: string;
+  validator: "xmllint/libxml2";
+};
+
+/**
+ * Validates the exact XML bytes that will be sent to SEFIN against the official
+ * Produção Restrita XSD bundle. Install the official 2026-10-20 bundle under
+ * supabase/schemas/nfse/producao-restrita-20261020 or set NFSE_DPS_XSD_PATH
+ * to its DPS_v1.01.xsd file. The XSD's imported files must remain beside it.
+ *
+ * Requires xmllint (libxml2) in the runtime image. No network schema resolution
+ * is permitted. Missing schema/engine and any schema error fail closed.
+ */
+export function assertDpsRequiredGroups(xml: string): DpsXsdValidationResult {
+  const xmlBuffer = Buffer.from(xml, "utf8");
+  if (xmlBuffer.byteLength === 0 || xmlBuffer.byteLength > MAX_XML_BYTES) {
+    throw new Error("DPS_XSD_INVALID: XML vazio ou excede o limite de 1 MiB.");
+  }
+  if (xml.includes("<!DOCTYPE") || xml.includes("<!ENTITY")) {
+    throw new Error("DPS_XSD_INVALID: declarações DTD/ENTITY não são permitidas.");
   }
 
-  // Structural presence is not equivalent to XSD validation. Never transmit
-  // until the current official SEFIN XSD is loaded and validated by an XSD engine.
-  throw new Error(
-    "DPS_XSD_VALIDATION_UNAVAILABLE: XML contém os grupos mínimos, mas a validação contra o XSD oficial vigente não está configurada. Nenhum envio foi realizado.",
+  const configuredPath = process.env.NFSE_DPS_XSD_PATH?.trim();
+  const schemaCandidate = configuredPath
+    ? (isAbsolute(configuredPath) ? configuredPath : resolve(process.cwd(), configuredPath))
+    : DEFAULT_XSD;
+
+  if (!existsSync(schemaCandidate)) {
+    throw new Error(
+      "DPS_XSD_SCHEMA_UNAVAILABLE: instale o pacote XSD oficial de Produção Restrita v1.01-20261020 e configure NFSE_DPS_XSD_PATH. Nenhum envio foi realizado.",
+    );
+  }
+
+  const schemaPath = realpathSync(schemaCandidate);
+  const executable = process.env.NFSE_XMLLINT_BIN?.trim() || "xmllint";
+  const result = spawnSync(
+    executable,
+    ["--nonet", "--noout", "--schema", schemaPath, "-"],
+    {
+      input: xmlBuffer,
+      encoding: "utf8",
+      timeout: VALIDATION_TIMEOUT_MS,
+      maxBuffer: 1_048_576,
+      windowsHide: true,
+    },
   );
+
+  if (result.error) {
+    const code = (result.error as NodeJS.ErrnoException).code;
+    if (code === "ENOENT") {
+      throw new Error(
+        "DPS_XSD_ENGINE_UNAVAILABLE: xmllint/libxml2 não está instalado no runtime. Nenhum envio foi realizado.",
+      );
+    }
+    throw new Error("DPS_XSD_VALIDATION_FAILED: o validador XSD não concluiu a validação.");
+  }
+
+  if (result.signal || result.status !== 0) {
+    // Limit diagnostics to prevent large/untrusted XML or parser output entering logs.
+    const diagnostic = String(result.stderr || result.stdout || "")
+      .replace(/[\r\n\t]+/g, " ")
+      .slice(0, 500);
+    throw new Error(
+      diagnostic
+        ? `DPS_XSD_INVALID: XML rejeitado pelo XSD oficial: ${diagnostic}`
+        : "DPS_XSD_INVALID: XML rejeitado pelo XSD oficial.",
+    );
+  }
+
+  return { valid: true, schemaPath, validator: "xmllint/libxml2" };
 }
