@@ -1,5 +1,5 @@
 /**
- * Endpoints oficiais dos serviços SOAP síncronos de recepção de lote e consulta
+ * Endpoints oficiais dos serviços SOAP de autorização assíncrona de lote e consulta
  * do recibo NF-e/NFC-e 4.00, conforme os portais oficiais do Portal NF-e e SVRS.
  *
  * Ambiente: 1 = produção; 2 = homologação.
