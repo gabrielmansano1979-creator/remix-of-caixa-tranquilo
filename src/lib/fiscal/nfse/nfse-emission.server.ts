@@ -115,3 +115,38 @@ async function saveResult(input: { invoiceId: string; tenantUserId: string }, re
   }).eq("id", input.invoiceId).eq("user_id", input.tenantUserId);
   if (error) throw new Error("Resposta recebida, mas falhou a persistência do resultado fiscal.");
 }
+
+/**
+ * ID-only entry point used by the authenticated server action.
+ *
+ * Deliberately fails closed until the draft stores the complete, taxpayer-approved
+ * DPS payload (national service code, competence, DPS sequence, issuer regime and
+ * applicable ISS configuration). Those fields cannot safely be inferred from
+ * invoice amount/description alone.
+ */
+export async function emitNfseForTenant(input: {
+  invoiceId: string;
+  tenantUserId: string;
+  configId: string;
+}): Promise<never> {
+  const { data: config, error: configError } = await (supabaseAdmin as any)
+    .from("configuracoes_fiscais")
+    .select("id,tenant_user_id,status,cnpj,municipio_ibge,regime_tributario")
+    .eq("id", input.configId)
+    .eq("tenant_user_id", input.tenantUserId)
+    .maybeSingle();
+  if (configError || !config || config.status !== "ativo") {
+    throw new Error("Configuração fiscal ativa não encontrada.");
+  }
+
+  const { data: invoice, error: invoiceError } = await (supabaseAdmin as any)
+    .from("fiscal_invoices")
+    .select("id,user_id,document_type,status,issuer_cnpj,issuer_city_ibge,recipient_name,recipient_tax_id,service_description,amount_cents")
+    .eq("id", input.invoiceId)
+    .eq("user_id", input.tenantUserId)
+    .maybeSingle();
+  if (invoiceError || !invoice || invoice.document_type !== "nfse") {
+    throw new Error("Rascunho de NFS-e não encontrado.");
+  }
+  throw new Error("DPS_INCOMPLETE: o rascunho ainda não contém todos os campos fiscais obrigatórios para construir e validar a DPS Nacional. Nenhum envio foi realizado.");
+}
