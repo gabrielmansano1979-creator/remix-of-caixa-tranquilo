@@ -42,10 +42,12 @@ export interface DpsBuilderInput {
   servico: {
     municipioPrestacaoIbge: string;
     codigoTributacaoNacional: string;
+    /** CNAE is validated separately; it is not emitted as an invented DPS XML tag. */
+    cnae: string;
     descricao: string;
     codigoNbs?: string;
     valorServicos: number;
-    issRetido?: boolean;
+    issRetido: boolean;
     aliquotaIss?: number;
   };
 }
@@ -94,6 +96,15 @@ export function buildDpsXml(input: DpsBuilderInput): { xml: string; id: string }
   if (!input.servico.descricao.trim()) throw new Error("Descrição do serviço é obrigatória.");
   if (!/^\d{6}$/.test(input.servico.codigoTributacaoNacional)) {
     throw new Error("Código de tributação nacional deve seguir o formato de 6 dígitos do leiaute.");
+  }
+  if (!/^\d{7}$/.test(input.servico.cnae)) {
+    throw new Error("CNAE deve conter 7 dígitos.");
+  }
+  if (!input.servico.issRetido && (input.servico.aliquotaIss === undefined || !Number.isFinite(input.servico.aliquotaIss) || input.servico.aliquotaIss < 0 || input.servico.aliquotaIss > 100)) {
+    throw new Error("Alíquota do ISS entre 0 e 100 é obrigatória quando o ISS não é retido.");
+  }
+  if (input.servico.aliquotaIss !== undefined && (!Number.isFinite(input.servico.aliquotaIss) || input.servico.aliquotaIss < 0 || input.servico.aliquotaIss > 100)) {
+    throw new Error("Alíquota do ISS deve estar entre 0 e 100.");
   }
   if (input.tomador && Boolean(input.tomador.cpf) === Boolean(input.tomador.cnpj)) {
     throw new Error("Informe exatamente um CPF ou CNPJ do tomador.");
