@@ -100,6 +100,8 @@ function parseFiscalResponse(xml: string): ParsedFiscalResponse {
   const errorContainers = elementsByLocalName(doc, [
     "MensagemRetorno",
     "MensagemRetornoLote",
+    "Erros",
+    "erros",
     "Erro",
     "erro",
   ]);
