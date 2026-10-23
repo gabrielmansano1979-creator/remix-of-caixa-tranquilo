@@ -29,6 +29,10 @@ on:
       - ".github/workflows/validate-build.yml"
   workflow_dispatch:
 
+concurrency:
+  group: validate-build-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: write
 
