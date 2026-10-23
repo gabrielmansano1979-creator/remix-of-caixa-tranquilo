@@ -62,8 +62,10 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - name: Install dependencies
-        run: npm ci --legacy-peer-deps
+      - name: Generate lockfile and install dependencies
+        run: |
+          npm install --package-lock-only --ignore-scripts --no-fund --legacy-peer-deps
+          npm ci --legacy-peer-deps
       - name: Resolve vulnerable transitive esbuild dependency
         run: |
           npm pkg set 'overrides.esbuild=^0.25.12'
