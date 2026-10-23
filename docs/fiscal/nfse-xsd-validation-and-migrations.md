@@ -28,10 +28,12 @@ O histórico remoto consultado já contém as versões `20261023193650` (rascunh
 `20261023195950` (configurações fiscais). Os nomes dos arquivos locais foram alinhados
 a esses números para evitar reaplicação de migrações já registradas.
 
-As duas migrações pendentes desta branch são:
+As migrações pendentes desta branch são:
 
 - `20261023195960_fiscal_invoice_emission_foundation.sql`: campos de transmissão, tabela `fiscal_invoice_items` e políticas RLS.
 - `20261023200000_nfse_draft_tax_fields_and_sequence.sql`: campos fiscais, sequência por empresa/série e trigger de alocação de número DPS.
+- `20261023201500_nfse_service_municipality.sql`: persiste separadamente o município da prestação do serviço.
+- `20261023202000_nfse_dps_sequence_on_draft_update.sql`: permite salvar rascunhos incompletos e aloca o número da DPS atomicamente quando os campos fiscais necessários forem completados, inclusive em rascunhos antigos.
 
 Antes de aplicar, confira o projeto vinculado e a lista de pendências:
 
@@ -48,7 +50,7 @@ supabase db push --linked
 supabase migration list --linked
 ```
 
-Confirme no resultado que as versões `20261023195960` e `20261023200000` aparecem aplicadas. Não use `migration repair` para marcar versões como aplicadas sem que o SQL correspondente tenha sido executado.
+Confirme no resultado que as versões `20261023195960`, `20261023200000`, `20261023201500` e `20261023202000` aparecem aplicadas. Não use `migration repair` para marcar versões como aplicadas sem que o SQL correspondente tenha sido executado.
 
 ## Verificação pós-migração
 
@@ -66,7 +68,7 @@ where table_schema = 'public'
   and table_name = 'fiscal_invoices'
   and column_name in (
     'competencia', 'codigo_trib_nacional', 'cnae', 'iss_retido',
-    'aliquota_iss', 'serie', 'numero_dps', 'tentativas_envio',
+    'aliquota_iss', 'serie', 'numero_dps', 'municipio_prestacao_ibge', 'tentativas_envio',
     'ambiente_fiscal', 'envio_iniciado_em'
   )
 order by column_name;
