@@ -2,18 +2,6 @@ import { Agent } from "node:https";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { decryptFiscalSecret, fiscalSecretAad } from "./crypto.server";
 
-type FiscalConfigRow = {
-  id: string;
-  tenant_user_id: string;
-  ambiente: "producao_restrita" | "producao";
-  status: "pendente" | "ativo" | "expirado" | "invalido" | "revogado";
-  certificado_ciphertext: string;
-  certificado_nonce: string;
-  certificado_auth_tag: string;
-  senha_certificado_ciphertext: string;
-  senha_certificado_nonce: string;
-  senha_certificado_auth_tag: string;
-};
 
 const SEFIN_BASE_URLS = {
   producao_restrita: "https://sefin.producaorestrita.nfse.gov.br",
