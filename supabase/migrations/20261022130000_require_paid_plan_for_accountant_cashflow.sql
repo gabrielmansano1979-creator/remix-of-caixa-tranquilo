@@ -1,7 +1,6 @@
--- Correct the entitlement rule: an approved accountant affiliate is not automatically
--- granted a free Business subscription for their own cash flow. The free Auditoria
--- Livre workflow remains separate; a paid subscription is required for financial editing.
--- The explicit complimentary_access_allowlist is preserved for platform-owner access.
+-- Platform admins/owner get complimentary Business access to their own workspace.
+-- Approved accountants keep their affiliate dashboard, but own-company financial editing
+-- requires a paid plan. Auditoria Livre remains a separate accountant benefit.
 CREATE OR REPLACE FUNCTION public.get_access(_user_id uuid)
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -18,7 +17,6 @@ DECLARE
   trial_end timestamptz;
   grace_end timestamptz;
   plan_name text;
-  complimentary_plan public.plan_tier;
   complimentary_accountant boolean := false;
 BEGIN
   IF _user_id IS NULL THEN
@@ -45,15 +43,11 @@ BEGIN
   WHERE user_id = _user_id
   LIMIT 1;
 
-  SELECT a.plan INTO complimentary_plan
-  FROM public.complimentary_access_allowlist a
-  JOIN auth.users u ON lower(u.email) = a.email
-  WHERE u.id = _user_id AND a.enabled
-  LIMIT 1;
-
-  IF complimentary_plan IS NOT NULL THEN
+  -- Platform administrators (including the owner) receive complimentary Business
+  -- access to their own workspace; admin privileges remain governed separately by has_role.
+  IF public.has_role(_user_id, 'admin'::public.app_role) THEN
     RETURN jsonb_build_object(
-      'plan', complimentary_plan,
+      'plan', 'business',
       'status', 'active',
       'can_write', true,
       'trial_ends_at', p.trial_ends_at,
@@ -62,7 +56,7 @@ BEGIN
       'grace_ends_at', NULL,
       'cancel_at_period_end', false,
       'billing_interval', NULL,
-      'limits', public.plan_limits(complimentary_plan),
+      'limits', public.plan_limits('business'::public.plan_tier),
       'complimentary', true
     );
   END IF;
@@ -106,8 +100,7 @@ BEGIN
       AND pr.status = 'approved'
   ) THEN
     -- Approved accountants keep affiliate tools on /contador, but own-company
-    -- financial editing requires a paid plan. The explicit owner allowlist above
-    -- remains the only non-subscription path to complimentary financial access.
+    -- financial editing requires a paid plan.
     eff := 'starter';
     can_write := false;
     st := 'expired';
