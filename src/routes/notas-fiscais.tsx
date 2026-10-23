@@ -1,7 +1,7 @@
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
-import { ArrowLeft, FileText, Plus, ShieldCheck, CircleAlert, RefreshCw } from "lucide-react";
+import { ArrowLeft, FileText, Plus, ShieldCheck, CircleAlert, RefreshCw, Loader2, CheckCircle2, X, Send } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { isValidCpfCnpj, normalizeCpfCnpj } from "@/lib/identity";
 import { nfseDraftSchema } from "@/lib/fiscal/nfse/draft-schema";
+import { emitNfseAction } from "@/lib/fiscal/nfse/emit-nfse.functions";
 
 export const Route = createFileRoute("/notas-fiscais")({
   beforeLoad: async () => {
@@ -45,6 +46,11 @@ type Draft = {
   created_by_user_id: string;
 };
 
+type EmissionFeedback =
+  | { kind: "missing"; title: string; message: string; missingFields: Array<{ field: string; label: string; message: string }> }
+  | { kind: "success"; title: string; message: string; dps: string; protocol: string | null; accessKey: string | null }
+  | { kind: "rejected"; title: string; message: string; dps: string; protocol: string | null };
+
 type AccountantPortal = { authorized_clients: Array<{ client_user_id: string; client_name: string; business_size: string | null }> };
 
 const digits = (value: string) => value.replace(/\D/g, "");
@@ -60,6 +66,8 @@ const fiscalDb = supabase as any;
 function FiscalInvoicesPage() {
   const qc = useQueryClient();
   const [saving, setSaving] = useState(false);
+  const [emittingInvoiceId, setEmittingInvoiceId] = useState<string | null>(null);
+  const [emissionFeedback, setEmissionFeedback] = useState<EmissionFeedback | null>(null);
   const [issuerName, setIssuerName] = useState("");
   const [issuerCnpj, setIssuerCnpj] = useState("");
   const [cityCode, setCityCode] = useState("");
@@ -92,6 +100,65 @@ function FiscalInvoicesPage() {
       return (data ?? []) as Draft[];
     },
   });
+
+  const emitNfse = async (item: Draft) => {
+    if (emittingInvoiceId) return;
+    setEmittingInvoiceId(item.id);
+    setEmissionFeedback(null);
+    try {
+      const result = await emitNfseAction({
+        data: {
+          invoiceId: item.id,
+          tenantUserId: item.user_id,
+        },
+      });
+
+      if (!result.ok && result.code === "DPS_INCOMPLETE") {
+        setEmissionFeedback({
+          kind: "missing",
+          title: "Faltam dados para emitir a NFS-e",
+          message: result.message,
+          missingFields: result.missingFields,
+        });
+        return;
+      }
+
+      const dps = `${item.serie ?? "—"}/${item.numero_dps ?? "não atribuída"}`;
+      if (result.accepted) {
+        const protocol = result.protocol ?? null;
+        setEmissionFeedback({
+          kind: "success",
+          title: "Retorno positivo da transmissão",
+          message: "O serviço retornou uma resposta de aceitação. Confira o protocolo e a chave abaixo.",
+          dps,
+          protocol,
+          accessKey: result.accessKey ?? null,
+        });
+        toast.success("Retorno positivo recebido para a NFS-e.");
+        await qc.invalidateQueries({ queryKey: ["fiscal-invoices"] });
+      } else {
+        setEmissionFeedback({
+          kind: "rejected",
+          title: "NFS-e não autorizada",
+          message: result.rejectionReason ?? "A SEFIN não confirmou a autorização. Consulte o motivo antes de tentar novamente.",
+          dps,
+          protocol: result.protocol ?? null,
+        });
+        await qc.invalidateQueries({ queryKey: ["fiscal-invoices"] });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Não foi possível iniciar a emissão da NFS-e.";
+      setEmissionFeedback({
+        kind: "rejected",
+        title: "Não foi possível concluir a emissão",
+        message,
+        dps: `${item.serie ?? "—"}/${item.numero_dps ?? "não atribuída"}`,
+        protocol: null,
+      });
+    } finally {
+      setEmittingInvoiceId(null);
+    }
+  };
 
   const saveDraft = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -149,7 +216,7 @@ function FiscalInvoicesPage() {
           <Button asChild variant="ghost" className="-ml-3 mb-2"><Link to="/contador"><ArrowLeft className="mr-2 h-4 w-4" />Voltar ao painel do contador</Link></Button>
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-primary">Fiscal · Critical Cash</p>
           <h1 className="mt-1 text-3xl font-bold tracking-tight">Notas fiscais de serviço</h1>
-          <p className="mt-2 max-w-3xl text-sm text-muted-foreground">Prepare os dados da NFS-e e mantenha os rascunhos no sistema. A transmissão oficial será habilitada após configurar a integração nacional e o certificado autorizado.</p>
+          <p className="mt-2 max-w-3xl text-sm text-muted-foreground">Prepare os dados da NFS-e, confira as pendências fiscais e inicie a emissão nos rascunhos quando a configuração e o certificado estiverem ativos.</p>
         </div>
         <FileText className="h-10 w-10 text-primary" />
       </div>
@@ -187,7 +254,7 @@ function FiscalInvoicesPage() {
               <p className="flex gap-2 text-warning"><CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />A emissão real não pode ser ativada apenas com uma chave genérica de API.</p>
               <p>O contribuinte precisa de credenciamento no Painel do Contribuinte e dos requisitos de certificado digital definidos pelo ambiente oficial. As credenciais devem ser processadas no servidor, nunca no navegador.</p>
               <a className="text-primary underline underline-offset-4" href="https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/documentacao-atual" target="_blank" rel="noreferrer">Documentação técnica oficial da API</a>
-              <p className="text-xs text-muted-foreground">Estado atual: preparação de rascunhos. Nenhum documento é transmitido nem recebe número fiscal nesta versão.</p>
+              <p className="text-xs text-muted-foreground">A ação de emissão valida os dados no servidor e depende de configuração fiscal ativa, certificado válido e esquemas oficiais de validação instalados. Confira sempre o resultado antes de repetir uma tentativa.</p>
             </CardContent>
           </Card>
           <Card>
@@ -197,11 +264,42 @@ function FiscalInvoicesPage() {
         </div>
       </div>
 
+      {emissionFeedback ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="presentation" onClick={() => setEmissionFeedback(null)}>
+          <section role="alertdialog" aria-modal="true" aria-labelledby="emission-feedback-title" aria-describedby="emission-feedback-description" className="w-full max-w-lg rounded-xl border bg-background p-6 shadow-xl" onClick={event => event.stopPropagation()}>
+            <div className="flex items-start gap-3">
+              {emissionFeedback.kind === "success" ? <CheckCircle2 className="mt-0.5 h-6 w-6 shrink-0 text-green-600" /> : <CircleAlert className="mt-0.5 h-6 w-6 shrink-0 text-destructive" />}
+              <div className="min-w-0 flex-1">
+                <h2 id="emission-feedback-title" className="text-lg font-semibold">{emissionFeedback.title}</h2>
+                <p id="emission-feedback-description" className="mt-2 text-sm text-muted-foreground">{emissionFeedback.message}</p>
+              </div>
+              <Button type="button" variant="ghost" size="icon" aria-label="Fechar aviso" onClick={() => setEmissionFeedback(null)}><X className="h-4 w-4" /></Button>
+            </div>
+            {emissionFeedback.kind === "missing" ? (
+              <div className="mt-5 space-y-3">
+                <p className="text-sm font-medium">Revise estes itens:</p>
+                <ul className="space-y-3">
+                  {emissionFeedback.missingFields.map((field, index) => <li key={`${field.field}-${index}`} className="rounded-lg border p-3"><p className="text-sm font-semibold">{field.label}</p><p className="mt-1 text-sm text-muted-foreground">{field.message}</p></li>)}
+                </ul>
+                <p className="text-xs text-muted-foreground">Nenhum envio foi realizado quando o servidor retorna pendências de preenchimento.</p>
+              </div>
+            ) : (
+              <div className="mt-5 space-y-3 rounded-lg border p-4 text-sm">
+                <p><span className="font-medium">Série/número da DPS:</span> {emissionFeedback.dps}</p>
+                <p><span className="font-medium">Protocolo de recebimento:</span> {emissionFeedback.protocol ?? "Não informado pela resposta"}</p>
+                {emissionFeedback.kind === "success" && emissionFeedback.accessKey ? <p className="break-all"><span className="font-medium">Chave de acesso:</span> {emissionFeedback.accessKey}</p> : null}
+              </div>
+            )}
+            <div className="mt-6 flex justify-end"><Button type="button" onClick={() => setEmissionFeedback(null)}>Entendi</Button></div>
+          </section>
+        </div>
+      ) : null}
+
       <Card>
         <CardHeader><div className="flex flex-wrap items-center justify-between gap-3"><div><CardTitle>Rascunhos recentes</CardTitle><CardDescription>Até 100 rascunhos salvos na sua conta.</CardDescription></div><Button variant="outline" onClick={() => void query.refetch()} disabled={query.isFetching}><RefreshCw className="mr-2 h-4 w-4" />Atualizar</Button></div></CardHeader>
         <CardContent>
           {query.isLoading ? <p className="text-sm text-muted-foreground">Carregando...</p> : query.isError ? <div className="text-sm text-destructive">Não foi possível carregar os rascunhos. Verifique se a migração fiscal foi aplicada.</div> : query.data?.length ? (
-            <div className="space-y-3">{query.data.map(item => <div key={item.id} className="flex flex-wrap items-start justify-between gap-3 rounded-xl border p-4"><div className="min-w-0"><p className="font-semibold">{item.recipient_name}</p><p className="mt-1 text-sm text-muted-foreground">{item.service_description}</p><p className="mt-1 text-xs text-muted-foreground">Prestador: {item.issuer_name} · CNPJ {item.issuer_cnpj}</p><p className="mt-1 text-xs text-muted-foreground">Competência: {item.competencia ? new Date(`${item.competencia}T12:00:00`).toLocaleDateString("pt-BR") : "—"} · Código nacional: {item.codigo_trib_nacional ?? "—"} · CNAE: {item.cnae ?? "—"}</p><p className="mt-1 text-xs text-muted-foreground">DPS: {item.serie ?? "—"}/{item.numero_dps ?? "aguardando sequência"} · Criado em {new Date(item.created_at).toLocaleString("pt-BR")}</p></div><div className="text-right"><p className="font-semibold">{money(item.amount_cents)}</p><span className="mt-1 inline-flex rounded-full bg-muted px-2 py-1 text-xs">Rascunho · não emitida</span></div></div>)}</div>
+            <div className="space-y-3">{query.data.map(item => <div key={item.id} className="flex flex-wrap items-start justify-between gap-3 rounded-xl border p-4"><div className="min-w-0"><p className="font-semibold">{item.recipient_name}</p><p className="mt-1 text-sm text-muted-foreground">{item.service_description}</p><p className="mt-1 text-xs text-muted-foreground">Prestador: {item.issuer_name} · CNPJ {item.issuer_cnpj}</p><p className="mt-1 text-xs text-muted-foreground">Competência: {item.competencia ? new Date(`${item.competencia}T12:00:00`).toLocaleDateString("pt-BR") : "—"} · Código nacional: {item.codigo_trib_nacional ?? "—"} · CNAE: {item.cnae ?? "—"}</p><p className="mt-1 text-xs text-muted-foreground">DPS: {item.serie ?? "—"}/{item.numero_dps ?? "aguardando sequência"} · Criado em {new Date(item.created_at).toLocaleString("pt-BR")}</p><p className="mt-1 text-xs text-muted-foreground">Município da prestação (IBGE): {item.municipio_prestacao_ibge ?? "não informado"}</p></div><div className="flex min-w-[170px] flex-col items-end gap-2 text-right"><p className="font-semibold">{money(item.amount_cents)}</p><span className="inline-flex rounded-full bg-muted px-2 py-1 text-xs">{item.status === "issued" ? "Emitida" : item.status === "rejected" ? "Rejeitada" : item.status === "queued" ? "Em processamento / verificar retorno" : "Rascunho · não emitida"}</span>{item.status === "draft" || item.status === "rejected" ? <Button type="button" size="sm" onClick={() => void emitNfse(item)} disabled={emittingInvoiceId !== null} className="w-full">{emittingInvoiceId === item.id ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Validando e emitindo...</> : <><Send className="mr-2 h-4 w-4" />Emitir NFS-e</>}</Button> : null}</div></div>)}</div>
           ) : <p className="text-sm text-muted-foreground">Nenhum rascunho criado ainda.</p>}
         </CardContent>
       </Card>
