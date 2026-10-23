@@ -465,6 +465,11 @@ function AccountantPage() {
         <p className="mt-2 text-sm text-muted-foreground">
           Gerencie a Auditoria Livre e revise os dados financeiros das empresas que autorizaram o acesso.
         </p>
+        <div className="mt-4">
+          <Button asChild className="min-h-11 rounded-xl">
+            <Link to="/notas-fiscais"><FileText className="mr-2 h-4 w-4" />Notas fiscais de serviço</Link>
+          </Button>
+        </div>
       </header>
       {access.data?.can_write && <Card className="border-primary/20 bg-primary/5">
         <CardHeader>
