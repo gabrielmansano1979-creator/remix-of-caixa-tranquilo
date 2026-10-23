@@ -22,17 +22,13 @@ function extractPkcs12(pfxBuffer: Buffer, passphrase: string): { privateKeyPem: 
   const key = keyBags.find((bag) => bag.key)?.key as forge.pki.PrivateKey | undefined;
   const cert = certBags.find((bag) => bag.cert)?.cert as forge.pki.Certificate | undefined;
   if (!key || !cert) throw new Error("O PKCS#12 não contém chave privada e certificado X.509.");
-  return {
-    privateKeyPem: forge.pki.privateKeyToPem(key),
-    certificatePem: forge.pki.certificateToPem(cert),
-  };
+  return { privateKeyPem: forge.pki.privateKeyToPem(key), certificatePem: forge.pki.certificateToPem(cert) };
+}
+function certificateBase64(pem: string): string {
+  return pem.replace(/-----BEGIN CERTIFICATE-----|-----END CERTIFICATE-----|\s+/g, "");
 }
 
-/**
- * Signs the official infDPS element by its Id attribute.
- * RSA-SHA256 + Exclusive C14N are configurable as requested; confirm these algorithms
- * against the exact production XSD/manual version before releasing to production.
- */
+/** Signs infDPS by its Id using enveloped XMLDSig, RSA-SHA256 and Exclusive C14N. */
 export async function signDpsXml(xml: string, pfxBuffer: Buffer, passphrase: string): Promise<string> {
   if (!xml.includes("<infDPS") || !/\bId="ID[^"]+"/.test(xml)) {
     throw new Error("XML DPS inválido: infDPS com atributo Id oficial não encontrado.");
@@ -43,6 +39,7 @@ export async function signDpsXml(xml: string, pfxBuffer: Buffer, passphrase: str
     publicCert: certificatePem,
     signatureAlgorithm: RSA_SHA256,
     canonicalizationAlgorithm: EXCLUSIVE_C14N,
+    getKeyInfoContent: () => "<X509Data><X509Certificate>" + certificateBase64(certificatePem) + "</X509Certificate></X509Data>",
     idAttribute: "Id",
   });
   signer.addReference({
@@ -52,7 +49,11 @@ export async function signDpsXml(xml: string, pfxBuffer: Buffer, passphrase: str
   });
   signer.computeSignature(xml, {
     location: { reference: "//*[local-name()='DPS']", action: "append" },
-    prefix: "",
+    prefix: "ds",
   });
-  return signer.getSignedXml();
+  const signed = signer.getSignedXml();
+  if (!signed.includes("X509Certificate") || !signed.includes("Signature")) {
+    throw new Error("A assinatura não incluiu Signature/KeyInfo conforme esperado.");
+  }
+  return signed;
 }
