@@ -45,7 +45,9 @@ async function recordAffiliateCommission(
     .eq("id", input.partnerId)
     .maybeSingle();
   if (partnerError) throw partnerError;
-  if (partner?.status !== "approved" || !partner.pix_type || !partner.pix_key) return;
+  // Comissão é reconhecida após pagamento confirmado. A chave Pix é validada
+  // separadamente no fluxo de saque; não bloquear o saldo por falta de chave cadastrada.
+  if (partner?.status !== "approved") return;
   // Self-referral checks use only CPF/CNPJ. The billing provider is the source
   // of the buyer document on confirmed payments; email and login ID are not identity keys.
   const { data: subscription, error: subscriptionError } = await db.from("subscriptions")
@@ -434,6 +436,19 @@ export const Route = createFileRoute("/api/public/asaas-webhook")({
               actualPaidAmountCents,
               commissionPercentAtAcquisition: sub.affiliate_commission_percent,
             });
+
+            // Para indicações mensais, a cobrança inicial e a primeira renovação
+            // (2 pagamentos no total) têm desconto. Após confirmar a 2ª cobrança,
+            // atualizamos a recorrência no Asaas para o preço integral.
+            if (interval === "month" && sub.affiliate_partner_id && Number(sub.affiliate_discount_percent) > 0) {
+              const fullMonthlyPriceCents = getPlan(sub.plan as PlanId).priceMonthCents;
+              const asaas = await import("@/lib/asaas.server");
+              await asaas.updateAsaasSubscriptionAmount(asaasSubscriptionId, fullMonthlyPriceCents);
+              const { error: amountUpdateError } = await db.from("subscriptions")
+                .update({ affiliate_payment_amount_cents: fullMonthlyPriceCents, updated_at: paidAt })
+                .eq("id", sub.id);
+              if (amountUpdateError) throw amountUpdateError;
+            }
 
             const { error: auditError } = await db.from("audit_logs").insert({
               user_id: renewedSub.user_id,
