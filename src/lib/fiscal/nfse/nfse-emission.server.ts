@@ -5,6 +5,7 @@ import { buildDpsXml, type DpsBuilderInput } from "./dps-builder.server";
 import { nfseDraftSchema } from "./draft-schema";
 import { signDpsXml } from "./xml-signer.server";
 import { queryDps, submitSignedDps, NfseTransportError } from "./nfse-national-client.server";
+import { assertDpsRequiredGroups } from "./dps-xsd-validator.server";
 
 /**
  * Full server-side orchestration. The calling route MUST authenticate the session
@@ -42,6 +43,9 @@ export async function buildSignAndSubmitDps(input: {
   let signedXml: string;
   try {
     const built = buildDpsXml(input.dps);
+    // The gate checks mandatory groups and then fails closed while the official
+    // current XSD and a real XSD validator are not configured in this repository.
+    assertDpsRequiredGroups(built.xml);
     signedXml = await signDpsXml(built.xml, pfx, passphrase);
   } finally {
     pfx.fill(0);
