@@ -113,7 +113,7 @@ function FiscalInvoicesPage() {
         },
       });
 
-      if (!result.ok && result.code === "DPS_INCOMPLETE") {
+      if ("missingFields" in result) {
         setEmissionFeedback({
           kind: "missing",
           title: "Faltam dados para emitir a NFS-e",
