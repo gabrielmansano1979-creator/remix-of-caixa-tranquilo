@@ -140,6 +140,7 @@ function AccountantPage() {
   const access = useQuery(accessQuery);
   const state = query.data?.status;
   const dashboard = query.data?.dashboard;
+  const clientRows = dashboard?.clients ?? [];
   useEffect(() => {
     if (state && state.status !== "none") {
       setForm({
