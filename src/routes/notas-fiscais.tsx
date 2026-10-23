@@ -124,7 +124,7 @@ function FiscalInvoicesPage() {
       }
 
       const dps = `${item.serie ?? "—"}/${item.numero_dps ?? "não atribuída"}`;
-      if (result.accepted) {
+      if (result.accepted && result.accessKey) {
         const protocol = result.protocol ?? null;
         setEmissionFeedback({
           kind: "success",
