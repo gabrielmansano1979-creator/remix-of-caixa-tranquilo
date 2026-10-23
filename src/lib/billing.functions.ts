@@ -209,11 +209,21 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
           if (partner.user_id === userId || (partnerEmail && partnerEmail === buyerEmail) || (partnerDoc && partnerDoc === buyerDoc)) {
             return { error: "Você não pode utilizar seu próprio cupom de indicação para assinar um plano." };
           }
+          // A nova indicação recebe a faixa vigente conforme clientes que já pagaram:
+          // 1–5 = 20%, 6–15 = 25%, 16+ = 30%. O percentual é salvo no checkout
+          // e permanece congelado para esse cliente, mesmo se a faixa mudar depois.
+          const { count: payingReferralCount, error: referralCountError } = await supabaseAdmin
+            .from("subscriptions")
+            .select("user_id", { count: "exact", head: true })
+            .eq("affiliate_partner_id", coupon.partner_id)
+            .not("paid_at", "is", null);
+          if (referralCountError) throw referralCountError;
+          const currentTier = (payingReferralCount ?? 0) >= 15 ? 30 : (payingReferralCount ?? 0) >= 5 ? 25 : 20;
           affiliate = {
             partnerId: coupon.partner_id,
             code: coupon.code,
-            commissionPercent: coupon.commission_percent ?? 20,
-            discountPercent: coupon.discount_percent ?? 20,
+            commissionPercent: currentTier,
+            discountPercent: 20,
           };
         }
       }
