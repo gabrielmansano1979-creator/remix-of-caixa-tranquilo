@@ -23,6 +23,8 @@ export interface DpsBuilderInput {
     /** opSimpNac: 1=non-optante, 2=MEI, 3=optante Simples Nacional */
     simplesNacional: 1 | 2 | 3;
     regimeApuracaoTributaria?: 1 | 2 | 3;
+    /** regEspTrib: 0 means no special tax regime; set explicitly when applicable. */
+    regimeEspecialTributacao?: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 9;
   };
   tomador?: {
     cpf?: string;
@@ -127,6 +129,7 @@ export function buildDpsXml(input: DpsBuilderInput): { xml: string; id: string }
     ${tag("nDPS", numero)}
     ${tag("dCompet", dateOnly(input.competencia, "Competência"))}
     ${tag("tpEmit", input.tipoEmitente)}
+    ${tag("finNFSe", 0)}
     ${tag("cLocEmi", cLocEmi)}
     <prest>
       ${tag("CNPJ", cnpj)}
@@ -136,6 +139,7 @@ export function buildDpsXml(input: DpsBuilderInput): { xml: string; id: string }
       <regTrib>
         ${tag("opSimpNac", input.prestador.simplesNacional)}
         ${tag("regApTribSN", input.prestador.regimeApuracaoTributaria)}
+        ${tag("regEspTrib", input.prestador.regimeEspecialTributacao ?? 0)}
       </regTrib>
     </prest>
     ${input.tomador ? `<toma>${tomadorId}${tag("xNome", input.tomador.nome)}${endereco}${tag("fone", input.tomador.telefone)}${tag("email", input.tomador.email)}</toma>` : ""}
@@ -151,9 +155,11 @@ export function buildDpsXml(input: DpsBuilderInput): { xml: string; id: string }
       <vServPrest>${tag("vServ", valor)}</vServPrest>
       <trib>
         <tribMun>
-          ${tag("tribISSQN", input.servico.issRetido ? 2 : 1)}
+          ${tag("tribISSQN", 1)}
+          ${tag("tpRetISSQN", input.servico.issRetido ? 2 : 1)}
           ${tag("pAliq", input.servico.aliquotaIss !== undefined && Number.isFinite(input.servico.aliquotaIss) ? input.servico.aliquotaIss.toFixed(2) : undefined)}
         </tribMun>
+        <totTrib>${tag("indTotTrib", 0)}</totTrib>
       </trib>
     </valores>
   </infDPS>
