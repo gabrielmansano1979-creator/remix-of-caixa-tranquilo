@@ -91,3 +91,13 @@ xmllint --nonet --noout --schema \
 ```
 
 Não considere o ambiente pronto para emissão até o pacote oficial estar presente, o XML de teste ser validado localmente e o teste de integração confirmar que o mesmo caminho funciona no runtime de hospedagem.
+
+
+## Exceção temporária de auditoria — node-forge
+
+**Exceção temporária, acompanhada e limitada a uma única advisory:** o workflow `.github/workflows/validate-build.yml` permite provisoriamente o alerta [GHSA-86w9-cpqp-85rv](https://github.com/advisories/GHSA-86w9-cpqp-85rv) exclusivamente para `node-forge`, pois a auditoria atual informa que não há correção disponível. Essa exceção não desativa o `npm audit`: qualquer outra vulnerabilidade ou advisory adicional continua bloqueando o CI.
+
+- **Risco residual:** o comportamento de verificação de assinatura RSA PKCS#1 v1.5 descrito na advisory permanece sem correção na dependência afetada. A exceção não significa que o risco foi eliminado.
+- **Mitigação e acompanhamento:** manter `node-forge` restrito ao uso necessário de certificados/chaves, revisar a advisory e as versões publicadas pelo mantenedor, e remover a exceção assim que houver versão corrigida e compatível.
+- **Critério de remoção:** atualizar a dependência e o `package-lock.json`, executar testes de assinatura/certificado e retirar a allowlist GHSA do workflow.
+- **Aprovação:** esta exceção é apenas uma medida temporária de CI; não constitui aprovação automática para emissão fiscal em produção. A homologação fiscal e a revisão de segurança continuam obrigatórias.
