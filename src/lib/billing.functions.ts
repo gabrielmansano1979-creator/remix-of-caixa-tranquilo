@@ -209,16 +209,18 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
           if (partner.user_id === userId || (partnerEmail && partnerEmail === buyerEmail) || (partnerDoc && partnerDoc === buyerDoc)) {
             return { error: "Você não pode utilizar seu próprio cupom de indicação para assinar um plano." };
           }
-          // A nova indicação recebe a faixa vigente conforme clientes que já pagaram:
-          // 1–5 = 20%, 6–15 = 25%, 16+ = 30%. O percentual é salvo no checkout
-          // e permanece congelado para esse cliente, mesmo se a faixa mudar depois.
-          const { count: payingReferralCount, error: referralCountError } = await supabaseAdmin
+          // A faixa usa clientes distintos com assinatura ativa e pagamento confirmado.
+          // 1–5 = 20%, 6–15 = 25%, 16+ = 30%. A taxa é congelada no checkout
+          // para este cliente e não muda quando a faixa do contador mudar depois.
+          const { data: activePaidReferrals, error: referralCountError } = await supabaseAdmin
             .from("subscriptions")
-            .select("user_id", { count: "exact", head: true })
+            .select("user_id")
             .eq("affiliate_partner_id", coupon.partner_id)
+            .eq("status", "active")
             .not("paid_at", "is", null);
           if (referralCountError) throw referralCountError;
-          const currentTier = (payingReferralCount ?? 0) >= 15 ? 30 : (payingReferralCount ?? 0) >= 5 ? 25 : 20;
+          const activeReferralCount = new Set((activePaidReferrals ?? []).map((referral) => referral.user_id)).size;
+          const currentTier = activeReferralCount >= 16 ? 30 : activeReferralCount >= 6 ? 25 : 20;
           affiliate = {
             partnerId: coupon.partner_id,
             code: coupon.code,
