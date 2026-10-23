@@ -52,9 +52,7 @@ export async function buildSignAndSubmitDps(input: {
   dps: DpsBuilderInput;
   timeoutMs?: number;
 }) {
-  // Fail before database secrets or network access if runtime prerequisites are missing.
-  assertFiscalRuntimeReady();
-
+  // Load only the tenant configuration first so prerequisites can be checked against its actual SEFIN environment.
   const { data: config, error: configError } = await supabaseAdmin
     .from("configuracoes_fiscais")
     .select("id,tenant_user_id,certificado_ciphertext,certificado_nonce,certificado_auth_tag,senha_certificado_ciphertext,senha_certificado_nonce,senha_certificado_auth_tag,status,ambiente")
@@ -69,6 +67,7 @@ export async function buildSignAndSubmitDps(input: {
     ? config.ambiente
     : null;
   if (!fiscalEnvironment) throw new Error("Ambiente fiscal inválido; emissão bloqueada.");
+  assertFiscalRuntimeReady(fiscalEnvironment);
 
   const { data: invoice, error: invoiceError } = await supabaseAdmin
     .from("fiscal_invoices")
