@@ -62,10 +62,10 @@ async function extractSigningMaterial(pfx: Buffer, password: string): Promise<Pf
   }
 
   const privateKeyPem = output.match(
-    /-----BEGIN (?:RSA )?PRIVATE KEY-----[\\s\\S]+?-----END (?:RSA )?PRIVATE KEY-----/,
+    /-----BEGIN (?:RSA )?PRIVATE KEY-----[\s\S]+?-----END (?:RSA )?PRIVATE KEY-----/,
   )?.[0];
   const certificates = [...output.matchAll(
-    /-----BEGIN CERTIFICATE-----[\\s\\S]+?-----END CERTIFICATE-----/g,
+    /-----BEGIN CERTIFICATE-----[\s\S]+?-----END CERTIFICATE-----/g,
   )].map((match) => match[0]);
 
   if (!privateKeyPem || certificates.length === 0) {
