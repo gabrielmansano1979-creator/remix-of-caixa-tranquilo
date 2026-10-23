@@ -34,7 +34,7 @@ export function buildNfeBaseXml(input: NfeBaseXmlInput): string {
   const safeId = escapeXmlAttribute(idXml);
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
-    '<NFe xmlns="http://www.portalfiscal.inf.br/nfe">',
+    `<NFe xmlns="${NFE_NAMESPACE}">`,
     `  <infNFe Id="${safeId}" versao="${NFE_VERSION}">`,
     "    <ide></ide>",
     "    <emit></emit>",
