@@ -63,7 +63,7 @@ export async function submitSignedDps(input: ClientOptions & { signedXml: string
   return resultFrom(response.status, response.body);
 }
 export async function queryDps(input: ClientOptions & { dpsId: string }): Promise<NfseOfficialResult | null> {
-  if (!/^ID\d{42}$/.test(input.dpsId)) throw new Error("Identificador DPS inválido.");
+  if (!/^DPS\d{42}$/.test(input.dpsId)) throw new Error("Identificador DPS inválido.");
   const path = `/SefinNacional/dps/${encodeURIComponent(input.dpsId)}`;
   const head = await requestText(input, "HEAD", path);
   if (head.status === 404) return null;
