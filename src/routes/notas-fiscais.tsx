@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { isValidCpfCnpj, normalizeCpfCnpj } from "@/lib/identity";
+import { nfseDraftSchema } from "@/lib/fiscal/nfse/draft-schema";
 
 export const Route = createFileRoute("/notas-fiscais")({
   beforeLoad: async () => {
@@ -29,6 +30,13 @@ type Draft = {
   recipient_tax_id: string;
   service_description: string;
   amount_cents: number;
+  competencia: string | null;
+  codigo_trib_nacional: string | null;
+  cnae: string | null;
+  iss_retido: boolean | null;
+  aliquota_iss: number | null;
+  serie: string | null;
+  numero_dps: number | null;
   status: string;
   invoice_number: string | null;
   created_at: string;
@@ -58,6 +66,11 @@ function FiscalInvoicesPage() {
   const [recipientTaxId, setRecipientTaxId] = useState("");
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
+  const [competencia, setCompetencia] = useState("");
+  const [codigoTribNacional, setCodigoTribNacional] = useState("");
+  const [cnae, setCnae] = useState("");
+  const [issRetido, setIssRetido] = useState(false);
+  const [aliquotaIss, setAliquotaIss] = useState("");
   const [selectedClientId, setSelectedClientId] = useState("");
 
   const portalQuery = useQuery({
@@ -88,22 +101,35 @@ function FiscalInvoicesPage() {
       toast.error("Confira CNPJ, CPF/CNPJ do tomador, código IBGE de 7 dígitos e valor.");
       return;
     }
+    const rate = aliquotaIss.trim() === "" ? null : Number(aliquotaIss.replace(",", "."));
+    const parsed = nfseDraftSchema.safeParse({
+      user_id: selectedClientId,
+      issuer_name: issuerName,
+      issuer_cnpj: cleanCnpj,
+      issuer_city_ibge: cleanCity,
+      recipient_name: recipientName,
+      recipient_tax_id: cleanTaxId,
+      service_description: description,
+      amount_cents: cents,
+      competencia,
+      codigo_trib_nacional: codigoTribNacional,
+      cnae,
+      iss_retido: issRetido,
+      aliquota_iss: rate,
+    });
+    if (!parsed.success) {
+      toast.error(parsed.error.issues[0]?.message ?? "Confira os campos fiscais obrigatórios.");
+      return;
+    }
     setSaving(true);
     try {
       const { error } = await fiscalDb.from("fiscal_invoices").insert({
-        user_id: selectedClientId,
-        issuer_name: issuerName.trim(),
-        issuer_cnpj: cleanCnpj,
-        issuer_city_ibge: cleanCity,
-        recipient_name: recipientName.trim(),
-        recipient_tax_id: cleanTaxId,
-        service_description: description.trim(),
-        amount_cents: cents,
+        ...parsed.data,
         status: "draft",
       });
       if (error) throw error;
       toast.success("Rascunho salvo. Ele ainda não é uma nota fiscal emitida.");
-      setIssuerCnpj(""); setCityCode(""); setRecipientName(""); setRecipientTaxId(""); setDescription(""); setAmount("");
+      setIssuerCnpj(""); setCityCode(""); setRecipientName(""); setRecipientTaxId(""); setDescription(""); setAmount(""); setCompetencia(""); setCodigoTribNacional(""); setCnae(""); setIssRetido(false); setAliquotaIss("");
       await qc.invalidateQueries({ queryKey: ["fiscal-invoices"] });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível salvar o rascunho.");
@@ -137,6 +163,11 @@ function FiscalInvoicesPage() {
                 <div className="space-y-2"><Label htmlFor="recipient-name">Tomador do serviço</Label><Input id="recipient-name" required minLength={2} maxLength={180} value={recipientName} onChange={e => setRecipientName(e.target.value)} placeholder="Nome / razão social" /></div>
                 <div className="space-y-2"><Label htmlFor="recipient-tax-id">CPF/CNPJ do tomador</Label><Input id="recipient-tax-id" required value={recipientTaxId} onChange={e => setRecipientTaxId(e.target.value)} placeholder="CPF ou CNPJ válido" inputMode="numeric" /></div>
                 <div className="space-y-2"><Label htmlFor="amount">Valor do serviço (R$)</Label><Input id="amount" required value={amount} onChange={e => setAmount(e.target.value)} placeholder="0,00" inputMode="decimal" /></div>
+                <div className="space-y-2"><Label htmlFor="competencia">Competência</Label><Input id="competencia" type="date" required value={competencia} onChange={e => setCompetencia(e.target.value)} /></div>
+                <div className="space-y-2"><Label htmlFor="codigo-trib-nacional">Código de Tributação Nacional</Label><Input id="codigo-trib-nacional" required value={codigoTribNacional} onChange={e => setCodigoTribNacional(digits(e.target.value).slice(0, 6))} placeholder="6 dígitos da tabela oficial" inputMode="numeric" maxLength={6} /><p className="text-xs text-muted-foreground">Use o código correspondente ao serviço na tabela oficial; não confunda com o CNAE. <a className="text-primary underline" href="https://www.gov.br/nfse/pt-br/biblioteca/documentacao-tecnica/documentacao-atual" target="_blank" rel="noreferrer">Consultar documentação nacional</a>.</p></div>
+                <div className="space-y-2"><Label htmlFor="cnae">CNAE da atividade</Label><Input id="cnae" required value={cnae} onChange={e => setCnae(digits(e.target.value).slice(0, 7))} placeholder="7 dígitos" inputMode="numeric" maxLength={7} /></div>
+                <div className="space-y-2"><Label htmlFor="iss-retido">ISS retido pelo tomador?</Label><select id="iss-retido" required value={issRetido ? "true" : "false"} onChange={e => setIssRetido(e.target.value === "true")} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"><option value="false">Não</option><option value="true">Sim</option></select></div>
+                <div className="space-y-2"><Label htmlFor="aliquota-iss">Alíquota do ISS (%)</Label><Input id="aliquota-iss" value={aliquotaIss} onChange={e => setAliquotaIss(e.target.value)} placeholder={issRetido ? "Opcional conforme regra fiscal" : "Obrigatória quando não retido"} inputMode="decimal" required={!issRetido} /></div>
               </div>
               <div className="space-y-2"><Label htmlFor="description">Descrição do serviço</Label><Textarea id="description" required minLength={3} maxLength={2000} value={description} onChange={e => setDescription(e.target.value)} placeholder="Descreva o serviço prestado" rows={4} /></div>
               <Button type="submit" disabled={saving || portalQuery.isLoading || portalQuery.isError || !selectedClientId} className="w-full sm:w-auto">{saving ? "Salvando..." : "Salvar rascunho"}</Button>
@@ -165,7 +196,7 @@ function FiscalInvoicesPage() {
         <CardHeader><div className="flex flex-wrap items-center justify-between gap-3"><div><CardTitle>Rascunhos recentes</CardTitle><CardDescription>Até 100 rascunhos salvos na sua conta.</CardDescription></div><Button variant="outline" onClick={() => void query.refetch()} disabled={query.isFetching}><RefreshCw className="mr-2 h-4 w-4" />Atualizar</Button></div></CardHeader>
         <CardContent>
           {query.isLoading ? <p className="text-sm text-muted-foreground">Carregando...</p> : query.isError ? <div className="text-sm text-destructive">Não foi possível carregar os rascunhos. Verifique se a migração fiscal foi aplicada.</div> : query.data?.length ? (
-            <div className="space-y-3">{query.data.map(item => <div key={item.id} className="flex flex-wrap items-start justify-between gap-3 rounded-xl border p-4"><div className="min-w-0"><p className="font-semibold">{item.recipient_name}</p><p className="mt-1 text-sm text-muted-foreground">{item.service_description}</p><p className="mt-1 text-xs text-muted-foreground">Prestador: {item.issuer_name} · CNPJ {item.issuer_cnpj}</p><p className="mt-1 text-xs text-muted-foreground">Criado em {new Date(item.created_at).toLocaleString("pt-BR")}</p></div><div className="text-right"><p className="font-semibold">{money(item.amount_cents)}</p><span className="mt-1 inline-flex rounded-full bg-muted px-2 py-1 text-xs">Rascunho · não emitida</span></div></div>)}</div>
+            <div className="space-y-3">{query.data.map(item => <div key={item.id} className="flex flex-wrap items-start justify-between gap-3 rounded-xl border p-4"><div className="min-w-0"><p className="font-semibold">{item.recipient_name}</p><p className="mt-1 text-sm text-muted-foreground">{item.service_description}</p><p className="mt-1 text-xs text-muted-foreground">Prestador: {item.issuer_name} · CNPJ {item.issuer_cnpj}</p><p className="mt-1 text-xs text-muted-foreground">Competência: {item.competencia ? new Date(`${item.competencia}T12:00:00`).toLocaleDateString("pt-BR") : "—"} · Código nacional: {item.codigo_trib_nacional ?? "—"} · CNAE: {item.cnae ?? "—"}</p><p className="mt-1 text-xs text-muted-foreground">DPS: {item.serie ?? "—"}/{item.numero_dps ?? "aguardando sequência"} · Criado em {new Date(item.created_at).toLocaleString("pt-BR")}</p></div><div className="text-right"><p className="font-semibold">{money(item.amount_cents)}</p><span className="mt-1 inline-flex rounded-full bg-muted px-2 py-1 text-xs">Rascunho · não emitida</span></div></div>)}</div>
           ) : <p className="text-sm text-muted-foreground">Nenhum rascunho criado ainda.</p>}
         </CardContent>
       </Card>
