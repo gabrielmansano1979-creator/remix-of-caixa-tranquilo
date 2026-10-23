@@ -30,7 +30,7 @@ function certificateBase64(pem: string): string {
 
 /** Signs infDPS by its Id using enveloped XMLDSig, RSA-SHA256 and Exclusive C14N. */
 export async function signDpsXml(xml: string, pfxBuffer: Buffer, passphrase: string): Promise<string> {
-  if (!xml.includes("<infDPS") || !/\bId="ID[^"]+"/.test(xml)) {
+  if (!xml.includes("<infDPS") || !/\bId="DPS\d{42}"/.test(xml)) {
     throw new Error("XML DPS inválido: infDPS com atributo Id oficial não encontrado.");
   }
   const { privateKeyPem, certificatePem } = extractPkcs12(pfxBuffer, passphrase);
