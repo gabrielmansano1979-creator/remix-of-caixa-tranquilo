@@ -79,16 +79,20 @@ function parseFiscalResponse(xml: string): ParsedFiscalResponse {
     return { errors: [], hasInvoice: false, parseError: "A resposta XML contém declarações não permitidas." };
   }
 
+  const parserErrors: string[] = [];
   const doc = new DOMParser({
     errorHandler: {
       warning: () => undefined,
-      error: () => undefined,
-      fatalError: () => undefined,
+      error: (message: string) => parserErrors.push(message),
+      fatalError: (message: string) => parserErrors.push(message),
     },
   }).parseFromString(xml, "application/xml");
 
-  const parserErrors = elementsByLocalName(doc, ["parsererror"]);
-  if (parserErrors.length > 0 || !doc.documentElement) {
+  if (
+    parserErrors.length > 0 ||
+    elementsByLocalName(doc, ["parsererror"]).length > 0 ||
+    !doc.documentElement
+  ) {
     return { errors: [], hasInvoice: false, parseError: "A SEFIN retornou um XML inválido." };
   }
 
@@ -97,14 +101,21 @@ function parseFiscalResponse(xml: string): ParsedFiscalResponse {
     "MensagemRetorno",
     "MensagemRetornoLote",
     "Erro",
+    "erro",
   ]);
 
   for (const element of errorContainers) {
-    const code = childText(element, ["Codigo", "Código", "codigo", "codigoErro"]);
+    const code = childText(element, [
+      "Codigo", "Código", "codigo", "codigoErro", "cStat",
+    ]);
     const message =
-      childText(element, ["Mensagem", "Descricao", "Descrição", "descricao", "mensagem"]) ??
+      childText(element, [
+        "Mensagem", "Descricao", "Descrição", "descricao", "mensagem", "xMotivo",
+      ]) ??
       (localName(element) === "Mensagem" ? element.textContent?.trim() : undefined);
-    const correction = childText(element, ["Correcao", "Correção", "correcao", "correcaoErro"]);
+    const correction = childText(element, [
+      "Correcao", "Correção", "correcao", "correcaoErro", "Complemento",
+    ]);
     if (message || code) {
       errors.push({
         ...(code ? { code } : {}),
@@ -125,7 +136,9 @@ function parseFiscalResponse(xml: string): ParsedFiscalResponse {
   }
 
   // Namespace prefixes vary between environments; match by local element name.
-  const keyElement = elementsByLocalName(doc, ["chNFSe", "ChaveAcesso", "chaveAcesso", "ChaveNfse"])[0];
+  const keyElement = elementsByLocalName(doc, [
+    "chNFSe", "ChaveAcesso", "chaveAcesso", "ChaveNfse", "chaveNfse",
+  ])[0];
   const accessKey = keyElement?.textContent?.trim() || undefined;
   const hasInvoice =
     elementsByLocalName(doc, ["NFSe", "infNFSe", "InfNfse", "Nfse"]).length > 0 ||
