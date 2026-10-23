@@ -1,7 +1,7 @@
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { ArrowLeft, BadgeCheck, Building2, Download, FileText, LoaderCircle, Mail, MapPin, Phone, ShieldCheck, UserRound } from "lucide-react";
+import { ArrowLeft, BadgeCheck, Building2, Download, FileText, LoaderCircle, Mail, MapPin, Phone, ShieldCheck, UserRound, Wallet, Save } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -482,6 +482,7 @@ function AccountantPage() {
           </Button>
         </CardContent>
       </Card>}
+      <AccountantPixPayoutSettings />
       <AccountantClientManagement />
       <Card>
         <CardHeader className="flex-row items-center justify-between space-y-0">
@@ -559,6 +560,93 @@ function AccountantPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+
+function AccountantPixPayoutSettings() {
+  const queryClient = useQueryClient();
+  const [pixType, setPixType] = useState("cpf");
+  const [pixKey, setPixKey] = useState("");
+  const [holderName, setHolderName] = useState("");
+  const [saving, setSaving] = useState(false);
+  const payoutQuery = useQuery({
+    queryKey: ["my-pix-payout-status"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).rpc("my_pix_payout_status");
+      if (error) throw error;
+      return (data ?? {}) as {
+        pix_type?: string; pix_key_masked?: string; holder_name?: string;
+        status?: string; rejection_reason?: string | null; updated_at?: string;
+      };
+    },
+  });
+  useEffect(() => {
+    const value = payoutQuery.data;
+    if (value?.pix_type) setPixType(value.pix_type);
+    if (value?.holder_name) setHolderName(value.holder_name);
+  }, [payoutQuery.data]);
+  const save = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!pixKey.trim()) return toast.error("Informe a chave Pix para cadastrar ou atualizar.");
+    if (holderName.trim().length < 2) return toast.error("Informe o nome completo do titular da chave.");
+    setSaving(true);
+    try {
+      const { error } = await (supabase as any).rpc("save_my_pix_key", {
+        _pix_type: pixType, _pix_key: pixKey.trim(), _holder_name: holderName.trim(),
+      });
+      if (error) throw error;
+      setPixKey("");
+      await queryClient.invalidateQueries({ queryKey: ["my-pix-payout-status"] });
+      toast.success("Chave Pix enviada para validação administrativa. Nenhum pagamento foi realizado.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível salvar a chave Pix.");
+    } finally {
+      setSaving(false);
+    }
+  };
+  const payoutStatus = payoutQuery.data?.status;
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2"><Wallet className="h-5 w-5" />Recebimento de comissões por Pix</CardTitle>
+        <p className="text-sm text-muted-foreground">Cadastre a chave e o titular para análise do administrador. A chave completa não é exibida novamente no painel; pagamentos continuam sujeitos a aprovação e registro do comprovante.</p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {payoutQuery.isError && <p className="text-sm text-destructive">Não foi possível consultar o cadastro Pix. Tente novamente.</p>}
+        {payoutStatus && (
+          <div className="rounded-lg border p-3 text-sm">
+            <p><strong>Situação:</strong> {({ pending: "Em validação", verified: "Validada", rejected: "Rejeitada" } as Record<string,string>)[payoutStatus] ?? payoutStatus}</p>
+            <p><strong>Chave cadastrada:</strong> {payoutQuery.data?.pix_key_masked ?? "—"}</p>
+            <p><strong>Titular:</strong> {payoutQuery.data?.holder_name ?? "—"}</p>
+            {payoutQuery.data?.rejection_reason && <p className="mt-1 text-destructive">Motivo: {payoutQuery.data.rejection_reason}</p>}
+          </div>
+        )}
+        <form onSubmit={save} className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="accountant-pix-type">Tipo de chave Pix</Label>
+            <select id="accountant-pix-type" value={pixType} onChange={(e) => setPixType(e.target.value)} className="h-10 w-full rounded-md border bg-background px-3 text-sm">
+              <option value="cpf">CPF</option><option value="cnpj">CNPJ</option><option value="email">E-mail</option><option value="phone">Telefone</option><option value="random">Chave aleatória</option>
+            </select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="accountant-pix-key">Chave Pix</Label>
+            <Input id="accountant-pix-key" value={pixKey} onChange={(e) => setPixKey(e.target.value)} placeholder={payoutQuery.data?.pix_key_masked ? "Digite para substituir a chave cadastrada" : "Digite sua chave Pix"} autoComplete="off" required />
+          </div>
+          <div className="space-y-2 sm:col-span-2">
+            <Label htmlFor="accountant-pix-holder">Nome completo ou razão social do titular</Label>
+            <Input id="accountant-pix-holder" value={holderName} onChange={(e) => setHolderName(e.target.value)} placeholder="Nome exatamente como consta na instituição financeira" required minLength={2} maxLength={160} />
+          </div>
+          <div className="sm:col-span-2">
+            <Button type="submit" disabled={saving} className="min-h-11">
+              {saving ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+              {saving ? "Enviando para validação..." : "Salvar chave Pix para validação"}
+            </Button>
+          </div>
+        </form>
+        <p className="text-xs leading-relaxed text-muted-foreground">A validação do formato não comprova, por si só, que a chave pertence ao titular informado. A equipe deve confirmar a titularidade antes de autorizar qualquer pagamento. Este cadastro não executa transferência automática.</p>
+      </CardContent>
+    </Card>
   );
 }
 
