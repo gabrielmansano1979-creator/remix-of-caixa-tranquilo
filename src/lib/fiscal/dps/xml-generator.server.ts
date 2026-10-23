@@ -1,5 +1,3 @@
-import { createHash } from "node:crypto";
-
 export type DpsEnvironment = "producao_restrita" | "producao";
 
 export type DpsParty = {
@@ -175,8 +173,5 @@ export function buildDpsXml(input: DpsInput): { xml: string; infDpsId: string } 
     "</DPS>",
   ].join("");
 
-  // Keep a deterministic digest available for idempotency/log correlation;
-  // it is not the XMLDSIG signature and must not replace it.
-  createHash("sha256").update(xmlDps, "utf8").digest("hex");
   return { xml: xmlDps, infDpsId };
 }
