@@ -1,10 +1,10 @@
 name: Critical Cash validation
 
-"on":
+on:
   push:
     branches:
       - main
-      - fix/financial-counterparty-audit
+      - "fix/financial-counterparty-audit"
   pull_request:
     branches:
       - main
@@ -13,17 +13,10 @@ name: Critical Cash validation
 permissions:
   contents: read
 
-concurrency:
-  group: critical-cash-validation-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   validate:
-    name: Validate application
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    permissions:
-      contents: read
     steps:
       - name: Emit workflow diagnostics
         run: |
@@ -31,24 +24,18 @@ jobs:
           echo "Event: ${GITHUB_EVENT_NAME}"
           echo "Ref: ${GITHUB_REF}"
           echo "Commit: ${GITHUB_SHA}"
-
       - name: Checkout repository
         uses: actions/checkout@v4
-
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: "22"
           cache: npm
-
       - name: Install locked dependencies
         run: npm ci
-
       - name: Build production bundle
         run: npm run build
-
       - name: Run automated tests
         run: npm test
-
       - name: Lint changed TypeScript files (excluding repository-wide formatting baseline)
-        run: npx eslint src/routes/index.tsx src/integrations/supabase/types.ts --rule 'prettier/prettier: off'
+        run: npx eslint src/routes/index.tsx src/integrations/supabase/types.ts --rule "prettier/prettier: off"
