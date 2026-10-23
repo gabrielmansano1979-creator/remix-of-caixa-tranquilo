@@ -211,7 +211,7 @@ function calculateTotals(items: NfeItemInput[]): string {
   const vPIS = sum((item) => item.pis.value);
   const vCOFINS = sum((item) => item.cofins.value);
 
-  return `<total><ICMSTot>${tag("vBC", fmt(vBC))}${tag("vICMS", fmt(vICMS))}${tag("vICMSDeson", "0.00")}${tag("vFCP", "0.00")}${tag("vBCST", "0.00")}${tag("vST", "0.00")}${tag("vFCPST", "0.00")}${tag("vFCPSTRet", "0.00")}${tag("vProd", fmt(vProd))}${tag("vFrete", fmt(vFrete))}${tag("vSeg", fmt(vSeg))}${tag("vDesc", fmt(vDesc))}${tag("vII", "0.00")}${tag("vIPI", "0.00")}${tag("vIPIDevol", "0.00")}${tag("vPIS", fmt(vPIS))}${tag("vCOFINS", fmt(vCOFINS))}${tag("vOutro", fmt(vOutro))}${tag("vNF", fmt(vNF))}${tag("vTotTrib", "0.00")}</ICMSTot></total>`;
+  return `<total><ICMSTot>${tag("vBC", fmt(vBC))}${tag("vICMS", fmt(vICMS))}${tag("vICMSDeson", "0.00")}${tag("vFCP", "0.00")}${tag("vBCST", "0.00")}${tag("vST", "0.00")}${tag("vFCPST", "0.00")}${tag("vFCPSTRet", "0.00")}${tag("vProd", fmt(vProd))}${tag("vFrete", fmt(vFrete))}${tag("vSeg", fmt(vSeg))}${tag("vDesc", fmt(vDesc))}${tag("vII", "0.00")}${tag("vIPI", "0.00")}${tag("vIPIDevol", "0.00")}${tag("vPIS", fmt(vPIS))}${tag("vCOFINS", fmt(vCOFINS))}${tag("vOutro", fmt(vOutro))}${tag("vNF", fmt(vNF))}</ICMSTot></total>`;
 }
 
 /**
