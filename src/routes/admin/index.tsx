@@ -610,6 +610,8 @@ function AdminPage() {
         </div>
       </header>
 
+      <AdminPixPayoutManagement enabled={authStatus === "authorized"} />
+
       <section className="space-y-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
@@ -1108,6 +1110,75 @@ function AdminPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+
+function AdminPixPayoutManagement({ enabled }: { enabled: boolean }) {
+  const queryClient = useQueryClient();
+  const queue = useQuery({
+    queryKey: ["admin-pix-payout-queue"],
+    enabled,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).rpc("admin_pix_payout_queue");
+      if (error) throw error;
+      return (Array.isArray(data) ? data : []) as Array<{
+        partner_user_id: string; full_name: string | null; email: string | null;
+        pix_type: string; pix_key: string; holder_name: string; pix_status: string;
+        rejection_reason: string | null; updated_at: string;
+      }>;
+    },
+    refetchInterval: 60_000,
+  });
+  const [busy, setBusy] = useState("");
+  const review = async (partnerId: string, approve: boolean) => {
+    setBusy(partnerId);
+    try {
+      const reason = approve ? null : "Chave ou titularidade precisa ser corrigida. Atualize os dados e solicite nova validação.";
+      const { error } = await (supabase as any).rpc("admin_review_partner_pix", {
+        _partner_user_id: partnerId, _approve: approve, _reason: reason,
+      });
+      if (error) throw error;
+      await queryClient.invalidateQueries({ queryKey: ["admin-pix-payout-queue"] });
+      toast.success(approve ? "Chave Pix validada administrativamente." : "Chave Pix rejeitada.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível revisar a chave Pix.");
+    } finally {
+      setBusy("");
+    }
+  };
+  return (
+    <section className="space-y-4">
+      <div>
+        <h2 className="text-xl font-semibold text-white">Validação de chaves Pix de contadores</h2>
+        <p className="mt-1 text-sm text-zinc-400">Confira titularidade antes de autorizar pagamentos. Aprovar aqui confirma apenas a revisão administrativa; não faz transferência.</p>
+      </div>
+      {queue.isError && <Card className="border-red-500/30 bg-red-950/20"><CardContent className="p-4 text-sm text-red-300">Não foi possível carregar as chaves Pix. Verifique a migration de recebimentos Pix.</CardContent></Card>}
+      <Card className="border-white/10 bg-zinc-900/60 text-zinc-100">
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[780px] text-left text-sm">
+              <thead><tr className="border-b border-white/10 text-xs text-zinc-400">
+                <th className="px-4 py-3">Contador</th><th className="px-4 py-3">Tipo / chave</th><th className="px-4 py-3">Titular declarado</th><th className="px-4 py-3">Situação</th><th className="px-4 py-3">Ações</th>
+              </tr></thead>
+              <tbody>
+                {(queue.data ?? []).map((item) => <tr key={item.partner_user_id} className="border-b border-white/10 last:border-0">
+                  <td className="px-4 py-3"><div className="font-medium">{item.full_name ?? "Contador"}</div><div className="text-xs text-zinc-400">{item.email ?? "—"}</div></td>
+                  <td className="px-4 py-3"><div>{item.pix_type.toUpperCase()}</div><div className="break-all text-xs text-zinc-400">{item.pix_key}</div></td>
+                  <td className="px-4 py-3">{item.holder_name}</td>
+                  <td className="px-4 py-3">{({ pending: "Pendente", verified: "Validada", rejected: "Rejeitada" } as Record<string,string>)[item.pix_status] ?? item.pix_status}</td>
+                  <td className="px-4 py-3"><div className="flex gap-2">
+                    <Button size="sm" disabled={busy === item.partner_user_id || item.pix_status === "verified"} onClick={() => void review(item.partner_user_id,true)}>Validar</Button>
+                    <Button size="sm" variant="outline" disabled={busy === item.partner_user_id || item.pix_status === "rejected"} onClick={() => void review(item.partner_user_id,false)}>Rejeitar</Button>
+                  </div></td>
+                </tr>)}
+                {(!queue.data || queue.data.length === 0) && <tr><td colSpan={5} className="px-4 py-8 text-center text-zinc-400">{queue.isLoading ? "Carregando chaves Pix..." : "Nenhuma chave Pix cadastrada por contadores aprovados."}</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+    </section>
   );
 }
 
