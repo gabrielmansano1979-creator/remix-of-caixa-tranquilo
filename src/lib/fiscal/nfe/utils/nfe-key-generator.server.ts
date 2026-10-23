@@ -58,7 +58,16 @@ export function calculateNfeCheckDigit(first43Digits: string): string {
  */
 export function generateNfeKey(input: NfeKeyInput): NfeKeyResult {
   assertDigits("cUF", input.cUF, 2);
+  if (!VALID_CUF_CODES.has(input.cUF)) {
+    throw new Error("cUF deve ser um código IBGE válido de unidade federativa brasileira.");
+  }
+
   assertDigits("aamm", input.aamm, 4);
+  const month = Number(input.aamm.slice(2, 4));
+  if (month < 1 || month > 12) {
+    throw new Error("aamm deve conter um mês válido entre 01 e 12.");
+  }
+
   assertDigits("cnpj", input.cnpj, 14);
   assertDigits("tpEmis", input.tpEmis, 1);
   assertDigits("cNF", input.cNF, 8);
