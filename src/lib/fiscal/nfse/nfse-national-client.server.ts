@@ -54,17 +54,17 @@ function resultFrom(status: number, body: string): NfseOfficialResult {
  * DPS XML is compressed with GZip and then encoded as Base64.
  */
 export async function submitSignedDps(input: ClientOptions & { signedXml: string }): Promise<NfseOfficialResult> {
-  if (!input.signedXml.includes("<Signature") || !input.signedXml.includes("</DPS>")) {
+  if (!/<(?:[A-Za-z_][\\w.-]*:)?Signature\\b/.test(input.signedXml) || !input.signedXml.includes("</DPS>")) {
     throw new Error("DPS assinada inválida; transmissão bloqueada.");
   }
   const dpsXmlGZipB64 = gzipSync(Buffer.from(input.signedXml, "utf8")).toString("base64");
   const body = JSON.stringify({ dpsXmlGZipB64 });
-  const response = await requestText(input, "POST", "/nfse", body);
+  const response = await requestText(input, "POST", "/SefinNacional/nfse", body);
   return resultFrom(response.status, response.body);
 }
 export async function queryDps(input: ClientOptions & { dpsId: string }): Promise<NfseOfficialResult | null> {
   if (!/^ID\d{42}$/.test(input.dpsId)) throw new Error("Identificador DPS inválido.");
-  const path = `/dps/${encodeURIComponent(input.dpsId)}`;
+  const path = `/SefinNacional/dps/${encodeURIComponent(input.dpsId)}`;
   const head = await requestText(input, "HEAD", path);
   if (head.status === 404) return null;
   if (head.status >= 200 && head.status < 300) {
