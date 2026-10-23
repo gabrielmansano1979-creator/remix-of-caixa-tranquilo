@@ -57,6 +57,10 @@ export function calculateNfeCheckDigit(base43: string): string {
 
 /** Função determinística e sem efeitos colaterais para gerar chave e Id XML. */
 export function generateNfeKey(input: NfeKeyInput): NfeKeyResult {
+  if (input.modelo !== "55" && input.modelo !== "65") {
+    throw new TypeError("Modelo deve ser 55 (NF-e) ou 65 (NFC-e).");
+  }
+
   assertDigits("UF", input.uf, 2);
   assertDigits("AAMM", input.aamm, 4);
   assertDigits("CNPJ", input.cnpj, 14);
