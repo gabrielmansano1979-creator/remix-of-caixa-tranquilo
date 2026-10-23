@@ -228,7 +228,7 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
         }
       }
 
-      const discountPercent = affiliate?.discountPercent ?? (isFirst ? Math.round(FIRST_PIX_DISCOUNT * 100) : 0);
+      const discountPercent = affiliate ? (data.interval === "month" ? affiliate.discountPercent : 0) : (isFirst ? Math.round(FIRST_PIX_DISCOUNT * 100) : 0);
       const priceCents = Math.round(basePrice * (1 - discountPercent / 100));
       // Affiliate referrals get the discount on the acquisition payment and the first
       // monthly renewal. The webhook restores full price after the second paid invoice,
