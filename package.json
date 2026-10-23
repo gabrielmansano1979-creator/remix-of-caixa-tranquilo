@@ -13,6 +13,7 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "test:watch": "vitest",
+    "check:fiscal-runtime": "node scripts/check-fiscal-runtime.mjs",
     "start": "node .output/server/index.mjs",
     "preview:node": "node .output/server/index.mjs"
   },
