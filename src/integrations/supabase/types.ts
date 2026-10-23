@@ -1064,7 +1064,20 @@ export type Database = {
           iss_retido: boolean | null
           aliquota_iss: number | null
           serie: string | null
-          numero_dps: number | null
+          numero_dps: string | null
+          chave_acesso: string | null
+          protocolo_autorizacao: string | null
+          codigo_status_sefaz: string | null
+          motivo_rejeicao_texto: string | null
+          tentativas_envio: number
+          xml_gerado_url: string | null
+          xml_protocolado_url: string | null
+          pdf_url: string | null
+          ambiente_fiscal: string | null
+          idempotency_key: string | null
+          envio_iniciado_em: string | null
+          ultima_consulta_em: string | null
+          atualizado_em: string
         }
         Insert: {
           id?: string
@@ -1093,7 +1106,33 @@ export type Database = {
           iss_retido?: boolean | null
           aliquota_iss?: number | null
           serie?: string | null
-          numero_dps?: number | null
+          numero_dps?: string | null
+          chave_acesso?: string | null
+          protocolo_autorizacao?: string | null
+          codigo_status_sefaz?: string | null
+          motivo_rejeicao_texto?: string | null
+          tentativas_envio?: number
+          xml_gerado_url?: string | null
+          xml_protocolado_url?: string | null
+          pdf_url?: string | null
+          ambiente_fiscal?: string | null
+          idempotency_key?: string | null
+          envio_iniciado_em?: string | null
+          ultima_consulta_em?: string | null
+          atualizado_em?: string
+          chave_acesso?: string | null
+          protocolo_autorizacao?: string | null
+          codigo_status_sefaz?: string | null
+          motivo_rejeicao_texto?: string | null
+          tentativas_envio?: number
+          xml_gerado_url?: string | null
+          xml_protocolado_url?: string | null
+          pdf_url?: string | null
+          ambiente_fiscal?: string | null
+          idempotency_key?: string | null
+          envio_iniciado_em?: string | null
+          ultima_consulta_em?: string | null
+          atualizado_em?: string
         }
         Update: {
           id?: string
@@ -1208,6 +1247,69 @@ export type Database = {
         Relationships: []
       },
     }
+      nfse_dps_sequences: {
+        Row: {
+          tenant_user_id: string
+          serie: string
+          next_number: number
+          updated_at: string
+        }
+        Insert: {
+          tenant_user_id: string
+          serie?: string
+          next_number?: number
+          updated_at?: string
+        }
+        Update: {
+          tenant_user_id?: string
+          serie?: string
+          next_number?: number
+          updated_at?: string
+        }
+        Relationships: []
+      },
+      fiscal_invoice_items: {
+        Row: {
+          id: string
+          invoice_id: string
+          descricao: string
+          quantidade: number
+          valor_unitario: number
+          valor_total: number
+          ncm: string | null
+          cfop: string | null
+          cst_csosn: string | null
+          origem_mercadoria: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          invoice_id: string
+          descricao: string
+          quantidade: number
+          valor_unitario: number
+          valor_total: number
+          ncm?: string | null
+          cfop?: string | null
+          cst_csosn?: string | null
+          origem_mercadoria?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          invoice_id?: string
+          descricao?: string
+          quantidade?: number
+          valor_unitario?: number
+          valor_total?: number
+          ncm?: string | null
+          cfop?: string | null
+          cst_csosn?: string | null
+          origem_mercadoria?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      },
     Views: {
       [_ in never]: never
     }
