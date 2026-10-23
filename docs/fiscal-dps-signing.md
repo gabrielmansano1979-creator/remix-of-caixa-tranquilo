@@ -8,7 +8,7 @@
 
 ## Dependências
 
-As dependências de runtime são `xml-crypto`, `@xmldom/xmldom`, `node-forge` e `axios`. Elas rodam no servidor Node.js; não importar estes módulos em componentes do navegador.
+As dependências de runtime são `xml-crypto`, `@xmldom/xmldom` e `axios`. A extração do PFX usa o executável OpenSSL do servidor (ou o caminho definido em `OPENSSL_BIN`). Estes módulos rodam no servidor Node.js; não importar em componentes do navegador.
 
 ## Segurança
 
