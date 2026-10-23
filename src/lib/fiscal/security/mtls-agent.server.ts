@@ -1,4 +1,5 @@
 import { Agent } from "node:https";
+import { rootCertificates } from "node:tls";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { decryptFiscalSecret, fiscalSecretAad } from "./crypto.server";
 
@@ -70,11 +71,15 @@ export async function createFiscalMtlsConnection(
   passwordBuffer.fill(0);
 
   try {
+    // Optional PEM bundle containing the verified official SEFIN CA chain.
+    // Preserve Node's default trusted roots; never disable TLS verification.
+    const configuredCa = process.env.FISCAL_SEFIN_CA_PEM?.trim();
     const agent = new Agent({
       pfx,
       passphrase,
       keepAlive: true,
       minVersion: "TLSv1.2",
+      ca: configuredCa ? [...rootCertificates, configuredCa] : undefined,
       rejectUnauthorized: true,
     });
     return {
