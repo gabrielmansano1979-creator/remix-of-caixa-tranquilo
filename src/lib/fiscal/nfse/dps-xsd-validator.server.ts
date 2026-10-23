@@ -5,27 +5,40 @@ import { basename, isAbsolute, join, resolve } from "node:path";
 
 const MAX_XML_BYTES = 1_048_576;
 const VALIDATION_TIMEOUT_MS = 5_000;
-const DEFAULT_SCHEMA_CANDIDATES = [
-  resolve(process.cwd(), "supabase/schemas/nfse/DPS_v1.01.xsd"),
-  resolve(process.cwd(), "supabase/schemas/nfse/producao-restrita-20261020/DPS_v1.01.xsd"),
-];
+export type FiscalNfseEnvironment = "producao" | "producao_restrita";
+
+function schemaCandidatesFor(ambiente: FiscalNfseEnvironment): string[] {
+  if (ambiente === "producao") {
+    return [
+      resolve(process.cwd(), "supabase/schemas/nfse/producao-20260209/DPS_v1.01.xsd"),
+      resolve(process.cwd(), "supabase/schemas/nfse/producao/DPS_v1.01.xsd"),
+    ];
+  }
+  return [
+    resolve(process.cwd(), "supabase/schemas/nfse/producao-restrita-20261020/DPS_v1.01.xsd"),
+    resolve(process.cwd(), "supabase/schemas/nfse/DPS_v1.01.xsd"),
+  ];
+}
 
 export type DpsXsdValidationResult = { valid: true; schemaPath: string; validator: "xmllint/libxml2" };
 
-function resolveSchemaPath(): string {
-  const configuredPath = process.env.NFSE_DPS_XSD_PATH?.trim();
+function resolveSchemaPath(ambiente: FiscalNfseEnvironment): string {
+  const configuredPath = ambiente === "producao"
+    ? process.env.NFSE_DPS_XSD_PATH_PRODUCAO?.trim()
+    : process.env.NFSE_DPS_XSD_PATH_PRODUCAO_RESTRITA?.trim() || process.env.NFSE_DPS_XSD_PATH?.trim();
   const candidates = configuredPath
     ? [isAbsolute(configuredPath) ? configuredPath : resolve(process.cwd(), configuredPath)]
-    : DEFAULT_SCHEMA_CANDIDATES;
+    : schemaCandidatesFor(ambiente);
   const candidate = candidates.find((path) => existsSync(path));
   if (!candidate) {
-    throw new Error("DPS_XSD_SCHEMA_UNAVAILABLE: XSD oficial não encontrado. Configure NFSE_DPS_XSD_PATH ou inclua o pacote XSD no deploy. Nenhum envio foi realizado.");
+    const variable = ambiente === "producao" ? "NFSE_DPS_XSD_PATH_PRODUCAO" : "NFSE_DPS_XSD_PATH_PRODUCAO_RESTRITA";
+    throw new Error(`DPS_XSD_SCHEMA_UNAVAILABLE: XSD oficial do ambiente ${ambiente} não encontrado. Configure ${variable} ou inclua o pacote XSD correspondente no deploy. Nenhum envio foi realizado.`);
   }
   return realpathSync(candidate);
 }
 
 /** Checks runtime prerequisites without logging or retaining secret key material. */
-export function assertFiscalRuntimeReady(): { schemaPath: string; xmllint: string } {
+export function assertFiscalRuntimeReady(ambiente: FiscalNfseEnvironment = "producao_restrita"): { schemaPath: string; xmllint: string } {
   const encodedKey = process.env.FISCAL_ENCRYPTION_KEY;
   if (!encodedKey) {
     throw new Error("FISCAL_RUNTIME_NOT_READY: FISCAL_ENCRYPTION_KEY ausente; operação fiscal bloqueada.");
@@ -37,7 +50,7 @@ export function assertFiscalRuntimeReady(): { schemaPath: string; xmllint: strin
     throw new Error("FISCAL_RUNTIME_NOT_READY: FISCAL_ENCRYPTION_KEY deve ser Base64 canônica de exatamente 32 bytes; operação fiscal bloqueada.");
   }
 
-  const schemaPath = resolveSchemaPath();
+  const schemaPath = resolveSchemaPath(ambiente);
   const xmllint = process.env.NFSE_XMLLINT_BIN?.trim() || "xmllint";
   try {
     execFileSync(xmllint, ["--version"], { encoding: "utf8", timeout: VALIDATION_TIMEOUT_MS, maxBuffer: 64 * 1024, windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
@@ -48,7 +61,7 @@ export function assertFiscalRuntimeReady(): { schemaPath: string; xmllint: strin
 }
 
 /** Validates the exact signed DPS against the official XSD; unavailable validator always fails closed. */
-export function assertDpsRequiredGroups(xml: string): DpsXsdValidationResult {
+export function assertDpsRequiredGroups(xml: string, ambiente: FiscalNfseEnvironment = "producao_restrita"): DpsXsdValidationResult {
   const xmlBuffer = Buffer.from(xml, "utf8");
   if (xmlBuffer.byteLength === 0 || xmlBuffer.byteLength > MAX_XML_BYTES) {
     throw new Error("DPS_XSD_INVALID: XML vazio ou excede o limite de 1 MiB.");
@@ -57,7 +70,7 @@ export function assertDpsRequiredGroups(xml: string): DpsXsdValidationResult {
     throw new Error("DPS_XSD_INVALID: declarações DTD/ENTITY não são permitidas.");
   }
 
-  const runtime = assertFiscalRuntimeReady();
+  const runtime = assertFiscalRuntimeReady(ambiente);
   const tempDirectory = mkdtempSync(join(tmpdir(), "critical-cash-dps-xsd-"));
   const xmlPath = join(tempDirectory, basename("document.xml"));
   try {
