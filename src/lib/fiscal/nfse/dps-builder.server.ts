@@ -20,7 +20,8 @@ export interface DpsBuilderInput {
     inscricaoMunicipal?: string;
     telefone?: string;
     email?: string;
-    simplesNacional: 1 | 2;
+    /** opSimpNac: 1=non-optante, 2=MEI, 3=optante Simples Nacional */
+    simplesNacional: 1 | 2 | 3;
     regimeApuracaoTributaria?: 1 | 2 | 3;
   };
   tomador?: {
