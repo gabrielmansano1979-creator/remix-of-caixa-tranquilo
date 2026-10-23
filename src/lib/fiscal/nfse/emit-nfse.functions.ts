@@ -77,7 +77,21 @@ export const emitNfseAction = createServerFn({ method: "POST" })
       // No blind retries. The emission service must consult the official DPS state
       // before any retransmission after an uncertain network outcome.
       const { emitNfseForTenant } = await import("./nfse-emission.server");
-      return await emitNfseForTenant({ invoiceId, tenantUserId, configId });
+      const result = await emitNfseForTenant({ invoiceId, tenantUserId, configId });
+
+      // Return actionable validation feedback to the UI without turning missing
+      // draft fields into a generic server error. No request is sent in this case.
+      if ("ok" in result && result.ok === false && result.code === "DPS_INCOMPLETE") {
+        console.info("[nfse.emit] draft needs fiscal fields", {
+          requestId,
+          actorUserId: userId,
+          invoiceId,
+          missingFields: result.missingFields.map(({ field }) => field),
+        });
+        return result;
+      }
+
+      return result;
     } catch (error) {
       const status = typeof error === "object" && error !== null && "status" in error
         ? Number((error as { status: unknown }).status)
@@ -92,13 +106,6 @@ export const emitNfseAction = createServerFn({ method: "POST" })
       if (status === 404 || (error instanceof Error && ["INVOICE_NOT_FOUND", "FISCAL_CONFIG_NOT_FOUND"].includes(error.message))) {
         throw new Error("Nota fiscal ou configuração fiscal não encontrada.");
       }
-      if (error instanceof Error && error.message.startsWith("DPS_INCOMPLETE:")) {
-        console.warn("[nfse.emit] blocked emission: incomplete fiscal payload", {
-          requestId, actorUserId: userId, invoiceId: data.invoiceId, tenantUserId: data.tenantUserId,
-        });
-        throw new Error("A emissão ainda não está disponível: faltam dados fiscais obrigatórios para montar a DPS Nacional. Nenhum envio foi realizado.");
-      }
-
       console.error("[nfse.emit] emission failed", {
         requestId,
         actorUserId: userId,
