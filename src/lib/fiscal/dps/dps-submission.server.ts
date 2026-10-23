@@ -49,7 +49,9 @@ export async function submitSignedDps(input: {
 
     return {
       status: response.status,
-      contentType: typeof response.headers["content-type"] === "string"\n        ? response.headers["content-type"]\n        : undefined,
+      contentType: typeof response.headers["content-type"] === "string"
+        ? response.headers["content-type"]
+        : undefined,
       body: response.data,
     };
   } finally {
