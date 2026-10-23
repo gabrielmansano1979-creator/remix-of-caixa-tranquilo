@@ -79,3 +79,11 @@ where tgrelid = 'public.fiscal_invoices'::regclass
 ```
 
 As quatro relações devem existir, as colunas fiscais devem aparecer e a consulta de trigger deve retornar `fiscal_invoices_assign_dps_sequence`.
+
+Depois da migração e de configurar o XSD no runtime, valide também o código antes de qualquer teste de emissão:
+
+```bash
+npm test
+npx tsc --noEmit
+npm run build
+```
