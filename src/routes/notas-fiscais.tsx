@@ -86,9 +86,11 @@ function FiscalInvoicesPage() {
   const portalQuery = useQuery({
     queryKey: ["nfse-authorized-clients"],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("my_accountant_portal_invites");
+      // The fiscal directory reads the explicit multi-company consent table,
+      // not only the legacy single-accountant access table.
+      const { data, error } = await fiscalDb.rpc("my_accountant_fiscal_clients");
       if (error) throw error;
-      return data as unknown as AccountantPortal;
+      return data as AccountantPortal;
     },
   });
 
