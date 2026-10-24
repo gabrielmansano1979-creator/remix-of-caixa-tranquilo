@@ -82,13 +82,13 @@ export const emitNfseAction = createServerFn({ method: "POST" })
       // No blind retries. The emission service must consult the official DPS state
       // before any retransmission after an uncertain network outcome.
       const { emitNfseForTenant } = await import("./nfse-emission.server");
-      const { error: actorUpdateError } = await db.from("fiscal_invoices")
+      const { error: actorUpdateError } = await (db as any).from("fiscal_invoices")
         .update({ emitido_por_user_id: userId })
         .eq("id", invoiceId)
         .eq("user_id", empresaTenantId);
       if (actorUpdateError) throw new Error("Não foi possível registrar o responsável pela emissão.");
 
-      await db.from("fiscal_emission_audit").insert({
+      await (db as any).from("fiscal_emission_audit").insert({
         tenant_user_id: empresaTenantId, invoice_id: invoiceId, actor_user_id: userId,
         request_id: requestId, event_type: "emission_started",
         details: { config_id: config.id, actor_is_company_owner: isOwner },
