@@ -10,19 +10,18 @@ describe("DPS XML official XSD", () => {
     process.env.FISCAL_ENCRYPTION_KEY = Buffer.alloc(32, 0x5a).toString("base64");
     process.env.NFSE_XMLLINT_BIN = "xmllint";
 
-    const { xml, id } = buildDpsXml({
-      ambiente: 2,
+    const commonInput = {
       dataHoraEmissao: "2026-10-23T18:00:00-03:00",
       versaoAplicacao: "CriticalCash/1.0",
       serie: 1,
       numeroDps: 1,
       competencia: "2026-10-23",
-      tipoEmitente: 1,
+      tipoEmitente: 1 as const,
       municipioEmissorIbge: "3550308",
       prestador: {
         cnpj: "12345678000195",
-        simplesNacional: 3,
-        regimeEspecialTributacao: 0,
+        simplesNacional: 3 as const,
+        regimeEspecialTributacao: 0 as const,
       },
       tomador: { cpf: "52998224725", nome: "Tomador de teste XSD" },
       servico: {
@@ -34,15 +33,18 @@ describe("DPS XML official XSD", () => {
         issRetido: false,
         aliquotaIss: 2,
       },
-    });
-    expect(id).toMatch(/^DPS\d{42}$/);
+    };
+    const productionDps = buildDpsXml({ ...commonInput, ambiente: 1 });
+    const restrictedDps = buildDpsXml({ ...commonInput, ambiente: 2 });
+    expect(productionDps.id).toMatch(/^DPS\\d{42}$/);
+    expect(restrictedDps.id).toBe(productionDps.id);
 
     try {
-      const production = assertDpsRequiredGroups(xml, "producao");
+      const production = assertDpsRequiredGroups(productionDps.xml, "producao");
       expect(production.valid).toBe(true);
       expect(production.compatibility).toBe("normalized-xsd-pattern-anchors");
 
-      const restricted = assertDpsRequiredGroups(xml, "producao_restrita");
+      const restricted = assertDpsRequiredGroups(restrictedDps.xml, "producao_restrita");
       expect(restricted.valid).toBe(true);
       expect(restricted.compatibility).toBe("none");
     } finally {
