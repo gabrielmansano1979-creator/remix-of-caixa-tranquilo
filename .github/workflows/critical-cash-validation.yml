@@ -45,4 +45,5 @@ jobs:
         run: npm test
 
       - name: Lint changed TypeScript files
-        run: npx eslint src/routes/index.tsx src/integrations/supabase/types.ts --rule "prettier/prettier: off"
+        run: |
+          npx eslint src/routes/index.tsx src/integrations/supabase/types.ts --rule 'prettier/prettier: off'
