@@ -1,4 +1,5 @@
 name: Critical Cash CI
+# Active replacement for the legacy validation workflow
 
 on:
   push:
