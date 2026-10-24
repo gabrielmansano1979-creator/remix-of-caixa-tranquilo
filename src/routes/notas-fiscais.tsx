@@ -125,6 +125,17 @@ function FiscalInvoicesPage() {
         return;
       }
 
+      if ("status" in result && result.status === 403) {
+        setEmissionFeedback({
+          kind: "rejected",
+          title: "Acesso não autorizado",
+          message: result.message,
+          dps: `${item.serie ?? "—"}/${item.numero_dps ?? "não atribuída"}`,
+          protocol: null,
+        });
+        return;
+      }
+
       const dps = `${item.serie ?? "—"}/${item.numero_dps ?? "não atribuída"}`;
       if (result.accepted && result.accessKey) {
         const protocol = result.protocol ?? null;
