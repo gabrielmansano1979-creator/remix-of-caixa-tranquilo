@@ -35,9 +35,8 @@ describe("fiscal secret encryption", () => {
 
   it("rejects non-canonical Base64 encryption keys", () => {
     const canonical = Buffer.alloc(32, 0x5a).toString("base64");
-    const finalDataCharacter = canonical.length - 2;
-    const replacement = canonical[finalDataCharacter] === "A" ? "B" : "A";
-    process.env.FISCAL_ENCRYPTION_KEY = canonical.slice(0, finalDataCharacter) + replacement + "=";
+    // Whitespace decodes in permissive Base64 parsers, but is not canonical Base64.
+    process.env.FISCAL_ENCRYPTION_KEY = canonical + "\\n";
     expect(() => encryptFiscalSecret("synthetic secret", "tenant:config")).toThrow(
       "FISCAL_ENCRYPTION_KEY deve ser Base64 canônica",
     );
