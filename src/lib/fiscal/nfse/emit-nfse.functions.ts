@@ -29,10 +29,25 @@ export const emitNfseAction = createServerFn({ method: "POST" })
 
       const { invoiceId, empresaTenantId } = data;
       const isOwner = authData.user.id === empresaTenantId;
+
+      // Import the service client only on the server. The user identity is already
+      // revalidated above; use the approved accountant registry, not user-editable
+      // user_metadata, as the source of role authorization.
+      const { supabaseAdmin: db } = await import("@/integrations/supabase/client.server");
+
       if (!isOwner) {
-        if (authData.user.user_metadata?.account_type !== "accountant") {
+        const { data: approvedProfile, error: profileError } = await (db as any)
+          .from("partner_requests")
+          .select("id")
+          .eq("user_id", userId)
+          .eq("status", "approved")
+          .maybeSingle();
+        if (profileError || !approvedProfile) {
           throw Object.assign(new Error("FORBIDDEN"), { status: 403 });
         }
+
+        // The link is checked on every request. A revoked/pending relationship
+        // blocks emission before invoice, certificate, or SEFIN access.
         const { data: link, error: linkError } = await (context.supabase as any)
           .from("contador_empresas")
           .select("id")
@@ -48,8 +63,8 @@ export const emitNfseAction = createServerFn({ method: "POST" })
         }
       }
 
-      // Use admin only after caller identity and tenant permission have been checked.
-      const { supabaseAdmin: db } = await import("@/integrations/supabase/client.server");
+      // Service-role access starts only after identity and active client consent
+      // have both been verified. Certificate ciphertext never reaches the browser.
       const { data: invoice, error: invoiceError } = await db
         .from("fiscal_invoices")
         .select("id,user_id,document_type,status,issuer_cnpj")
