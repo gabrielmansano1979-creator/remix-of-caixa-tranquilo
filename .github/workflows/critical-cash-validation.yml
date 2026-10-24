@@ -35,6 +35,11 @@ jobs:
           node-version: 22
           cache: npm
 
+      - name: Install libxml2 XSD validator
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes libxml2-utils
+
       - name: Regenerate lockfile and install dependencies
         run: |
           npm install --package-lock-only --ignore-scripts --no-fund --legacy-peer-deps
