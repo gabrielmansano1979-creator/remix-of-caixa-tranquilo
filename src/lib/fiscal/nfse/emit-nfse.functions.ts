@@ -36,18 +36,24 @@ export const emitNfseAction = createServerFn({ method: "POST" })
       const { supabaseAdmin: db } = await import("@/integrations/supabase/client.server");
 
       if (!isOwner) {
-        const { data: approvedProfile, error: profileError } = await (db as any)
-          .from("partner_requests")
-          .select("id")
-          .eq("user_id", userId)
-          .eq("status", "approved")
-          .maybeSingle();
-        if (profileError || !approvedProfile) {
-          throw Object.assign(new Error("FORBIDDEN"), { status: 403 });
+        // "Contador" is the app's account profile; approval for the separate
+        // affiliate/partner program is NOT a prerequisite for accounting work.
+        // The actual data-access grant is the company's active row in
+        // contador_empresas, checked with the user's RLS-scoped client.
+        if (authData.user.user_metadata?.account_type !== "accountant") {
+          console.warn("[nfse.emit] non-accountant profile denied", {
+            requestId, actorUserId: userId, empresaTenantId,
+          });
+          return {
+            ok: false as const,
+            status: 403 as const,
+            code: "FORBIDDEN" as const,
+            message: "Somente um usuário com perfil Contador pode emitir em nome de outra empresa.",
+          };
         }
 
-        // The link is checked on every request. A revoked/pending relationship
-        // blocks emission before invoice, certificate, or SEFIN access.
+        // Recheck consent on every request. Pending/revoked or absent links
+        // must be denied before invoice, certificate, or SEFIN access.
         const { data: link, error: linkError } = await (context.supabase as any)
           .from("contador_empresas")
           .select("id")
@@ -56,10 +62,15 @@ export const emitNfseAction = createServerFn({ method: "POST" })
           .eq("status", "ativo")
           .maybeSingle();
         if (linkError || !link) {
-          console.error("[nfse.emit] accountant authorization denied", {
+          console.warn("[nfse.emit] accountant authorization denied", {
             requestId, actorUserId: userId, empresaTenantId, code: linkError?.code,
           });
-          throw Object.assign(new Error("FORBIDDEN"), { status: 403 });
+          return {
+            ok: false as const,
+            status: 403 as const,
+            code: "FORBIDDEN" as const,
+            message: "A empresa não autorizou este contador ou o vínculo foi revogado.",
+          };
         }
       }
 
