@@ -131,7 +131,18 @@ export async function buildSignAndSubmitDps(input: {
       throw new Error("Consulta da DPS retornou estado não conclusivo; não retransmitir automaticamente.");
     }
 
-    const { error: updateError } = await supabaseAdmin.from("fiscal_invoices").update({
+    // A previously queued invoice may represent an accepted request whose response
+    // was lost. Never auto-submit it again merely because a query temporarily says 404.
+    if (invoice.status === "queued") {
+      throw new Error("Esta DPS já possui uma tentativa em processamento ou com resultado incerto. Consulte o retorno oficial antes de qualquer nova tentativa.");
+    }
+    if (invoice.status !== "draft" && invoice.status !== "rejected") {
+      throw new Error("Estado da NFS-e não permite uma nova tentativa de transmissão.");
+    }
+
+    // Atomic compare-and-set claim: only one concurrent request can move this
+    // invoice from its observed status to queued and then contact SEFIN.
+    const { data: claimedInvoice, error: updateError } = await supabaseAdmin.from("fiscal_invoices").update({
       status: "queued",
       numero_dps: String(input.dps.numeroDps),
       serie: String(input.dps.serie),
@@ -139,9 +150,14 @@ export async function buildSignAndSubmitDps(input: {
       envio_iniciado_em: new Date().toISOString(),
       tentativas_envio: (invoice.tentativas_envio ?? 0) + 1,
       atualizado_em: new Date().toISOString(),
-    }).eq("id", input.invoiceId).eq("user_id", input.tenantUserId);
+    }).eq("id", input.invoiceId)
+      .eq("user_id", input.tenantUserId)
+      .eq("status", invoice.status)
+      .select("id")
+      .maybeSingle();
 
     if (updateError) throw new Error("Não foi possível registrar a tentativa de emissão.");
+    if (!claimedInvoice) throw new Error("Outra requisição já iniciou a emissão desta DPS. Consulte o status antes de tentar novamente.");
 
     try {
       const result = await submitSignedDps({
