@@ -65,7 +65,7 @@ export const emitNfseAction = createServerFn({ method: "POST" })
       // the active configuration server-side by the draft's issuer CNPJ.
       let configQuery = db
         .from("configuracoes_fiscais")
-        .select("id,tenant_user_id,status")
+        .select("id,tenant_user_id,status,ambiente")
         .eq("tenant_user_id", empresaTenantId)
         .eq("status", "ativo");
       if (data.configId) {
@@ -88,11 +88,18 @@ export const emitNfseAction = createServerFn({ method: "POST" })
         .eq("user_id", empresaTenantId);
       if (actorUpdateError) throw new Error("Não foi possível registrar o responsável pela emissão.");
 
-      await (db as any).from("fiscal_emission_audit").insert({
+      const { error: auditStartError } = await (db as any).from("fiscal_emission_audit").insert({
         tenant_user_id: empresaTenantId, invoice_id: invoiceId, actor_user_id: userId,
         request_id: requestId, event_type: "emission_started",
+        environment: config.ambiente,
         details: { config_id: config.id, actor_is_company_owner: isOwner },
       });
+      if (auditStartError) {
+        console.error("[nfse.emit] audit persistence failed; emission blocked", {
+          requestId, actorUserId: userId, empresaTenantId, code: auditStartError.code,
+        });
+        throw new Error("Não foi possível registrar a auditoria da emissão; envio bloqueado.");
+      }
 
       let result;
       try {
@@ -100,7 +107,7 @@ export const emitNfseAction = createServerFn({ method: "POST" })
       } catch (emissionError) {
         await (db as any).from("fiscal_emission_audit").insert({
           tenant_user_id: empresaTenantId, invoice_id: invoiceId, actor_user_id: userId,
-          request_id: requestId, event_type: "emission_failed",
+          request_id: requestId, event_type: "emission_failed", environment: config.ambiente,
           details: { error_name: emissionError instanceof Error ? emissionError.name : "UnknownError" },
         });
         throw emissionError;
@@ -117,7 +124,7 @@ export const emitNfseAction = createServerFn({ method: "POST" })
         });
         await (db as any).from("fiscal_emission_audit").insert({
           tenant_user_id: empresaTenantId, invoice_id: invoiceId, actor_user_id: userId,
-          request_id: requestId, event_type: "emission_incomplete",
+          request_id: requestId, event_type: "emission_incomplete", environment: config.ambiente,
           details: { missing_fields: result.missingFields.map(({ field }) => field) },
         });
         return result;
@@ -127,6 +134,7 @@ export const emitNfseAction = createServerFn({ method: "POST" })
         tenant_user_id: empresaTenantId, invoice_id: invoiceId, actor_user_id: userId,
         request_id: requestId,
         event_type: result.accepted && result.accessKey ? "emission_succeeded" : "emission_rejected",
+        environment: config.ambiente,
         details: { status_code: result.statusCode, accepted: result.accepted, has_access_key: Boolean(result.accessKey) },
       });
 
