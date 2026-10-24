@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 
@@ -78,8 +78,8 @@ function createProductionCompatibilitySchema(schemaPath: string, tempDirectory: 
     const targetPath = join(compatibilityDirectory, filename);
     const original = readFileSync(sourcePath, "utf8");
     const normalized = original
-      .replace(/(<xs:pattern\\b[^>]*\\bvalue=")\\^/g, "$1")
-      .replace(/(<xs:pattern\\b[^>]*\\bvalue="[^"]*)\\$(?=")/g, "$1");
+      .replace(/(<xs:pattern\b[^>]*\bvalue=")\^/g, "$1")
+      .replace(/(<xs:pattern\b[^>]*\bvalue="[^"]*)\$(?=")/g, "$1");
     writeFileSync(targetPath, normalized, { encoding: "utf8", flag: "wx", mode: 0o600 });
   }
   const root = join(compatibilityDirectory, basename(schemaPath));
@@ -100,10 +100,10 @@ export function assertDpsRequiredGroups(xml: string, ambiente: FiscalNfseEnviron
   const runtime = assertFiscalRuntimeReady(ambiente);
   const tempDirectory = mkdtempSync(join(tmpdir(), "critical-cash-dps-xsd-"));
   const xmlPath = join(tempDirectory, basename("document.xml"));
-  const validationSchemaPath = ambiente === "producao"
-    ? createProductionCompatibilitySchema(runtime.schemaPath, tempDirectory)
-    : runtime.schemaPath;
   try {
+    const validationSchemaPath = ambiente === "producao"
+      ? createProductionCompatibilitySchema(runtime.schemaPath, tempDirectory)
+      : runtime.schemaPath;
     writeFileSync(xmlPath, xmlBuffer, { flag: "wx", mode: 0o600 });
     try {
       execFileSync(runtime.xmllint, ["--nonet", "--noout", "--schema", validationSchemaPath, xmlPath], { encoding: "utf8", timeout: VALIDATION_TIMEOUT_MS, maxBuffer: 1_048_576, windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
