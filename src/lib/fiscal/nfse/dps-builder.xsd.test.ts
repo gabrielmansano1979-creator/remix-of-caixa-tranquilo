@@ -1,19 +1,14 @@
-import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { buildDpsXml } from "./dps-builder.server";
+import { assertDpsRequiredGroups } from "./dps-xsd-validator.server";
 
 describe("DPS XML official XSD", () => {
-  it("builds a DPS that validates against the pinned official production-restrita XSD", () => {
-    const schemaPaths = [
-      resolve(process.cwd(), "supabase/schemas/nfse/producao-20260209/DPS_v1.01.xsd"),
-      resolve(process.cwd(), "supabase/schemas/nfse/producao-restrita-20261020/DPS_v1.01.xsd"),
-    ];
-    for (const schemaPath of schemaPaths) {
-      expect(existsSync(schemaPath), `official DPS XSD must exist: ${schemaPath}`).toBe(true);
-    }
+  it("validates the generated DPS against the pinned production and production-restrita schemas", () => {
+    const previousKey = process.env.FISCAL_ENCRYPTION_KEY;
+    const previousXmllint = process.env.NFSE_XMLLINT_BIN;
+    // Synthetic key only: this test validates XML and never decrypts or transmits a certificate.
+    process.env.FISCAL_ENCRYPTION_KEY = Buffer.alloc(32, 0x5a).toString("base64");
+    process.env.NFSE_XMLLINT_BIN = "xmllint";
 
     const { xml, id } = buildDpsXml({
       ambiente: 2,
@@ -42,17 +37,19 @@ describe("DPS XML official XSD", () => {
     });
     expect(id).toMatch(/^DPS\d{42}$/);
 
-    const directory = mkdtempSync(join(tmpdir(), "critical-cash-xsd-test-"));
-    const xmlPath = join(directory, "dps.xml");
     try {
-      writeFileSync(xmlPath, xml, { encoding: "utf8", mode: 0o600 });
-      for (const schemaPath of schemaPaths) {
-        expect(() => execFileSync("xmllint", [
-          "--nonet", "--noout", "--schema", schemaPath, xmlPath,
-        ], { encoding: "utf8", timeout: 5000, stdio: ["ignore", "pipe", "pipe"] })).not.toThrow();
-      }
+      const production = assertDpsRequiredGroups(xml, "producao");
+      expect(production.valid).toBe(true);
+      expect(production.compatibility).toBe("normalized-xsd-pattern-anchors");
+
+      const restricted = assertDpsRequiredGroups(xml, "producao_restrita");
+      expect(restricted.valid).toBe(true);
+      expect(restricted.compatibility).toBe("none");
     } finally {
-      rmSync(directory, { recursive: true, force: true });
+      if (previousKey === undefined) delete process.env.FISCAL_ENCRYPTION_KEY;
+      else process.env.FISCAL_ENCRYPTION_KEY = previousKey;
+      if (previousXmllint === undefined) delete process.env.NFSE_XMLLINT_BIN;
+      else process.env.NFSE_XMLLINT_BIN = previousXmllint;
     }
   });
 });
