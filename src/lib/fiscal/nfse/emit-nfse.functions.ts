@@ -9,7 +9,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
  */
 const emissionInput = z.object({
   invoiceId: z.string().uuid(),
-  tenantUserId: z.string().uuid(),
+  empresaTenantId: z.string().uuid(),
   configId: z.string().uuid().optional(),
 });
 
@@ -27,27 +27,25 @@ export const emitNfseAction = createServerFn({ method: "POST" })
         throw Object.assign(new Error("UNAUTHENTICATED"), { status: 401 });
       }
 
-      const { invoiceId, tenantUserId } = data;
-      const isOwner = authData.user.id === tenantUserId;
-      let hasTenantPermission = false;
-
+      const { invoiceId, empresaTenantId } = data;
+      const isOwner = authData.user.id === empresaTenantId;
       if (!isOwner) {
-        // The RPC derives permissions from the authenticated database identity.
-        // It never accepts a caller-supplied actor ID.
-        const { data: allowed, error: permissionError } = await context.supabase
-          .rpc("can_access_fiscal_invoices", { _client_user_id: tenantUserId });
-        if (permissionError) {
-          // Fail closed: an unavailable permission check must never grant access.
-          console.error("[nfse.emit] tenant permission lookup failed", {
-            requestId, actorUserId: userId, tenantUserId, code: permissionError.code,
+        if (authData.user.user_metadata?.account_type !== "accountant") {
+          throw Object.assign(new Error("FORBIDDEN"), { status: 403 });
+        }
+        const { data: link, error: linkError } = await (context.supabase as any)
+          .from("contador_empresas")
+          .select("id")
+          .eq("contador_user_id", userId)
+          .eq("empresa_tenant_id", empresaTenantId)
+          .eq("status", "ativo")
+          .maybeSingle();
+        if (linkError || !link) {
+          console.error("[nfse.emit] accountant authorization denied", {
+            requestId, actorUserId: userId, empresaTenantId, code: linkError?.code,
           });
           throw Object.assign(new Error("FORBIDDEN"), { status: 403 });
         }
-        hasTenantPermission = allowed === true;
-      }
-
-      if (!isOwner && !hasTenantPermission) {
-        throw Object.assign(new Error("FORBIDDEN"), { status: 403 });
       }
 
       // Use admin only after caller identity and tenant permission have been checked.
@@ -56,7 +54,7 @@ export const emitNfseAction = createServerFn({ method: "POST" })
         .from("fiscal_invoices")
         .select("id,user_id,document_type,status,issuer_cnpj")
         .eq("id", invoiceId)
-        .eq("user_id", tenantUserId)
+        .eq("user_id", empresaTenantId)
         .maybeSingle();
 
       if (invoiceError || !invoice || invoice.document_type !== "nfse") {
@@ -68,7 +66,7 @@ export const emitNfseAction = createServerFn({ method: "POST" })
       let configQuery = db
         .from("configuracoes_fiscais")
         .select("id,tenant_user_id,status")
-        .eq("tenant_user_id", tenantUserId)
+        .eq("tenant_user_id", empresaTenantId)
         .eq("status", "ativo");
       if (data.configId) {
         configQuery = configQuery.eq("id", data.configId);
@@ -84,7 +82,29 @@ export const emitNfseAction = createServerFn({ method: "POST" })
       // No blind retries. The emission service must consult the official DPS state
       // before any retransmission after an uncertain network outcome.
       const { emitNfseForTenant } = await import("./nfse-emission.server");
-      const result = await emitNfseForTenant({ invoiceId, tenantUserId, configId: config.id });
+      const { error: actorUpdateError } = await db.from("fiscal_invoices")
+        .update({ emitido_por_user_id: userId })
+        .eq("id", invoiceId)
+        .eq("user_id", empresaTenantId);
+      if (actorUpdateError) throw new Error("Não foi possível registrar o responsável pela emissão.");
+
+      await db.from("fiscal_emission_audit").insert({
+        tenant_user_id: empresaTenantId, invoice_id: invoiceId, actor_user_id: userId,
+        request_id: requestId, event_type: "emission_started",
+        details: { config_id: config.id, actor_is_company_owner: isOwner },
+      });
+
+      let result;
+      try {
+        result = await emitNfseForTenant({ invoiceId, tenantUserId: empresaTenantId, configId: config.id });
+      } catch (emissionError) {
+        await db.from("fiscal_emission_audit").insert({
+          tenant_user_id: empresaTenantId, invoice_id: invoiceId, actor_user_id: userId,
+          request_id: requestId, event_type: "emission_failed",
+          details: { error_name: emissionError instanceof Error ? emissionError.name : "UnknownError" },
+        });
+        throw emissionError;
+      }
 
       // Return actionable validation feedback to the UI without turning missing
       // draft fields into a generic server error. No request is sent in this case.
@@ -95,8 +115,20 @@ export const emitNfseAction = createServerFn({ method: "POST" })
           invoiceId,
           missingFields: result.missingFields.map(({ field }) => field),
         });
+        await db.from("fiscal_emission_audit").insert({
+          tenant_user_id: empresaTenantId, invoice_id: invoiceId, actor_user_id: userId,
+          request_id: requestId, event_type: "emission_incomplete",
+          details: { missing_fields: result.missingFields.map(({ field }) => field) },
+        });
         return result;
       }
+
+      await db.from("fiscal_emission_audit").insert({
+        tenant_user_id: empresaTenantId, invoice_id: invoiceId, actor_user_id: userId,
+        request_id: requestId,
+        event_type: result.accepted && result.accessKey ? "emission_succeeded" : "emission_rejected",
+        details: { status_code: result.statusCode, accepted: result.accepted, has_access_key: Boolean(result.accessKey) },
+      });
 
       // Only return serializable, user-safe status fields. The raw SEFIN body is
       // persisted server-side and must not cross the Server Function boundary.
@@ -126,7 +158,7 @@ export const emitNfseAction = createServerFn({ method: "POST" })
         requestId,
         actorUserId: userId,
         invoiceId: data.invoiceId,
-        tenantUserId: data.tenantUserId,
+        empresaTenantId: data.empresaTenantId,
         configId: data.configId ?? "resolved-server-side",
         errorName: error instanceof Error ? error.name : "UnknownError",
         // Deliberately omit error.message, request bodies, XML, PFX and passwords.
