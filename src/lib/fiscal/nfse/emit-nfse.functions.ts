@@ -98,7 +98,7 @@ export const emitNfseAction = createServerFn({ method: "POST" })
       try {
         result = await emitNfseForTenant({ invoiceId, tenantUserId: empresaTenantId, configId: config.id });
       } catch (emissionError) {
-        await db.from("fiscal_emission_audit").insert({
+        await (db as any).from("fiscal_emission_audit").insert({
           tenant_user_id: empresaTenantId, invoice_id: invoiceId, actor_user_id: userId,
           request_id: requestId, event_type: "emission_failed",
           details: { error_name: emissionError instanceof Error ? emissionError.name : "UnknownError" },
@@ -115,7 +115,7 @@ export const emitNfseAction = createServerFn({ method: "POST" })
           invoiceId,
           missingFields: result.missingFields.map(({ field }) => field),
         });
-        await db.from("fiscal_emission_audit").insert({
+        await (db as any).from("fiscal_emission_audit").insert({
           tenant_user_id: empresaTenantId, invoice_id: invoiceId, actor_user_id: userId,
           request_id: requestId, event_type: "emission_incomplete",
           details: { missing_fields: result.missingFields.map(({ field }) => field) },
@@ -123,7 +123,7 @@ export const emitNfseAction = createServerFn({ method: "POST" })
         return result;
       }
 
-      await db.from("fiscal_emission_audit").insert({
+      await (db as any).from("fiscal_emission_audit").insert({
         tenant_user_id: empresaTenantId, invoice_id: invoiceId, actor_user_id: userId,
         request_id: requestId,
         event_type: result.accepted && result.accessKey ? "emission_succeeded" : "emission_rejected",
