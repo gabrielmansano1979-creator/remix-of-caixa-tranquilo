@@ -35,8 +35,10 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Install locked dependencies
-        run: npm ci
+      - name: Regenerate lockfile and install dependencies
+        run: |
+          npm install --package-lock-only --ignore-scripts --no-fund --legacy-peer-deps
+          npm ci --legacy-peer-deps
 
       - name: Build production bundle
         run: npm run build
