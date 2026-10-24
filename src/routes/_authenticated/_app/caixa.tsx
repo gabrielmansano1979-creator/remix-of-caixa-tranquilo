@@ -25,21 +25,25 @@ export const Route = createFileRoute("/_authenticated/_app/caixa")({
 type Projection = { today: string; current: number; series: { date: string; balance: number }[]; min_balance: number; min_date: string; cushion: number; status: "green" | "yellow" | "red" };
 type Risk = { entry_id: string; description: string; counterparty_name: string | null; counterparty_whatsapp: string | null; amount_cents: number; due_date: string; level: "high" | "medium" | "low"; reason: string };
 
-const projectionQuery = { queryKey: ["projection"], queryFn: async () => {
-  const { data, error } = await supabase.rpc("cash_projection", { _days: 30 });
-  if (error) throw error;
-  if (!data || typeof data !== "object") throw new Error("O banco não retornou uma projeção válida.");
-  const result = data as unknown as Projection;
-  if (!Array.isArray(result.series)) throw new Error("A série do gráfico está inválida.");
-  const moneyValues = [result.current, result.min_balance, result.cushion, ...result.series.map((point) => point.balance)];
-  if (moneyValues.some((value) => !Number.isSafeInteger(value))) {
-    throw new Error("Os valores ultrapassam o limite de cálculo exato. Revise e divida lançamentos muito altos antes de continuar.");
-  }
-  return result;
-} };
-
 function CaixaPage() {
-  const proj = useQuery(projectionQuery);
+  const [projectionDays, setProjectionDays] = useState<30 | 60 | 90>(30);
+  const proj = useQuery({
+    queryKey: ["projection", projectionDays],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("cash_projection", { _days: projectionDays });
+      if (error) throw error;
+      if (!data || typeof data !== "object") throw new Error("O banco não retornou uma projeção válida.");
+      const result = data as unknown as Projection;
+      if (!Array.isArray(result.series) || result.series.length !== projectionDays + 1) {
+        throw new Error("A série do gráfico não corresponde ao período selecionado.");
+      }
+      const moneyValues = [result.current, result.min_balance, result.cushion, ...result.series.map((point) => point.balance)];
+      if (moneyValues.some((value) => !Number.isSafeInteger(value))) {
+        throw new Error("Os valores ultrapassam o limite de cálculo exato. Revise e divida lançamentos muito altos antes de continuar.");
+      }
+      return result;
+    },
+  });
   const entries = useQuery(entriesQuery);
   const access = useQuery(accessQuery);
   const profile = useQuery(profileQuery);
@@ -169,7 +173,7 @@ function CaixaPage() {
         <div>
           <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-primary">Painel financeiro</p>
           <h1 className="mt-2 text-3xl font-bold tracking-tight md:text-4xl">Visão do caixa</h1>
-          <p className="mt-2 text-sm text-muted-foreground md:text-base">Antecipe movimentos e mantenha o controle dos próximos 30 dias.</p>
+          <p className="mt-2 text-sm text-muted-foreground md:text-base">Antecipe movimentos e compare cenários de caixa para 30, 60 e 90 dias.</p>
         </div>
         <span className="mb-1 inline-flex items-center gap-2 rounded-full border border-success/20 bg-success/5 px-3 py-2 text-xs font-semibold text-success">
           <span className="h-1.5 w-1.5 rounded-full bg-success" /> Dados atualizados
@@ -197,13 +201,25 @@ function CaixaPage() {
         </div>
       ) : (
         <>
-          <Semaphore p={p} />
-          <div className="grid gap-5 md:grid-cols-3">
-            <BalanceCard current={p.current} canWrite={access.data?.can_write ?? false} />
-            <ProjCard label="Saldo projetado em 15 dias" value={p.series[15]?.balance ?? p.current} current={p.current} />
-            <ProjCard label="Saldo projetado em 30 dias" value={p.series[30]?.balance ?? p.current} current={p.current} />
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card p-3">
+            <div>
+              <p className="text-sm font-semibold">Horizonte da projeção</p>
+              <p className="text-xs text-muted-foreground">Selecione o período para recalcular o saldo previsto.</p>
+            </div>
+            <div className="flex gap-2" role="group" aria-label="Período da projeção">
+              {([30, 60, 90] as const).map((days) => (
+                <Button key={days} type="button" size="sm" variant={projectionDays === days ? "default" : "outline"} aria-pressed={projectionDays === days} onClick={() => setProjectionDays(days)}>
+                  {days} dias
+                </Button>
+              ))}
+            </div>
           </div>
-          <Chart p={p} />
+          <Semaphore p={p} />
+          <div className="grid gap-5 md:grid-cols-2">
+            <BalanceCard current={p.current} canWrite={access.data?.can_write ?? false} />
+            <ProjCard label={`Saldo projetado em ${projectionDays} dias`} value={p.series[projectionDays]?.balance ?? p.current} current={p.current} />
+          </div>
+          <Chart p={p} days={projectionDays} />
           <section className="premium-surface space-y-4 rounded-2xl p-6 md:p-7">
             <div><p className="text-[11px] font-bold uppercase tracking-[0.18em] text-primary">Extrato de caixa</p><h2 className="mt-1 text-lg font-semibold">Saldo antes e depois de cada movimentação</h2><p className="mt-1 text-sm text-muted-foreground">O saldo efetivo muda apenas com movimentações marcadas como pagas. Contas pendentes são mostradas separadamente no saldo previsto.</p></div>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -309,7 +325,7 @@ function ProjCard({ label, value, current }: { label: string; value: number; cur
   );
 }
 
-function Chart({ p }: { p: Projection }) {
+function Chart({ p, days }: { p: Projection; days: 30 | 60 | 90 }) {
   const data = p.series.map((s) => ({ d: formatDate(s.date).slice(0, 5), v: s.balance / 100 }));
   const min = Math.min(0, ...data.map((d) => d.v));
   const max = Math.max(0, ...data.map((d) => d.v));
@@ -317,7 +333,7 @@ function Chart({ p }: { p: Projection }) {
   return (
     <section className="premium-surface rounded-2xl p-6 md:p-7">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div><p className="text-[11px] font-bold uppercase tracking-[0.18em] text-primary">Projeção</p><h2 className="mt-1 text-lg font-semibold tracking-tight">Saldo nos próximos 30 dias</h2></div>
+        <div><p className="text-[11px] font-bold uppercase tracking-[0.18em] text-primary">Projeção</p><h2 className="mt-1 text-lg font-semibold tracking-tight">Saldo nos próximos {days} dias</h2></div>
         <span className="rounded-full border border-border/80 bg-background/70 px-3 py-1.5 text-xs font-medium text-muted-foreground">Atualização diária</span>
       </div>
       <div className="mt-4 h-64" role="img" aria-label={`Gráfico do saldo projetado. Menor saldo ${formatBRL(p.min_balance)} em ${formatDate(p.min_date)}.`}>
