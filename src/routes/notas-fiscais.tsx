@@ -109,7 +109,7 @@ function FiscalInvoicesPage() {
       const result = await emitNfseAction({
         data: {
           invoiceId: item.id,
-          tenantUserId: item.user_id,
+          empresaTenantId: item.user_id,
         },
       });
 
