@@ -16,9 +16,9 @@ function encryptionKey(): Buffer {
   const encoded = process.env.FISCAL_ENCRYPTION_KEY;
   if (!encoded) throw new Error("FISCAL_ENCRYPTION_KEY não configurada no servidor.");
   const key = Buffer.from(encoded, "base64");
-  if (key.length !== KEY_BYTES) {
+  if (key.length !== KEY_BYTES || key.toString("base64") !== encoded) {
     key.fill(0);
-    throw new Error("FISCAL_ENCRYPTION_KEY deve ser uma chave base64 de exatamente 32 bytes.");
+    throw new Error("FISCAL_ENCRYPTION_KEY deve ser Base64 canônica que representa exatamente 32 bytes.");
   }
   return key;
 }
