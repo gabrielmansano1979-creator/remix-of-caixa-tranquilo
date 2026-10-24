@@ -7,12 +7,13 @@ import { buildDpsXml } from "./dps-builder.server";
 
 describe("DPS XML official XSD", () => {
   it("builds a DPS that validates against the pinned official production-restrita XSD", () => {
-    const schemaCandidates = [
-      resolve(process.cwd(), "supabase/schemas/nfse/DPS_v1.01.xsd"),
+    const schemaPaths = [
+      resolve(process.cwd(), "supabase/schemas/nfse/producao-20260209/DPS_v1.01.xsd"),
       resolve(process.cwd(), "supabase/schemas/nfse/producao-restrita-20261020/DPS_v1.01.xsd"),
     ];
-    const schemaPath = schemaCandidates.find(existsSync);
-    expect(schemaPath, "official DPS XSD must be present in the repository").toBeTruthy();
+    for (const schemaPath of schemaPaths) {
+      expect(existsSync(schemaPath), `official DPS XSD must exist: ${schemaPath}`).toBe(true);
+    }
 
     const { xml, id } = buildDpsXml({
       ambiente: 2,
@@ -45,9 +46,11 @@ describe("DPS XML official XSD", () => {
     const xmlPath = join(directory, "dps.xml");
     try {
       writeFileSync(xmlPath, xml, { encoding: "utf8", mode: 0o600 });
-      expect(() => execFileSync("xmllint", [
-        "--nonet", "--noout", "--schema", schemaPath!, xmlPath,
-      ], { encoding: "utf8", timeout: 5000, stdio: ["ignore", "pipe", "pipe"] })).not.toThrow();
+      for (const schemaPath of schemaPaths) {
+        expect(() => execFileSync("xmllint", [
+          "--nonet", "--noout", "--schema", schemaPath, xmlPath,
+        ], { encoding: "utf8", timeout: 5000, stdio: ["ignore", "pipe", "pipe"] })).not.toThrow();
+      }
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }
