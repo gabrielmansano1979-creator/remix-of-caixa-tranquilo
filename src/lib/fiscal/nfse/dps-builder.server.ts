@@ -96,6 +96,7 @@ export function buildDpsXml(input: DpsBuilderInput): { xml: string; id: string }
   const numeroXml = String(input.numeroDps).replace(/^0+/, "") || "0";
   if (!/^[1-9]\d{0,14}$/.test(numeroXml)) throw new Error("Número da DPS deve ser maior que zero e conter no máximo 15 dígitos sem zeros à esquerda.");
   const id = `DPS${cLocEmi}2${cnpj}${serie}${numero}`;
+  const finNfse = input.ambiente === 2 ? tag("finNFSe", 0) : "";
   const valor = money(input.servico.valorServicos, "Valor dos serviços");
   if (!input.servico.descricao.trim()) throw new Error("Descrição do serviço é obrigatória.");
   if (!/^\d{6}$/.test(input.servico.codigoTributacaoNacional)) {
@@ -131,7 +132,7 @@ export function buildDpsXml(input: DpsBuilderInput): { xml: string; id: string }
     ${tag("nDPS", numeroXml)}
     ${tag("dCompet", dateOnly(input.competencia, "Competência"))}
     ${tag("tpEmit", input.tipoEmitente)}
-    ${tag("finNFSe", 0)}
+    ${finNfse}
     ${tag("cLocEmi", cLocEmi)}
     <prest>
       ${tag("CNPJ", cnpj)}
