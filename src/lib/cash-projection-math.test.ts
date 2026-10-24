@@ -99,6 +99,20 @@ describe("cash movement arithmetic", () => {
     ], "2026-10-13", 1)).toThrow(RangeError);
   });
 
+  it("returns exact inclusive date ranges for 30, 60 and 90 day projections", () => {
+    const cases = [
+      { days: 30, points: 31, lastDate: "2026-01-31" },
+      { days: 60, points: 61, lastDate: "2026-03-02" },
+      { days: 90, points: 91, lastDate: "2026-04-01" },
+    ];
+    for (const item of cases) {
+      const projection = calculateProjectedBalancesCents(12345, [], "2026-01-01", item.days);
+      expect(projection).toHaveLength(item.points);
+      expect(projection[0]).toEqual({ date: "2026-01-01", balance_cents: 12345 });
+      expect(projection.at(-1)).toEqual({ date: item.lastDate, balance_cents: 12345 });
+    }
+  });
+
   it("rejects invalid projection horizons and non-integer monetary amounts", () => {
     expect(() => calculateProjectedBalancesCents(0, [], "2026-10-13", 91)).toThrow(RangeError);
     expect(() => calculateCurrentBalanceCents(0, "2026-10-13T10:00:00Z", [
