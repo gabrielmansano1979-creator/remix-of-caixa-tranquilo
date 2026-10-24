@@ -395,7 +395,7 @@ function AccountantPage() {
             <CardHeader>
               <Button type="button" variant="ghost" className="mb-1 w-fit px-0" onClick={() => setShowApplicationForm(false)}><ArrowLeft className="mr-2 h-4 w-4" />Voltar à Auditoria Livre</Button>
               <CardTitle>Solicitar acesso à Auditoria Livre</CardTitle>
-              <p className="text-sm text-muted-foreground">Informe seus dados civis e profissionais e anexe cópias legíveis do CRC, da identidade e do comprovante de endereço. Envie arquivos PDF ou Excel (.xls/.xlsx), até 10 MB por arquivo.</p>
+              <p className="text-sm text-muted-foreground">Informe seus dados civis e profissionais e anexe cópias legíveis do CRC, da identidade e do comprovante de endereço. Envie arquivos PDF, CSV ou Excel (.xls/.xlsx), até 10 MB por arquivo.</p>
             </CardHeader>
             <CardContent>
               <form onSubmit={submit} className="grid gap-5 sm:grid-cols-2">
