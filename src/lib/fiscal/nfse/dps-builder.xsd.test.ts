@@ -36,7 +36,7 @@ describe("DPS XML official XSD", () => {
     };
     const productionDps = buildDpsXml({ ...commonInput, ambiente: 1 });
     const restrictedDps = buildDpsXml({ ...commonInput, ambiente: 2 });
-    expect(productionDps.id).toMatch(/^DPS\\d{42}$/);
+    expect(productionDps.id).toMatch(/^DPS\d{42}$/);
     expect(restrictedDps.id).toBe(productionDps.id);
 
     try {
