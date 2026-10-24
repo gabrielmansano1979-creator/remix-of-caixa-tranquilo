@@ -260,8 +260,8 @@ function FiscalInvoicesPage() {
             </CardContent>
           </Card>
           <Card>
-            <CardHeader><CardTitle>Próximos requisitos</CardTitle></CardHeader>
-            <CardContent><ul className="list-disc space-y-2 pl-5 text-sm text-muted-foreground"><li>Credenciamento e certificado digital do contribuinte.</li><li>Serviço de transmissão seguro no servidor.</li><li>Consulta do resultado e armazenamento do XML/DANFSe oficial.</li><li>Regras de acesso do contador à empresa autorizadora.</li></ul></CardContent>
+            <CardHeader><CardTitle>Checklist antes da primeira emissão real</CardTitle></CardHeader>
+            <CardContent><ul className="list-disc space-y-2 pl-5 text-sm text-muted-foreground"><li>Credenciamento e certificado digital válido de cada empresa emissora.</li><li>Vínculo ativo e consentimento da empresa cliente para o contador.</li><li>Validar configuração fiscal, chave de criptografia e XSD do ambiente selecionado.</li><li>Executar com você o teste de homologação na SEFIN Nacional e confirmar o retorno oficial.</li><li>Conferir a persistência do protocolo, chave de acesso e documentos oficiais após a autorização.</li></ul></CardContent>
           </Card>
         </div>
       </div>
