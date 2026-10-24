@@ -1,4 +1,5 @@
 name: Workflow diagnostics
+# Confirm the runner can parse and execute workflow files
 
 on:
   push:
