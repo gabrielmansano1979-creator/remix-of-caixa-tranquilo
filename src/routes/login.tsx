@@ -89,7 +89,6 @@ useEffect(() => {
 const handleSubmit = async (e: React.FormEvent) => {
 e.preventDefault();
 setLoading(true);
-console.log('[LOGIN] handleSubmit foi iniciado');
 
 try {
 if (isRegistering) {
