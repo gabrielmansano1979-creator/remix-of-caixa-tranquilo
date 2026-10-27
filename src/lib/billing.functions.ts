@@ -188,7 +188,7 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
         const partnerEmailForGuard = (guardedPartner.email ?? "").trim().toLowerCase();
         const buyerDocForGuard = normalizeCpfCnpj(data.cpfCnpj);
         const partnerDocForGuard = normalizeCpfCnpj(guardedPartner.tax_id ?? "");
-        if (!/^\\d{11}$/.test(partnerDocForGuard) || !isValidCpfCnpj(partnerDocForGuard)) {
+        if (!/^\d{11}$/.test(partnerDocForGuard) || !isValidCpfCnpj(partnerDocForGuard)) {
           return { error: "O contador precisa cadastrar um CPF válido antes que seu cupom possa ser utilizado." };
         }
         if (
