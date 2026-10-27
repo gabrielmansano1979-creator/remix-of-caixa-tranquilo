@@ -160,7 +160,7 @@ function AccountantPage() {
       return;
     }
     const accountantCpf = normalizeCpfCnpj(form.tax_id);
-    if (!/^\\d{11}$/.test(accountantCpf) || !isValidCpfCnpj(accountantCpf)) {
+    if (!/^\d{11}$/.test(accountantCpf) || !isValidCpfCnpj(accountantCpf)) {
       toast.error("Informe um CPF válido do titular do cupom.");
       return;
     }
@@ -192,7 +192,7 @@ function AccountantPage() {
       </div>
     );
 
-  const accountantCpfMissing = !state?.tax_id || !/^\\d{11}$/.test(normalizeCpfCnpj(state.tax_id));
+  const accountantCpfMissing = !state?.tax_id || !/^\d{11}$/.test(normalizeCpfCnpj(state.tax_id));
   if (state?.status !== "approved" || accountantCpfMissing) {
     const canApply = true;
     return (
