@@ -155,147 +155,21 @@ function AccountantPage() {
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
-    const taxId = normalizeCpfCnpj(form.tax_id);
-    if (!isValidCpfCnpj(taxId))
-      return toast.error("Informe um CPF ou CNPJ válido, com dígitos verificadores corretos.");
-    if (!isValidCrcNumber(form.crc_number))
-      return toast.error("Informe o CRC completo, por exemplo SP-123456/O-3. Registros transferidos ou secundários podem incluir T-UF ou S-UF.");
-    if (form.phone.replace(/\D/g, "").length < 10 || form.phone.replace(/\D/g, "").length > 11)
-      return toast.error("Informe um telefone com DDD.");
-    if (!form.city.trim() || !/^[A-Za-zÀ-ÿ]{2}$/.test(form.state.trim()))
-      return toast.error("Informe a cidade e a UF.");
-    if (!documents.crc || !documents.identity || !documents.address)
-      return toast.error("Anexe a comprovação do CRC, o documento de identidade e o comprovante de endereço.");
-    for (const [label, file] of [
-      ["registro no CRC", documents.crc],
-      ["documento de identidade", documents.identity],
-      ["comprovante de endereço", documents.address],
-    ] as const) {
-      if (!file) continue;
-      const extension = "." + (file.name.split(".").pop()?.toLowerCase() ?? "");
-      if (!ALLOWED_DOCUMENT_EXTENSIONS.includes(extension))
-        return toast.error("O arquivo de " + label + " deve ser PDF, CSV ou Excel (.xls/.xlsx).");
-      if (file.size > MAX_DOCUMENT_SIZE)
-        return toast.error("O arquivo de " + label + " deve ter no máximo 10 MB.");
+    if (form.full_name.trim().length < 2) {
+      toast.error("Informe seu nome para ativar a área do contador.");
+      return;
     }
     setBusy(true);
-    const uploadedPaths: string[] = [];
-    let applicationSubmitted = false;
-    let userId: string | null = null;
-    let previousDocuments: {
-      user_id: string;
-      phone: string;
-      city: string;
-      state: string;
-      office_name: string | null;
-      crc_document_path: string;
-      identity_document_path: string;
-      address_document_path: string;
-      submitted_at: string;
-    } | null = null;
     try {
-      const { data: authData, error: authError } = await supabase.auth.getUser();
-      if (authError || !authData.user) throw new Error("Sua sessão expirou. Entre novamente.");
-      userId = authData.user.id;
-      const { data: priorDocuments, error: priorDocumentsError } = await supabase
-        .from("partner_application_documents")
-        .select("user_id, phone, city, state, office_name, crc_document_path, identity_document_path, address_document_path, submitted_at")
-        .eq("user_id", userId)
-        .maybeSingle();
-      if (priorDocumentsError) throw priorDocumentsError;
-      previousDocuments = priorDocuments;
-      const uploadDocument = async (file: File, label: string) => {
-        const extension = "." + (file.name.split(".").pop()?.toLowerCase() ?? "");
-        const safeName = file.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9._-]/g, "-").slice(-100);
-        const path = userId + "/" + label + "-" + Date.now() + "-" + safeName;
-        const { error } = await supabase.storage.from("partner-application-documents").upload(path, file, {
-          contentType: DOCUMENT_MIME_BY_EXTENSION[extension],
-          upsert: false,
-        });
-        if (error) throw error;
-        uploadedPaths.push(path);
-        return path;
-      };
-      // Upload sequentially so a failed upload cannot leave a Promise.all sibling
-      // completing after the compensating cleanup has already finished.
-      const crcPath = await uploadDocument(documents.crc, "crc");
-      const identityPath = await uploadDocument(documents.identity, "identidade");
-      const addressPath = await uploadDocument(documents.address, "endereco");
-      const { error: documentsError } = await supabase.from("partner_application_documents").upsert({
-        user_id: userId,
-        phone: form.phone.trim(),
-        city: form.city.trim(),
-        state: form.state.trim().toUpperCase(),
-        office_name: form.office_name.trim() || null,
-        crc_document_path: crcPath,
-        identity_document_path: identityPath,
-        address_document_path: addressPath,
-        submitted_at: new Date().toISOString(),
-      });
-      if (documentsError) throw documentsError;
-      const { error } = await supabase.rpc("submit_partner_request", {
+      const { error } = await supabase.rpc("register_accountant_access", {
         _full_name: form.full_name.trim(),
-        _tax_id: taxId,
-        _crc_number: form.crc_number.trim().toUpperCase(),
       });
       if (error) throw error;
-      applicationSubmitted = true;
       setShowApplicationForm(false);
       await queryClient.invalidateQueries({ queryKey: ["partner-area"] });
-      toast.success("Solicitação da Auditoria Livre enviada para avaliação do administrador.");
+      toast.success("Área do contador ativada. Não é necessário comprovar registro no CRC.");
     } catch (error) {
-      if (!applicationSubmitted && userId && uploadedPaths.length > 0) {
-        // Do not roll back if the RPC may have committed but its response was lost.
-        const { data: latestStatus, error: statusCheckError } = await supabase.rpc("my_partner_status");
-        if (statusCheckError) {
-          console.error("Document rollback skipped because submission status could not be verified", statusCheckError);
-        } else {
-          const status = (latestStatus as PartnerPageData | null)?.status ?? "none";
-          const requestAllowsRollback = status === "none" || status === "rejected";
-
-          if (requestAllowsRollback) {
-            let metadataRestored = false;
-            if (previousDocuments) {
-              const { error: restoreError } = await supabase
-                .from("partner_application_documents")
-                .upsert(previousDocuments);
-              if (restoreError) {
-                console.error("Failed to restore previous partner document metadata", restoreError);
-              } else {
-                metadataRestored = true;
-              }
-            } else {
-              const { error: deleteMetadataError } = await supabase
-                .from("partner_application_documents")
-                .delete()
-                .eq("user_id", userId);
-              if (deleteMetadataError) {
-                console.error("Failed to remove orphaned partner document metadata", deleteMetadataError);
-              } else {
-                metadataRestored = true;
-              }
-            }
-
-            if (metadataRestored) {
-              const previousPaths = new Set([
-                previousDocuments?.crc_document_path,
-                previousDocuments?.identity_document_path,
-                previousDocuments?.address_document_path,
-              ].filter((value): value is string => Boolean(value)));
-              const pathsToRemove = uploadedPaths.filter((path) => !previousPaths.has(path));
-              if (pathsToRemove.length > 0) {
-                const { error: cleanupError } = await supabase.storage
-                  .from("partner-application-documents")
-                  .remove(pathsToRemove);
-                if (cleanupError) {
-                  console.error("Failed to clean up orphaned partner application documents", cleanupError);
-                }
-              }
-            }
-          }
-        }
-      }
-      toast.error(error instanceof Error ? error.message : "Não foi possível enviar a solicitação.");
+      toast.error(error instanceof Error ? error.message : "Não foi possível ativar a área do contador.");
     } finally {
       setBusy(false);
     }
@@ -313,7 +187,7 @@ function AccountantPage() {
     );
 
   if (state?.status !== "approved") {
-    const canApply = state?.status !== "pending_approval";
+    const canApply = true;
     return (
       <div className="mx-auto max-w-4xl space-y-6 py-8">
         <header className="space-y-3">
@@ -322,7 +196,7 @@ function AccountantPage() {
           </p>
           <h1 className="text-3xl font-bold tracking-tight md:text-4xl">Auditoria Livre para Contadores</h1>
           <p className="max-w-2xl text-base leading-relaxed text-muted-foreground">
-            Área gratuita de auditoria financeira para contadores com registro profissional válido no CRC. A aprovação protege os dados das empresas; os planos pagos são opcionais e servem apenas para gerir o caixa do próprio escritório.
+            Área gratuita para profissionais e empresas que desejam gerenciar clientes autorizados. Não é necessário comprovar registro no CRC; o compartilhamento de dados continua dependendo da autorização de cada empresa.
           </p>
         </header>
         {state?.status === "pending_approval" && (
@@ -349,14 +223,14 @@ function AccountantPage() {
             <Card className="border-primary/30 bg-primary/5">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><ShieldCheck className="h-5 w-5" />Auditoria Livre — gratuita</CardTitle>
-                <p className="text-sm text-muted-foreground">Acesse a auditoria financeira dos clientes que autorizarem o compartilhamento, sem contratar um plano para o escritório. Para proteger os dados financeiros, o cadastro profissional e o CRC precisam ser aprovados pelo administrador.</p>
+                <p className="text-sm text-muted-foreground">Ative a área do contador sem enviar documentos ou comprovar registro no CRC. Você só poderá consultar dados de empresas que autorizarem explicitamente o compartilhamento.</p>
               </CardHeader>
               <CardContent className="space-y-3">
                 <ul className="grid gap-2 text-sm sm:grid-cols-2">
                   <li>✓ Conferência de lançamentos e comprovantes</li>
                   <li>✓ Histórico de alterações financeiras</li>
                   <li>✓ Relatórios por empresa autorizada</li>
-                  <li>✓ Sem cupom de afiliado ou comissão</li>
+                  <li>✓ Proteção contra uso do próprio cupom</li>
                 </ul>
                 <Button className="h-12 w-full rounded-xl text-base sm:w-auto" onClick={() => setShowApplicationForm(true)}>Solicitar acesso gratuito à Auditoria Livre <ArrowLeft className="ml-2 h-4 w-4 rotate-180" /></Button>
               </CardContent>
@@ -380,11 +254,11 @@ function AccountantPage() {
               </div>
             </section>
             <Card>
-              <CardHeader><CardTitle>Como liberar a Auditoria Livre</CardTitle></CardHeader>
+              <CardHeader><CardTitle>Como funciona o acesso</CardTitle></CardHeader>
               <CardContent className="space-y-3 text-sm text-muted-foreground">
-                <p>1. Solicite acesso gratuito e informe seus dados profissionais.</p>
-                <p>2. Envie a comprovação do CRC, um documento de identidade e um comprovante de endereço.</p>
-                <p>3. Após a aprovação, convide os clientes e comece a auditar somente os dados que eles autorizarem.</p>
+                <p>1. Ative gratuitamente a área do contador.</p>
+                <p>2. Convide clientes ou solicite acesso às empresas.</p>
+                <p>3. Consulte somente os dados que cada empresa autorizar. O sistema impede o uso do próprio cupom de indicação.</p>
               </CardContent>
             </Card>
             <Button variant="outline" className="h-11 w-full rounded-xl text-base sm:w-auto" onClick={() => setShowApplicationForm(true)}>Solicitar Auditoria Livre <ArrowLeft className="ml-2 h-4 w-4 rotate-180" /></Button>
@@ -393,24 +267,18 @@ function AccountantPage() {
         {canApply && showApplicationForm && (
           <Card>
             <CardHeader>
-              <Button type="button" variant="ghost" className="mb-1 w-fit px-0" onClick={() => setShowApplicationForm(false)}><ArrowLeft className="mr-2 h-4 w-4" />Voltar à Auditoria Livre</Button>
-              <CardTitle>Solicitar acesso à Auditoria Livre</CardTitle>
-              <p className="text-sm text-muted-foreground">Informe seus dados civis e profissionais e anexe cópias legíveis do CRC, da identidade e do comprovante de endereço. Envie arquivos PDF, CSV ou Excel (.xls/.xlsx), até 10 MB por arquivo.</p>
+              <Button type="button" variant="ghost" className="mb-1 w-fit px-0" onClick={() => setShowApplicationForm(false)}><ArrowLeft className="mr-2 h-4 w-4" />Voltar</Button>
+              <CardTitle>Ativar área do contador</CardTitle>
+              <p className="text-sm text-muted-foreground">Não exigimos CRC, documentos profissionais ou comprovante de endereço. A segurança é mantida pelo consentimento explícito de cada empresa e pela proibição de usar o próprio cupom de indicação.</p>
             </CardHeader>
             <CardContent>
-              <form onSubmit={submit} className="grid gap-5 sm:grid-cols-2">
-                <div className="space-y-1.5"><Label htmlFor="partner-name">Nome civil completo, como consta no documento</Label><Input id="partner-name" required minLength={2} maxLength={160} autoComplete="name" value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} /></div>
-                <div className="space-y-1.5"><Label htmlFor="partner-doc">CPF ou CNPJ</Label><Input id="partner-doc" required inputMode="text" autoCapitalize="characters" autoComplete="off" placeholder="CPF ou CNPJ" value={form.tax_id} onChange={(e) => setForm({ ...form, tax_id: e.target.value.toUpperCase() })} /><p className="text-xs leading-relaxed text-muted-foreground">O CNPJ tradicional, só com números (11.222.333/0001-81), continua aceito. Também aceitamos o novo formato alfanumérico (12.ABC.345/01DE-35).</p></div>
-                <div className="space-y-1.5"><Label htmlFor="partner-crc">Número de registro no CRC</Label><Input id="partner-crc" required placeholder="SP-123456/O-3" autoCapitalize="characters" value={form.crc_number} onChange={(e) => setForm({ ...form, crc_number: e.target.value.toUpperCase() })} /><p className="text-xs text-muted-foreground">Informe o registro completo, incluindo o dígito verificador. Registros transferidos ou secundários podem incluir T-UF ou S-UF.</p></div>
-                <div className="space-y-1.5"><Label htmlFor="partner-phone"><Phone className="mr-1 inline h-3.5 w-3.5" />Telefone com DDD</Label><Input id="partner-phone" required type="tel" autoComplete="tel" placeholder="(11) 99999-9999" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
-                <div className="space-y-1.5"><Label htmlFor="partner-city"><MapPin className="mr-1 inline h-3.5 w-3.5" />Cidade</Label><Input id="partner-city" required autoComplete="address-level2" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} /></div>
-                <div className="space-y-1.5"><Label htmlFor="partner-state">Estado (UF)</Label><Input id="partner-state" required minLength={2} maxLength={2} placeholder="SP" autoComplete="address-level1" value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value.toUpperCase() })} /></div>
-                <div className="space-y-1.5 sm:col-span-2"><Label htmlFor="partner-office"><Building2 className="mr-1 inline h-3.5 w-3.5" />Escritório contábil (opcional)</Label><Input id="partner-office" maxLength={180} value={form.office_name} onChange={(e) => setForm({ ...form, office_name: e.target.value })} /></div>
-                <div className="space-y-2 rounded-xl border p-4 sm:col-span-2"><Label htmlFor="partner-doc-crc">Comprovação de registro no CRC *</Label><p className="text-xs text-muted-foreground">Certidão de regularidade ou carteira profissional do Conselho Regional de Contabilidade.</p><Input id="partner-doc-crc" type="file" required accept=".pdf,.csv,.xls,.xlsx,application/pdf,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="h-auto min-h-11 py-2" onChange={(e) => setDocuments({ ...documents, crc: e.target.files?.[0] ?? null })} />{documents.crc && <p className="text-xs text-success"><FileText className="mr-1 inline h-3.5 w-3.5" />{documents.crc.name}</p>}</div>
-                <div className="space-y-2 rounded-xl border p-4 sm:col-span-2"><Label htmlFor="partner-doc-identity">Documento de identidade com foto *</Label><p className="text-xs text-muted-foreground">RG ou CNH, frente e verso no mesmo arquivo quando aplicável.</p><Input id="partner-doc-identity" type="file" required accept=".pdf,.csv,.xls,.xlsx,application/pdf,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="h-auto min-h-11 py-2" onChange={(e) => setDocuments({ ...documents, identity: e.target.files?.[0] ?? null })} />{documents.identity && <p className="text-xs text-success"><FileText className="mr-1 inline h-3.5 w-3.5" />{documents.identity.name}</p>}</div>
-                <div className="space-y-2 rounded-xl border p-4 sm:col-span-2"><Label htmlFor="partner-doc-address">Comprovante de endereço *</Label><p className="text-xs text-muted-foreground">Documento recente que mostre o nome e o endereço informado.</p><Input id="partner-doc-address" type="file" required accept=".pdf,.csv,.xls,.xlsx,application/pdf,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="h-auto min-h-11 py-2" onChange={(e) => setDocuments({ ...documents, address: e.target.files?.[0] ?? null })} />{documents.address && <p className="text-xs text-success"><FileText className="mr-1 inline h-3.5 w-3.5" />{documents.address.name}</p>}</div>
-                <p className="text-xs leading-relaxed text-muted-foreground sm:col-span-2"><Mail className="mr-1 inline h-3.5 w-3.5" />A solicitação será vinculada ao e-mail da sua conta. Os arquivos serão armazenados em área privada para avaliação administrativa.</p>
-                <Button type="submit" disabled={busy} className="h-12 rounded-xl sm:col-span-2">{busy && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}Enviar documentação para avaliação</Button>
+              <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label htmlFor="partner-name">Nome ou nome do escritório</Label>
+                  <Input id="partner-name" required minLength={2} maxLength={160} autoComplete="name" value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} />
+                </div>
+                <p className="text-xs leading-relaxed text-muted-foreground sm:col-span-2">A ativação é imediata. Nenhum dado financeiro de outra empresa será exibido sem autorização dela.</p>
+                <Button type="submit" disabled={busy} className="h-12 rounded-xl sm:col-span-2">{busy && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}{busy ? "Ativando..." : "Ativar área do contador gratuitamente"}</Button>
               </form>
             </CardContent>
           </Card>
