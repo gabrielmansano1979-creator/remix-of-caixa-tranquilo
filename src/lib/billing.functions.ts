@@ -161,6 +161,45 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       }
       const referralCode = requestedReferralCode || prev?.affiliate_coupon_code || "";
 
+      // Revalidate self-referral on every checkout, including subscriptions already linked
+      // to a coupon. Email/account checks alone are insufficient when the accountant creates
+      // a separate customer account, so the accountant's validated CPF is mandatory.
+      if (referralCode) {
+        const { data: guardedCoupon, error: guardedCouponError } = await supabaseAdmin
+          .from("coupons")
+          .select("code, partner_id")
+          .eq("code", referralCode)
+          .eq("is_active", true)
+          .maybeSingle();
+        if (guardedCouponError) throw guardedCouponError;
+        if (!guardedCoupon?.partner_id) return { error: "O cupom de indicação é inválido ou está inativo." };
+
+        const { data: guardedPartner, error: guardedPartnerError } = await supabaseAdmin
+          .from("partner_requests")
+          .select("user_id, email, tax_id, status")
+          .eq("id", guardedCoupon.partner_id)
+          .maybeSingle();
+        if (guardedPartnerError) throw guardedPartnerError;
+        if (!guardedPartner || guardedPartner.status !== "approved") {
+          return { error: "O cupom de indicação não está disponível." };
+        }
+
+        const buyerEmailForGuard = customerEmail.trim().toLowerCase();
+        const partnerEmailForGuard = (guardedPartner.email ?? "").trim().toLowerCase();
+        const buyerDocForGuard = normalizeCpfCnpj(data.cpfCnpj);
+        const partnerDocForGuard = normalizeCpfCnpj(guardedPartner.tax_id ?? "");
+        if (!/^\\d{11}$/.test(partnerDocForGuard) || !isValidCpfCnpj(partnerDocForGuard)) {
+          return { error: "O contador precisa cadastrar um CPF válido antes que seu cupom possa ser utilizado." };
+        }
+        if (
+          guardedPartner.user_id === userId ||
+          (partnerEmailForGuard && partnerEmailForGuard === buyerEmailForGuard) ||
+          partnerDocForGuard === buyerDocForGuard
+        ) {
+          return { error: "Você não pode utilizar seu próprio cupom de indicação, mesmo em outra conta." };
+        }
+      }
+
       const plan = getPlan(data.plan);
       const basePrice = data.interval === "year" ? plan.priceYearCents : plan.priceMonthCents;
       const isFirst = !prev?.paid_at;
