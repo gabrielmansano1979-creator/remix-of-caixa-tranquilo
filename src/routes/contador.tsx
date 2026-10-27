@@ -159,15 +159,21 @@ function AccountantPage() {
       toast.error("Informe seu nome para ativar a área do contador.");
       return;
     }
+    const accountantCpf = normalizeCpfCnpj(form.tax_id);
+    if (!/^\\d{11}$/.test(accountantCpf) || !isValidCpfCnpj(accountantCpf)) {
+      toast.error("Informe um CPF válido do titular do cupom.");
+      return;
+    }
     setBusy(true);
     try {
       const { error } = await supabase.rpc("register_accountant_access", {
         _full_name: form.full_name.trim(),
+        _tax_id: accountantCpf,
       });
       if (error) throw error;
       setShowApplicationForm(false);
       await queryClient.invalidateQueries({ queryKey: ["partner-area"] });
-      toast.success("Área do contador ativada. Não é necessário comprovar registro no CRC.");
+      toast.success("Área do contador ativada. CPF vinculado para bloquear o uso do próprio cupom.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível ativar a área do contador.");
     } finally {
@@ -186,7 +192,8 @@ function AccountantPage() {
       </div>
     );
 
-  if (state?.status !== "approved") {
+  const accountantCpfMissing = !state?.tax_id || !/^\\d{11}$/.test(normalizeCpfCnpj(state.tax_id));
+  if (state?.status !== "approved" || accountantCpfMissing) {
     const canApply = true;
     return (
       <div className="mx-auto max-w-4xl space-y-6 py-8">
@@ -196,7 +203,7 @@ function AccountantPage() {
           </p>
           <h1 className="text-3xl font-bold tracking-tight md:text-4xl">Auditoria Livre para Contadores</h1>
           <p className="max-w-2xl text-base leading-relaxed text-muted-foreground">
-            Área gratuita para profissionais e empresas que desejam gerenciar clientes autorizados. Não é necessário comprovar registro no CRC; o compartilhamento de dados continua dependendo da autorização de cada empresa.
+            Área gratuita para profissionais e empresas que desejam gerenciar clientes autorizados. Não é necessário comprovar registro no CRC, mas o CPF do titular é obrigatório para impedir o uso do próprio cupom em outra conta.
           </p>
         </header>
         {state?.status === "pending_approval" && (
@@ -269,13 +276,18 @@ function AccountantPage() {
             <CardHeader>
               <Button type="button" variant="ghost" className="mb-1 w-fit px-0" onClick={() => setShowApplicationForm(false)}><ArrowLeft className="mr-2 h-4 w-4" />Voltar</Button>
               <CardTitle>Ativar área do contador</CardTitle>
-              <p className="text-sm text-muted-foreground">Não exigimos CRC, documentos profissionais ou comprovante de endereço. A segurança é mantida pelo consentimento explícito de cada empresa e pela proibição de usar o próprio cupom de indicação.</p>
+              <p className="text-sm text-muted-foreground">Não exigimos CRC, documentos profissionais ou comprovante de endereço. O CPF do titular é validado e vinculado ao cupom para bloquear o uso em uma conta de cliente do próprio contador.</p>
             </CardHeader>
             <CardContent>
               <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5 sm:col-span-2">
                   <Label htmlFor="partner-name">Nome ou nome do escritório</Label>
                   <Input id="partner-name" required minLength={2} maxLength={160} autoComplete="name" value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} />
+                </div>
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label htmlFor="partner-cpf">CPF do titular do cupom</Label>
+                  <Input id="partner-cpf" required inputMode="numeric" autoComplete="off" placeholder="000.000.000-00" maxLength={14} value={form.tax_id} onChange={(e) => setForm({ ...form, tax_id: e.target.value })} />
+                  <p className="text-xs text-muted-foreground">O CPF é validado pelos dígitos verificadores e comparado ao CPF informado no checkout de qualquer conta que usar seu cupom.</p>
                 </div>
                 <p className="text-xs leading-relaxed text-muted-foreground sm:col-span-2">A ativação é imediata. Nenhum dado financeiro de outra empresa será exibido sem autorização dela.</p>
                 <Button type="submit" disabled={busy} className="h-12 rounded-xl sm:col-span-2">{busy && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}{busy ? "Ativando..." : "Ativar área do contador gratuitamente"}</Button>
