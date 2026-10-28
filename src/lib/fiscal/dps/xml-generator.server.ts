@@ -109,9 +109,9 @@ export function buildDpsXml(input: DpsInput): { xml: string; infDpsId: string } 
     throw new Error("Código de tributação nacional deve ter 6 dígitos conforme o leiaute configurado.");
   }
 
-  // National identifier: ID + municipality (7) + type of federal registration (1)
+  // National identifier: DPS + municipality (7) + type of federal registration (1)
   // + federal registration (14) + series (5) + DPS number (15).
-  const infDpsId = `ID${municipio}2${cnpj}${serie.padStart(5, "0")}${numero.padStart(15, "0")}`;
+  const infDpsId = `DPS${municipio}2${cnpj}${serie.padStart(5, "0")}${numero.padStart(15, "0")}`;
   const tpAmb = input.ambiente === "producao" ? "1" : "2";
   const opSimpNac = {
     nao_optante: "1",
