@@ -1,5 +1,5 @@
 import axios, { isAxiosError } from "axios";
-import { DOMParser } from "@xmldom/xmldom";
+import { DOMParser, type Document, type Element } from "@xmldom/xmldom";
 import { createFiscalMtlsConnection } from "../security/mtls-agent.server";
 
 export type FiscalRejection = {
@@ -81,10 +81,8 @@ function parseFiscalResponse(xml: string): ParsedFiscalResponse {
 
   const parserErrors: string[] = [];
   const doc = new DOMParser({
-    errorHandler: {
-      warning: () => undefined,
-      error: (message: string) => parserErrors.push(message),
-      fatalError: (message: string) => parserErrors.push(message),
+    errorHandler: (level: string, message: string) => {
+      if (level === "error" || level === "fatalError") parserErrors.push(message);
     },
   }).parseFromString(xml, "application/xml");
 
