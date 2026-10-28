@@ -23,15 +23,15 @@ export const saveFirstEntries = createServerFn({ method: "POST" }).middleware([r
       counterparty_whatsapp: e.counterparty_whatsapp || null,
       counterparty_name: e.counterparty_name || null,
     }));
+    const { error: balanceError } = await supabase.from("profiles").update({ initial_balance_cents: data.balance }).eq("user_id", context.userId);
+    if (balanceError) {
+      console.error("[Onboarding] Falha ao salvar saldo inicial:", balanceError);
+      return { ok: false, message: "Não foi possível salvar o saldo inicial. Tente novamente." };
+    }
     const { error: entriesError } = await supabase.from("entries").insert(rows);
     if (entriesError) {
       console.error("[Onboarding] Falha ao salvar lançamentos iniciais:", entriesError);
       return { ok: false, message: "Não foi possível salvar os lançamentos iniciais. Verifique os valores, os limites do plano e tente novamente." };
-    }
-    const { error: balanceError } = await supabase.from("profiles").update({ initial_balance_cents: data.balance }).eq("user_id", context.userId);
-    if (balanceError) {
-      console.error("[Onboarding] Falha ao salvar saldo inicial:", balanceError);
-      return { ok: false, message: "Os lançamentos foram salvos, mas não foi possível atualizar o saldo inicial. Atualize o saldo nas configurações." };
     }
     return { ok: true, message: "Saldo e lançamentos salvos." };
   });
