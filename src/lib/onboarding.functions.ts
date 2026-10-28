@@ -9,7 +9,7 @@ const entry = z.object({
   counterparty_whatsapp: z.string().regex(/^\+[1-9][0-9]{9,14}$/, "Informe o WhatsApp no formato internacional.").or(z.literal("")),
 });
 export const saveFirstEntries = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
-  .inputValidator((data: unknown) => z.object({ balance: z.number().int().min(-1e12).max(1e12), expense: entry, income: entry }).superRefine((value, ctx) => { if (!value.income.counterparty_whatsapp) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["income", "counterparty_whatsapp"], message: "Informe o WhatsApp do cliente com DDD." }); }).parse(data))
+  .inputValidator((data: unknown) => z.object({ balance: z.number().int().min(-1e12).max(1e12), expense: entry, income: entry }).parse(data))
   .handler(async ({ data, context }) => {
     const { supabase } = context;
     const { data: p, error: profileError } = await supabase.from("profiles").select("onboarding_done").single();
