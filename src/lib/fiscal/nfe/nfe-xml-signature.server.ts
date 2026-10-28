@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { createPrivateKey, createPublicKey, X509Certificate } from "node:crypto";
-import { DOMParser } from "@xmldom/xmldom";
+import { DOMParser, type Document } from "@xmldom/xmldom";
 import { SignedXml } from "xml-crypto";
 
 const XMLDSIG = "http://www.w3.org/2000/09/xmldsig#";
@@ -81,10 +81,8 @@ function parseXml(xml: string): Document {
   }
   const errors: string[] = [];
   const document = new DOMParser({
-    errorHandler: {
-      warning: () => undefined,
-      error: (message: string) => errors.push(message),
-      fatalError: (message: string) => errors.push(message),
+    errorHandler: (level: string, message: string) => {
+      if (level === "error" || level === "fatalError") errors.push(message);
     },
   }).parseFromString(xml, "application/xml");
 
