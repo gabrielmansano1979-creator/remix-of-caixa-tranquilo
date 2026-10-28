@@ -211,7 +211,7 @@ export async function signDpsXml(
   const infDps = infDpsNodes.item(0);
   const infDpsId = infDps?.getAttribute("Id");
 
-  if (!infDps || !infDpsId || !/^ID[A-Za-z0-9]+$/.test(infDpsId)) {
+  if (!infDps || !infDpsId || !/^DPS\d{42}$/.test(infDpsId)) {
     throw new Error("O elemento infDPS deve possuir um atributo Id válido.");
   }
 
