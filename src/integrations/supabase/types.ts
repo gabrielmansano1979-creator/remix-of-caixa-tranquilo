@@ -1383,6 +1383,10 @@ export type Database = {
         Args: { _token: string }
         Returns: undefined
       }
+      register_accountant_access: {
+        Args: { _full_name: string; _tax_id: string }
+        Returns: Json
+      }
       review_financial_receipt: {
         Args: {
           _entry_id: string
