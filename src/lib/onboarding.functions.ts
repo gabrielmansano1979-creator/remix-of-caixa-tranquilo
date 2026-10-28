@@ -6,10 +6,10 @@ const entry = z.object({
   description: z.string().trim().min(1).max(200), amount_cents: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
   due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(v => { const d = new Date(v + "T12:00:00Z"); return Number.isFinite(d.getTime()) && d.toISOString().slice(0, 10) === v; }),
   counterparty_name: z.string().trim().max(120).default(""),
-  counterparty_whatsapp: z.string().regex(/^\+[1-9][0-9]{9,14}$/, "Informe o WhatsApp do cliente com DDD."),
+  counterparty_whatsapp: z.string().regex(/^\+[1-9][0-9]{9,14}$/, "Informe o WhatsApp no formato internacional.").or(z.literal("")),
 });
 export const saveFirstEntries = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
-  .inputValidator((data: unknown) => z.object({ balance: z.number().int().min(-1e12).max(1e12), expense: entry, income: entry }).parse(data))
+  .inputValidator((data: unknown) => z.object({ balance: z.number().int().min(-1e12).max(1e12), expense: entry, income: entry }).superRefine((value, ctx) => { if (!value.income.counterparty_whatsapp) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["income", "counterparty_whatsapp"], message: "Informe o WhatsApp do cliente com DDD." }); }).parse(data))
   .handler(async ({ data, context }) => {
     const { supabase } = context;
     const { data: p, error: profileError } = await supabase.from("profiles").select("onboarding_done").single();
